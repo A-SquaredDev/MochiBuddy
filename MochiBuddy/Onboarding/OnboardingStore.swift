@@ -42,7 +42,7 @@ final class OnboardingStore {
     func saveFirstTask(title: String) async {
         firstTaskTitle = title
         guard let userId else { return }
-        try? await taskRepository.addTask(TaskDraft(title: title), userId: userId)
+        _ = try? await taskRepository.addTask(TaskDraft(title: title), userId: userId)
     }
 
     func selectTheme(id: String) {

@@ -1,0 +1,43 @@
+rules_version = '2';
+
+// MochiBuddy Firestore security rules.
+//
+// The entire data model lives under users/{uid} (mochi-design-doc.md):
+// every user — including anonymous/guest sessions — may touch ONLY their
+// own subtree. Everything else is denied by default.
+//
+// Deploy: Firebase console → Firestore → Rules, or
+//   firebase deploy --only firestore:rules
+//
+// These rules are the reason the client's account-deletion flow erases the
+// Firestore subtree BEFORE deleting the Auth user: once the uid is gone,
+// nothing can ever read or delete the orphaned documents.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    match /users/{uid} {
+      allow read, write: if isOwner(uid);
+
+      match /tasks/{taskId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      match /lists/{listId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      // Future subcollections stay closed until explicitly opened:
+      // no match, no access.
+    }
+
+    // Default deny: any path not matched above is unreachable.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -20,7 +20,7 @@ enum WelcomeBackBehavior {
         case switchAccountTapped
     }
 
-    enum NavigationEvent {
+    enum NavigationEvent: Equatable {
         case enterApp
         case showLapsedGate
         case showRestoreFound(RestorablePurchase)

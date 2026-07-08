@@ -40,23 +40,47 @@ struct MochiPetView: View {
     var size: CGFloat = 118
     var squishOnTap = true
     var bobbing = false
+    /// Bump this to squish from outside (e.g. a "Pet Mochi" button).
+    var externalSquishTrigger = 0
+    /// Fires on tap regardless of squishOnTap — hosts hook petting here.
+    var onTap: (() -> Void)?
 
     @Environment(\.mochiTheme) private var theme
     @State private var squishTrigger = 0
     @State private var bobPhase = false
 
-    init(vitality: Double, size: CGFloat = 118, squishOnTap: Bool = true, bobbing: Bool = false) {
-        self.mood = MochiMood(vitality: vitality)
-        self.size = size
-        self.squishOnTap = squishOnTap
-        self.bobbing = bobbing
+    init(
+        vitality: Double,
+        size: CGFloat = 118,
+        squishOnTap: Bool = true,
+        bobbing: Bool = false,
+        externalSquishTrigger: Int = 0,
+        onTap: (() -> Void)? = nil
+    ) {
+        self.init(
+            mood: MochiMood(vitality: vitality),
+            size: size,
+            squishOnTap: squishOnTap,
+            bobbing: bobbing,
+            externalSquishTrigger: externalSquishTrigger,
+            onTap: onTap
+        )
     }
 
-    init(mood: MochiMood, size: CGFloat = 118, squishOnTap: Bool = true, bobbing: Bool = false) {
+    init(
+        mood: MochiMood,
+        size: CGFloat = 118,
+        squishOnTap: Bool = true,
+        bobbing: Bool = false,
+        externalSquishTrigger: Int = 0,
+        onTap: (() -> Void)? = nil
+    ) {
         self.mood = mood
         self.size = size
         self.squishOnTap = squishOnTap
         self.bobbing = bobbing
+        self.externalSquishTrigger = externalSquishTrigger
+        self.onTap = onTap
     }
 
     private var faceInk: Color { Color(hex: 0x3A2B33) }
@@ -77,7 +101,7 @@ struct MochiPetView: View {
         .frame(width: size, height: size * 170 / 180)
         .saturation(mood.saturation)
         .animation(MochiMotion.mood, value: mood)
-        .keyframeAnimator(initialValue: SquishValue(), trigger: squishTrigger) { content, value in
+        .keyframeAnimator(initialValue: SquishValue(), trigger: squishTrigger &+ externalSquishTrigger) { content, value in
             content.scaleEffect(x: value.x, y: value.y, anchor: .bottom)
         } keyframes: { _ in
             KeyframeTrack(\.x) {
@@ -102,6 +126,7 @@ struct MochiPetView: View {
         }
         .contentShape(Rectangle())
         .onTapGesture {
+            onTap?()
             guard squishOnTap else { return }
             Haptics.impact(.soft)
             squishTrigger += 1

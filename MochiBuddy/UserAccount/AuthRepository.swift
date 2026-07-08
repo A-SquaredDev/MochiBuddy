@@ -49,6 +49,12 @@ protocol AuthRepository: AnyObject {
     func signInWithGoogle() async throws -> AuthAccount
     /// Signs out the current user ("Not you? Switch account").
     func signOut() throws
+    /// Fresh-login proof Firebase requires before destructive operations.
+    func reauthenticateWithApple(idToken: String, rawNonce: String) async throws
+    func reauthenticateWithGoogle() async throws
+    /// Deletes the Firebase Auth user. Erase the Firestore subtree first —
+    /// once the user is gone, security rules lock the data forever.
+    func deleteCurrentUser() async throws
 }
 
 final class FirebaseAuthRepository: AuthRepository {
@@ -122,6 +128,51 @@ final class FirebaseAuthRepository: AuthRepository {
 
     func signOut() throws {
         try Auth.auth().signOut()
+    }
+
+    func reauthenticateWithApple(idToken: String, rawNonce: String) async throws {
+        guard let user = Auth.auth().currentUser else {
+            throw AuthRepositoryError.noActiveSession
+        }
+        let credential = OAuthProvider.appleCredential(
+            withIDToken: idToken,
+            rawNonce: rawNonce,
+            fullName: nil
+        )
+        try await user.reauthenticate(with: credential)
+    }
+
+    func reauthenticateWithGoogle() async throws {
+        guard let user = Auth.auth().currentUser else {
+            throw AuthRepositoryError.noActiveSession
+        }
+        guard let clientID = FirebaseApp.app()?.options.clientID,
+              let presenter = Self.presentingViewController() else {
+            throw AuthRepositoryError.providerUnavailable("Google")
+        }
+        GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID)
+
+        let result: GIDSignInResult
+        do {
+            result = try await GIDSignIn.sharedInstance.signIn(withPresenting: presenter)
+        } catch let error as NSError where error.domain == kGIDSignInErrorDomain && error.code == GIDSignInError.canceled.rawValue {
+            throw AuthRepositoryError.cancelled
+        }
+        guard let idToken = result.user.idToken?.tokenString else {
+            throw AuthRepositoryError.invalidCredential
+        }
+        let credential = GoogleAuthProvider.credential(
+            withIDToken: idToken,
+            accessToken: result.user.accessToken.tokenString
+        )
+        try await user.reauthenticate(with: credential)
+    }
+
+    func deleteCurrentUser() async throws {
+        guard let user = Auth.auth().currentUser else {
+            throw AuthRepositoryError.noActiveSession
+        }
+        try await user.delete()
     }
 
     // MARK: - Shared link-or-sign-in flow

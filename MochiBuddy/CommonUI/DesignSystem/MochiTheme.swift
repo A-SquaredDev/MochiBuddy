@@ -115,6 +115,12 @@ extension EnvironmentValues {
 }
 
 extension Color {
+    /// Parses CSS-style "#C9A6FF" strings (list colors stored on the wire).
+    init(hexString: String) {
+        let cleaned = hexString.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
+        self.init(hex: UInt32(cleaned, radix: 16) ?? 0xC9A6FF)
+    }
+
     init(hex: UInt32, opacity: Double = 1) {
         self.init(
             .sRGB,

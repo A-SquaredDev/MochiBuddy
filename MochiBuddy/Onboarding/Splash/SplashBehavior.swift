@@ -16,7 +16,7 @@ enum SplashBehavior {
         case retryTapped
     }
 
-    enum NavigationEvent {
+    enum NavigationEvent: Equatable {
         case showMeetMochi
         case showWelcomeBack(ReturningAccountSummary)
         case enterApp

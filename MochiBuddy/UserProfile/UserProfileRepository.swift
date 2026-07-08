@@ -16,10 +16,16 @@ protocol UserProfileRepository: AnyObject {
     func saveThemeId(_ themeId: String, userId: String) async throws
     func saveBedtime(_ bedtime: BedtimeWindow, userId: String) async throws
     func saveNotificationChoice(_ enabled: Bool, userId: String) async throws
+    func saveNotificationPrefs(_ prefs: NotificationPrefs, userId: String) async throws
+    func saveSoundEnabled(_ enabled: Bool, userId: String) async throws
+    func saveVacation(mode: Bool, resumeAt: Date?, userId: String) async throws
     func saveImportedReminderLists(_ ids: [String], userId: String) async throws
     func saveAccountLink(provider: String, displayName: String?, userId: String) async throws
     func saveMembershipMirror(isSubscribed: Bool, trialEndsAt: Date?, userId: String) async throws
     func markOnboardingComplete(userId: String) async throws
+    /// Atomic coin adjustment (completions earn, treats spend).
+    func incrementCoins(by delta: Int, userId: String) async throws
+    func saveStreak(count: Int, best: Int, lastActiveDate: Date, userId: String) async throws
 }
 
 final class FirestoreUserProfileRepository: UserProfileRepository {
@@ -72,6 +78,28 @@ final class FirestoreUserProfileRepository: UserProfileRepository {
         try await merge(["notificationsEnabled": enabled], userId: userId)
     }
 
+    func saveNotificationPrefs(_ prefs: NotificationPrefs, userId: String) async throws {
+        try await merge([
+            "notificationPrefs": [
+                "level": prefs.level.rawValue,
+                "taskReminders": prefs.taskReminders,
+                "morningRundown": prefs.morningRundown,
+                "moodDips": prefs.moodDips,
+                "bedtimeSilence": prefs.bedtimeSilence,
+            ],
+        ], userId: userId)
+    }
+
+    func saveSoundEnabled(_ enabled: Bool, userId: String) async throws {
+        try await merge(["soundEnabled": enabled], userId: userId)
+    }
+
+    func saveVacation(mode: Bool, resumeAt: Date?, userId: String) async throws {
+        var fields: [String: Any] = ["vacationMode": mode]
+        fields["vacationResumeAt"] = resumeAt.map(Timestamp.init(date:)) ?? FieldValue.delete()
+        try await merge(fields, userId: userId)
+    }
+
     func saveImportedReminderLists(_ ids: [String], userId: String) async throws {
         try await merge(["importedReminderListIds": ids], userId: userId)
     }
@@ -94,6 +122,18 @@ final class FirestoreUserProfileRepository: UserProfileRepository {
 
     func markOnboardingComplete(userId: String) async throws {
         try await merge(["onboardingComplete": true], userId: userId)
+    }
+
+    func incrementCoins(by delta: Int, userId: String) async throws {
+        try await merge(["coins": FieldValue.increment(Int64(delta))], userId: userId)
+    }
+
+    func saveStreak(count: Int, best: Int, lastActiveDate: Date, userId: String) async throws {
+        try await merge([
+            "streakCount": count,
+            "bestStreakCount": best,
+            "lastActiveDate": Timestamp(date: lastActiveDate),
+        ], userId: userId)
     }
 
     private func merge(_ fields: [String: Any], userId: String) async throws {

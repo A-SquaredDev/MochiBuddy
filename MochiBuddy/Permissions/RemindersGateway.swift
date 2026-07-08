@@ -16,7 +16,14 @@ struct ReminderList: Equatable, Identifiable {
     let incompleteCount: Int
 }
 
+enum RemindersAccess: Equatable {
+    case notDetermined
+    case granted
+    case denied
+}
+
 protocol RemindersGateway: AnyObject {
+    var accessStatus: RemindersAccess { get }
     /// Fires the EventKit full-access prompt (needs
     /// NSRemindersFullAccessUsageDescription in Info.plist).
     func requestFullAccess() async -> Bool
@@ -26,6 +33,14 @@ protocol RemindersGateway: AnyObject {
 final class EventKitRemindersGateway: RemindersGateway {
 
     private let store = EKEventStore()
+
+    var accessStatus: RemindersAccess {
+        switch EKEventStore.authorizationStatus(for: .reminder) {
+        case .notDetermined: .notDetermined
+        case .fullAccess, .authorized: .granted
+        default: .denied
+        }
+    }
 
     func requestFullAccess() async -> Bool {
         (try? await store.requestFullAccessToReminders()) ?? false
