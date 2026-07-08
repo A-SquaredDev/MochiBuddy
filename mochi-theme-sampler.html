@@ -1,0 +1,441 @@
+<!-- Mochi — Theme Sampler. One sample screen rendered in all five flavors, plus pet health states. -->
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --r-lg:26px; --r-md:18px; --r-sm:13px; --r-pill:999px;
+  --ease:cubic-bezier(.34,1.56,.64,1);
+  --page:#ECEAF1; --page-ink:#3a3546; --page-muted:#8a8397;
+  /* default (light) status tokens */
+  --danger:#B0301F; --danger-soft:#FADEDA;
+  --warn:#8A5300;   --warn-soft:#FFEAC8;
+}
+
+/* ===== theme-scoped token sets (applied per card) ===== */
+.t-strawberry{
+  --bg:#FFF3F5; --surface:#FFFFFF; --surface-2:#FFF7F9; --ink:#4A2B33; --muted:#886570; --line:#F3DCE2;
+  --primary:#D6335F; --primary-ink:#fff; --primary-text:#C42655; --primary-soft:#FFE0E8; --accent2:#FFB3C1;
+  --pet:#FFB6C8; --pet-2:#FF9FB6; --pet-cheek:#FF7CA0;
+}
+.t-matcha{
+  --bg:#F1F7EA; --surface:#FFFFFF; --surface-2:#F7FBF1; --ink:#2E3A24; --muted:#67734E; --line:#DDE9CD;
+  --primary:#3B7827; --primary-ink:#fff; --primary-text:#3B7827; --primary-soft:#E5F2D7; --accent2:#7FB85E;
+  --pet:#C6E8AE; --pet-2:#AEDB90; --pet-cheek:#8FCB6A;
+}
+.t-ube{
+  --bg:#F5F1FC; --surface:#FFFFFF; --surface-2:#FAF7FE; --ink:#382A4D; --muted:#786A93; --line:#E7DEF6;
+  --primary:#7B4BC4; --primary-ink:#fff; --primary-text:#7340BE; --primary-soft:#E7DBFA; --accent2:#C6A8F0;
+  --pet:#CFB6F2; --pet-2:#BF9DEC; --pet-cheek:#A97FE0;
+}
+.t-mango{
+  --bg:#FFF7EA; --surface:#FFFFFF; --surface-2:#FFFBF2; --ink:#4D3A1F; --muted:#8A6C45; --line:#F4E6CC;
+  --primary:#F2820C; --primary-ink:#3D2400; --primary-text:#9A5400; --primary-soft:#FFE6C0; --accent2:#FFCB77;
+  --pet:#FFD98A; --pet-2:#FFC65C; --pet-cheek:#FFA93C;
+}
+.t-sesame{
+  --bg:#211E2A; --surface:#2E2A38; --surface-2:#353040; --ink:#F3EEF7; --muted:#A79FB5; --line:#413A50;
+  --primary:#C9A6FF; --primary-ink:#241A33; --primary-text:#C9A6FF; --primary-soft:#453A58; --accent2:#FF9DC4;
+  --pet:#7E7492; --pet-2:#6A6082; --pet-cheek:#B79DE0;
+  /* dark status overrides */
+  --danger:#FF9DA6; --danger-soft:#4E2B31; --warn:#FFC777; --warn-soft:#4A3A1E;
+}
+
+*{box-sizing:border-box}
+body{margin:0; background:var(--page); color:var(--page-ink);
+  font-family:"Nunito",system-ui,-apple-system,sans-serif; -webkit-font-smoothing:antialiased}
+.wrap{max-width:1220px; margin:0 auto; padding:34px 22px 70px}
+h1,h2,h3,.fk{font-family:"Fredoka",sans-serif; font-weight:600; margin:0}
+
+.head{margin-bottom:8px}
+.head .eyebrow{font-size:11px; font-weight:800; letter-spacing:1.6px; text-transform:uppercase; color:var(--page-muted)}
+.head h1{font-size:30px; margin:4px 0 6px}
+.head p{margin:0; color:var(--page-muted); font-weight:600; max-width:640px}
+
+.section-label{font-family:"Fredoka"; font-size:15px; margin:34px 0 14px; color:var(--page-ink);
+  display:flex; align-items:center; gap:10px}
+.section-label::after{content:""; flex:1; height:1.5px; background:#00000012}
+
+/* ===== gallery ===== */
+.gallery{display:grid; grid-template-columns:repeat(auto-fit,minmax(258px,1fr)); gap:18px; align-items:start}
+
+.card{
+  background:var(--bg); border-radius:28px; padding:16px 15px 18px;
+  box-shadow:0 14px 34px rgba(50,40,60,.14); border:1px solid #00000010;
+  cursor:pointer; transition:transform .25s var(--ease), box-shadow .25s;
+}
+.card:hover{transform:translateY(-5px); box-shadow:0 22px 46px rgba(50,40,60,.2)}
+.card.sel{outline:3px solid var(--primary); outline-offset:3px}
+
+.card-tag{display:flex; align-items:center; justify-content:space-between; margin:0 3px 12px}
+.card-tag b{font-family:"Fredoka"; font-size:15px; color:var(--ink)}
+.card-tag .hex{font-size:11px; font-weight:800; color:var(--muted); background:var(--surface-2);
+  padding:3px 8px; border-radius:99px; border:1px solid var(--line)}
+
+.appbar{display:flex; align-items:center; justify-content:space-between; margin-bottom:9px}
+.appbar .hi{font-family:"Fredoka"; font-size:14px; color:var(--ink)}
+.appbar .hi small{display:block; font-family:"Nunito"; font-size:11px; color:var(--muted); font-weight:700}
+.streak{font-size:11px; font-weight:800; color:var(--primary-text); background:var(--primary-soft); padding:5px 9px; border-radius:99px}
+
+.vital{margin:3px 0 2px}
+.vital .row{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:5px}
+.vital .row b{font-family:"Fredoka"; font-size:11px; color:var(--ink)}
+.vital .row .val{font-size:11px; font-weight:800; color:var(--muted)}
+.vtrack{height:10px; background:var(--primary-soft); border-radius:99px; overflow:hidden}
+.vfill{height:100%; border-radius:99px; background:linear-gradient(90deg,var(--accent2),var(--primary))}
+
+.stage{text-align:center; padding:8px 0 2px; user-select:none}
+.mochi-wrap{display:inline-block; cursor:pointer; transition:transform .3s var(--ease)}
+.mochi-wrap:active{transform:scale(.94)}
+.mochi-wrap.squish{animation:sq .5s var(--ease)}
+@keyframes sq{0%{transform:scale(1,1)}30%{transform:scale(1.12,.86)}55%{transform:scale(.92,1.1)}75%{transform:scale(1.04,.97)}100%{transform:scale(1,1)}}
+.mochi{width:118px; height:112px; overflow:visible; transition:filter .4s}
+.state-tired .mochi{filter:saturate(.7)}
+.state-unwell .mochi{filter:saturate(.42)}
+.face-content,.face-thriving,.face-tired,.face-unwell{display:none}
+.state-content .face-content{display:block}
+.state-thriving .face-thriving{display:block}
+.state-tired .face-tired{display:block}
+.state-unwell .face-unwell{display:block}
+.sparkle{opacity:0}
+.state-thriving .sparkle{opacity:1; animation:tw 1.8s ease-in-out infinite}
+@keyframes tw{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1.15)}}
+.sweat{opacity:0}.state-unwell .sweat,.state-tired .sweat{opacity:1}
+.mood{font-family:"Fredoka"; font-size:12px; color:var(--ink); margin-top:1px}
+.mood small{display:block; font-family:"Nunito"; font-size:10.5px; color:var(--muted); font-weight:700}
+
+.row-btns{display:flex; gap:8px; margin:8px 0 10px}
+.btn{font-family:"Fredoka"; font-size:13px; border:none; cursor:pointer; padding:10px 12px; border-radius:99px; flex:1; transition:transform .16s var(--ease)}
+.btn:active{transform:scale(.95)}
+.btn-primary{background:var(--primary); color:var(--primary-ink)}
+.btn-ghost{background:var(--primary-soft); color:var(--primary-text)}
+
+.field{display:flex; align-items:center; gap:7px; background:var(--surface); border:2px solid var(--line);
+  border-radius:var(--r-md); padding:8px 11px; margin-bottom:10px}
+.field span{font-size:13px}
+.field .ph{flex:1; font-size:12px; font-weight:700; color:var(--muted)}
+.field .plus{width:22px; height:22px; border-radius:8px; background:var(--primary); color:var(--primary-ink);
+  display:grid; place-items:center; font-size:16px; font-family:"Fredoka"}
+
+.todos{display:flex; flex-direction:column; gap:7px}
+.todo{display:flex; align-items:center; gap:9px; background:var(--surface-2); border:1.5px solid var(--line);
+  border-radius:var(--r-md); padding:9px 10px}
+.check{width:20px; height:20px; border-radius:7px; border:2.5px solid var(--muted); flex:none;
+  display:grid; place-items:center; color:#fff; font-size:12px}
+.todo .t{font-weight:800; font-size:12px; color:var(--ink); line-height:1.2}
+.todo .meta{font-size:10.5px; color:var(--muted); font-weight:700; margin-top:1px}
+.todo-main{flex:1; min-width:0}
+.chip{font-size:10px; font-weight:800; padding:2.5px 7px; border-radius:99px; flex:none}
+.chip.focus{background:var(--primary-soft); color:var(--primary-text)}
+.chip.danger{background:var(--danger-soft); color:var(--danger)}
+.chip.warn{background:var(--warn-soft); color:var(--warn)}
+.chip.ok{background:var(--primary-soft); color:var(--primary-text)}
+.todo.overdue{background:var(--danger-soft); border-color:transparent}
+.todo.overdue .meta{color:var(--danger); font-weight:800}
+.todo.due .meta{color:var(--warn); font-weight:800}
+.todo.done{opacity:.6}
+.todo.done .check{background:var(--primary); border-color:var(--primary)}
+.todo.done .t{text-decoration:line-through; text-decoration-color:var(--muted)}
+
+.reminder{display:flex; align-items:center; gap:10px; margin-top:9px;
+  background:linear-gradient(120deg,var(--primary-soft),var(--surface)); border:1.5px solid var(--line);
+  border-radius:var(--r-md); padding:10px}
+.bell{width:32px; height:32px; border-radius:11px; background:var(--surface); display:grid; place-items:center; font-size:15px; flex:none; box-shadow:0 4px 10px rgba(0,0,0,.08)}
+.reminder .t{font-family:"Fredoka"; font-size:12px; color:var(--ink)}
+.reminder .s{font-size:10.5px; color:var(--muted); font-weight:700}
+.reminder .time{margin-left:auto; font-family:"Fredoka"; font-size:12px; color:var(--primary-text)}
+
+/* ===== UI elements catalog ===== */
+.elements{display:grid; grid-template-columns:repeat(auto-fit,minmax(232px,1fr)); gap:16px;
+  border-radius:26px; padding:20px; background:var(--bg); box-shadow:0 14px 34px rgba(50,40,60,.14); border:1px solid #00000010}
+.el-card{background:var(--surface); border:1.5px solid var(--line); border-radius:var(--r-md); padding:15px}
+.el-card.wide{grid-column:1/-1}
+.el-label{font-size:10.5px; font-weight:800; letter-spacing:.7px; text-transform:uppercase; color:var(--muted); margin-bottom:12px}
+.el-stack{display:flex; flex-direction:column; gap:10px; align-items:flex-start}
+.el-stack.row{flex-direction:row; flex-wrap:wrap; align-items:center}
+.el-card .btn{flex:0 0 auto}
+.btn.dim{opacity:.4; cursor:default}
+
+.ty{display:flex; align-items:baseline; gap:11px; width:100%; padding:7px 0; border-bottom:1.5px dashed var(--line)}
+.ty:last-child{border-bottom:none}
+.ty .k{width:50px; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); flex:none}
+.ty .sample{color:var(--ink)}
+.ty .sample.meta{color:var(--muted); font-weight:700}
+
+.field.focused{border-color:var(--primary); box-shadow:0 0 0 4px var(--primary-soft)}
+.field input{border:none; outline:none; background:transparent; flex:1; font:inherit; font-weight:700; font-size:12px; color:var(--ink); min-width:0}
+.field input::placeholder{color:var(--muted); font-weight:600}
+
+.toggle{width:48px; height:28px; border-radius:99px; background:var(--line); position:relative; cursor:pointer; border:none; flex:none; transition:background .25s}
+.toggle::after{content:""; position:absolute; top:3px; left:3px; width:22px; height:22px; border-radius:50%; background:#fff; box-shadow:0 2px 5px rgba(0,0,0,.2); transition:left .25s var(--ease)}
+.toggle[aria-pressed="true"]{background:var(--primary)}
+.toggle[aria-pressed="true"]::after{left:23px}
+.toggle-line{display:flex; align-items:center; gap:11px; width:100%}
+.toggle-line .lt{font-weight:800; font-size:12px; color:var(--ink)}
+.toggle-line .ls{font-size:10.5px; color:var(--muted); font-weight:700}
+
+.tok{display:flex; align-items:center; gap:11px; width:100%}
+.tok .demo{width:44px; height:44px; flex:none; background:var(--primary-soft)}
+.tok .demo.sh{background:var(--surface); box-shadow:0 8px 20px rgba(0,0,0,.16)}
+.tok .demo.fill{background:var(--primary)}
+.tok b{font-family:"Fredoka"; font-size:12px; color:var(--ink); display:block}
+.tok span{font-size:10.5px; color:var(--muted); font-weight:700}
+
+.empty-el{text-align:center; color:var(--muted); font-weight:700; font-size:12px; padding:14px 6px; line-height:1.5}
+
+/* ===== health states strip ===== */
+.health-head{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:4px}
+.health-note{color:var(--page-muted); font-weight:600; font-size:13px; margin:0 0 16px}
+.picker{display:flex; gap:7px; margin-left:auto}
+.pdot{width:22px; height:22px; border-radius:50%; border:2px solid #fff; cursor:pointer; box-shadow:0 0 0 1.5px #00000015; transition:transform .2s var(--ease)}
+.pdot:hover{transform:scale(1.15)}
+.pdot.on{box-shadow:0 0 0 2.5px var(--page-ink); transform:scale(1.08)}
+
+.health{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:16px; border-radius:26px; padding:20px; background:var(--bg); box-shadow:0 14px 34px rgba(50,40,60,.14); border:1px solid #00000010}
+.hcell{text-align:center}
+.hcell .badge{display:inline-block; font-size:10px; font-weight:800; letter-spacing:.4px; text-transform:uppercase; color:var(--muted); background:var(--surface-2); border:1px solid var(--line); padding:3px 9px; border-radius:99px; margin-bottom:6px}
+.hcell .vtrack{max-width:130px; margin:8px auto 0}
+
+.legend{display:flex; gap:14px; flex-wrap:wrap; margin-top:16px; padding-top:14px; border-top:1.5px dashed #00000015}
+.legend .li{display:flex; align-items:center; gap:7px; font-size:12px; font-weight:700; color:var(--page-ink)}
+.legend .sw{width:16px; height:16px; border-radius:6px}
+
+.foot{text-align:center; color:var(--page-muted); font-weight:700; font-size:12px; margin-top:30px}
+</style>
+
+<div class="wrap">
+  <div class="head">
+    <div class="eyebrow">Mochi · design system</div>
+    <h1>Theme sampler</h1>
+    <p>The same sample screen in every flavor. Each is fully AA-compliant. Tap a card to load its flavor into the pet health states below — or tap any Mochi to squish it.</p>
+  </div>
+
+  <div class="section-label">Flavors · sample screen</div>
+  <div class="gallery" id="gallery"></div>
+
+  <div class="section-label">UI elements <span style="font-family:Nunito;font-weight:700;font-size:12px;color:var(--page-muted)">· in the selected flavor</span></div>
+  <div class="elements" id="elements"></div>
+
+  <div class="section-label">Pet health states</div>
+  <div class="health-head">
+    <p class="health-note" style="margin:0">Vitality drives the pet's mood. Overdue tasks pull it down; finishing tasks and petting bring it back up.</p>
+    <div class="picker" id="picker"></div>
+  </div>
+  <div class="health" id="health"></div>
+
+  <div class="foot">Mochi · theme sampler</div>
+</div>
+
+<script>
+const THEMES=[
+  {k:'strawberry',label:'Strawberry',hex:'#D6335F'},
+  {k:'matcha',    label:'Matcha',    hex:'#3B7827'},
+  {k:'ube',       label:'Ube',       hex:'#7B4BC4'},
+  {k:'mango',     label:'Mango',     hex:'#F2820C'},
+  {k:'sesame',    label:'Black Sesame',hex:'#C9A6FF'},
+];
+
+function pet(){
+  return `<svg class="mochi" viewBox="0 0 180 170">
+    <ellipse cx="90" cy="150" rx="50" ry="9" fill="rgba(0,0,0,.08)"/>
+    <path d="M90 24c-38 0-62 26-62 62 0 30 22 52 62 52s62-22 62-52c0-36-24-62-62-62z" fill="var(--pet)"/>
+    <path d="M90 24c-38 0-62 26-62 62 0 6 1 11 3 16 6-30 30-50 59-50s53 20 59 50c2-5 3-10 3-16 0-36-24-62-62-62z" fill="var(--pet-2)" opacity=".55"/>
+    <ellipse cx="56" cy="100" rx="11" ry="8" fill="var(--pet-cheek)" opacity=".55"/>
+    <ellipse cx="124" cy="100" rx="11" ry="8" fill="var(--pet-cheek)" opacity=".55"/>
+    <g class="face-content">
+      <circle cx="72" cy="88" r="6" fill="#3a2b33"/><circle cx="108" cy="88" r="6" fill="#3a2b33"/>
+      <circle cx="74" cy="86" r="2" fill="#fff"/><circle cx="110" cy="86" r="2" fill="#fff"/>
+      <path d="M80 104c4 5 16 5 20 0" stroke="#3a2b33" stroke-width="3.4" fill="none" stroke-linecap="round"/>
+    </g>
+    <g class="face-thriving">
+      <path d="M64 90c3-6 11-6 14 0" stroke="#3a2b33" stroke-width="3.4" fill="none" stroke-linecap="round"/>
+      <path d="M102 90c3-6 11-6 14 0" stroke="#3a2b33" stroke-width="3.4" fill="none" stroke-linecap="round"/>
+      <path d="M78 102c5 8 19 8 24 0" stroke="#3a2b33" stroke-width="3.4" fill="none" stroke-linecap="round"/>
+      <path class="sparkle" d="M40 60l3 7 7 3-7 3-3 7-3-7-7-3 7-3z" fill="var(--primary)"/>
+      <path class="sparkle" d="M140 66l2.4 5.6 5.6 2.4-5.6 2.4-2.4 5.6-2.4-5.6-5.6-2.4 5.6-2.4z" fill="var(--accent2)"/>
+    </g>
+    <g class="face-tired">
+      <path d="M66 90h12" stroke="#3a2b33" stroke-width="3.4" stroke-linecap="round"/>
+      <path d="M102 90h12" stroke="#3a2b33" stroke-width="3.4" stroke-linecap="round"/>
+      <path d="M82 106c3-2 11-2 14 0" stroke="#3a2b33" stroke-width="3.2" fill="none" stroke-linecap="round"/>
+      <path class="sweat" d="M126 78c4 6 4 11 0 11s-4-5 0-11z" fill="#8fd3f4"/>
+    </g>
+    <g class="face-unwell">
+      <path d="M66 86c3-3 11-3 13 0" stroke="#3a2b33" stroke-width="3.2" fill="none" stroke-linecap="round"/>
+      <path d="M101 86c3-3 11-3 13 0" stroke="#3a2b33" stroke-width="3.2" fill="none" stroke-linecap="round"/>
+      <circle cx="72" cy="92" r="4.5" fill="#3a2b33"/><circle cx="108" cy="92" r="4.5" fill="#3a2b33"/>
+      <path d="M80 110c5-6 15-6 20 0" stroke="#3a2b33" stroke-width="3.2" fill="none" stroke-linecap="round"/>
+      <path class="sweat" d="M128 80c4 6 4 11 0 11s-4-5 0-11z" fill="#8fd3f4"/>
+    </g>
+  </svg>`;
+}
+
+function sampleCard(t){
+  return `<div class="card t-${t.k}" data-k="${t.k}">
+    <div class="card-tag"><b>${t.label}</b><span class="hex">${t.hex}</span></div>
+    <div class="appbar">
+      <div class="hi">Hi, friend<small>Let's keep Mochi happy</small></div>
+      <div class="streak">🔥 4 day</div>
+    </div>
+    <div class="vital"><div class="row"><b>Vitality</b><span class="val">72%</span></div>
+      <div class="vtrack"><div class="vfill" style="width:72%"></div></div></div>
+    <div class="stage state-content">
+      <div class="mochi-wrap">${pet()}</div>
+      <div class="mood">Mochi feels content<small>Clear a task to make it beam</small></div>
+    </div>
+    <div class="row-btns"><button class="btn btn-primary">Add task</button><button class="btn btn-ghost">Pet Mochi</button></div>
+    <div class="field"><span>✏️</span><div class="ph">What's next on the list?</div><div class="plus">＋</div></div>
+    <div class="todos">
+      <div class="todo overdue"><div class="check"></div><div class="todo-main"><div class="t">Reply to Sam's email</div><div class="meta">⏰ Overdue by 2 days</div></div><span class="chip danger">High</span></div>
+      <div class="todo due"><div class="check"></div><div class="todo-main"><div class="t">Submit timesheet</div><div class="meta">Due soon · 4:00 PM</div></div><span class="chip warn">Soon</span></div>
+      <div class="todo done"><div class="check">✓</div><div class="todo-main"><div class="t">Morning stretch</div><div class="meta">Done · nice one</div></div><span class="chip ok">Done</span></div>
+    </div>
+    <div class="reminder"><div class="bell">🔔</div><div><div class="t">Call the dentist</div><div class="s">Gentle nudge</div></div><div class="time">5:30</div></div>
+  </div>`;
+}
+
+const STATES=[
+  {v:92,cls:'thriving',b:'Thriving',m:'Beaming',s:'80–100 · on a roll'},
+  {v:64,cls:'content', b:'Content', m:'Doing fine',s:'50–79 · steady'},
+  {v:36,cls:'tired',   b:'Sleepy',  m:'Getting droopy',s:'25–49 · needs a win'},
+  {v:14,cls:'unwell',  b:'Unwell',  m:'Feeling low',s:'0–24 · tasks piling up'},
+];
+
+function healthCell(st){
+  return `<div class="hcell">
+    <span class="badge">${st.b}</span>
+    <div class="stage state-${st.cls}"><div class="mochi-wrap">${pet()}</div>
+      <div class="mood">${st.m}<small>${st.s}</small></div></div>
+    <div class="vtrack"><div class="vfill" style="width:${st.v}%"></div></div>
+  </div>`;
+}
+
+let current='matcha';
+
+function renderHealth(){
+  const el=document.getElementById('health');
+  el.className='health t-'+current;
+  el.innerHTML=STATES.map(healthCell).join('')+`
+    <div class="legend" style="grid-column:1/-1">
+      <div class="li"><span class="sw" style="background:var(--danger-soft); border:1.5px solid var(--danger)"></span>Overdue</div>
+      <div class="li"><span class="sw" style="background:var(--warn-soft); border:1.5px solid var(--warn)"></span>Due soon</div>
+      <div class="li"><span class="sw" style="background:var(--primary-soft); border:1.5px solid var(--primary-text)"></span>Done / on track</div>
+      <div class="li"><span class="sw" style="background:var(--primary)"></span>Primary</div>
+    </div>`;
+}
+
+function renderElements(){
+  const el=document.getElementById('elements');
+  el.className='elements t-'+current;
+  el.innerHTML=`
+    <div class="el-card">
+      <div class="el-label">Typography</div>
+      <div class="ty"><span class="k">Display</span><span class="sample fk" style="font-size:20px">Keep Mochi happy</span></div>
+      <div class="ty"><span class="k">Title</span><span class="sample fk" style="font-size:15px">Today's tasks</span></div>
+      <div class="ty"><span class="k">Body</span><span class="sample" style="font-size:13px;font-weight:700">Reply to Sam's email</span></div>
+      <div class="ty"><span class="k">Meta</span><span class="sample meta" style="font-size:11px">Overdue by 2 days</span></div>
+    </div>
+
+    <div class="el-card">
+      <div class="el-label">Buttons</div>
+      <div class="el-stack">
+        <button class="btn btn-primary">Add task</button>
+        <button class="btn btn-ghost">Pet Mochi</button>
+        <button class="btn btn-primary dim">Adding…</button>
+      </div>
+    </div>
+
+    <div class="el-card">
+      <div class="el-label">Status chips</div>
+      <div class="el-stack row">
+        <span class="chip focus">Focus</span>
+        <span class="chip danger">Overdue</span>
+        <span class="chip warn">Due soon</span>
+        <span class="chip ok">Done</span>
+      </div>
+    </div>
+
+    <div class="el-card">
+      <div class="el-label">Text input</div>
+      <div class="el-stack" style="gap:12px">
+        <div class="field" style="width:100%"><span>✏️</span><input placeholder="What's next on the list?"><div class="plus">＋</div></div>
+        <div class="field focused" style="width:100%"><span>✏️</span><input value="Water the plants" ><div class="plus">＋</div></div>
+      </div>
+    </div>
+
+    <div class="el-card">
+      <div class="el-label">Toggle</div>
+      <div class="el-stack" style="gap:14px">
+        <div class="toggle-line"><button class="toggle" aria-pressed="true" aria-label="Reminders"></button><div><div class="lt">Reminders</div><div class="ls">Gentle nudges on</div></div></div>
+        <div class="toggle-line"><button class="toggle" aria-pressed="false" aria-label="Sound"></button><div><div class="lt">Sound</div><div class="ls">Off for now</div></div></div>
+      </div>
+    </div>
+
+    <div class="el-card">
+      <div class="el-label">Vitality meter</div>
+      <div class="el-stack" style="gap:12px;width:100%">
+        <div style="width:100%"><div class="vtrack"><div class="vfill" style="width:88%"></div></div></div>
+        <div style="width:100%"><div class="vtrack"><div class="vfill" style="width:34%"></div></div></div>
+      </div>
+    </div>
+
+    <div class="el-card wide">
+      <div class="el-label">Todo — states</div>
+      <div class="todos">
+        <div class="todo"><div class="check"></div><div class="todo-main"><div class="t">Default task</div><div class="meta">Due later today</div></div><span class="chip focus">Focus</span></div>
+        <div class="todo overdue"><div class="check"></div><div class="todo-main"><div class="t">Overdue task</div><div class="meta">⏰ Overdue by 2 days</div></div><span class="chip danger">High</span></div>
+        <div class="todo due"><div class="check"></div><div class="todo-main"><div class="t">Due-soon task</div><div class="meta">Due soon · 4:00 PM</div></div><span class="chip warn">Soon</span></div>
+        <div class="todo done"><div class="check">✓</div><div class="todo-main"><div class="t">Completed task</div><div class="meta">Done · nice one</div></div><span class="chip ok">Done</span></div>
+      </div>
+    </div>
+
+    <div class="el-card">
+      <div class="el-label">Reminder</div>
+      <div class="reminder" style="margin:0"><div class="bell">🔔</div><div><div class="t">Call the dentist</div><div class="s">Gentle nudge · 5:30 PM</div></div><div class="time">5:30</div></div>
+    </div>
+
+    <div class="el-card">
+      <div class="el-label">Shape &amp; depth</div>
+      <div class="el-stack" style="gap:12px">
+        <div class="tok"><div class="demo" style="border-radius:18px"></div><div><b>Radius MD · 18</b><span>Inputs, todos, chips</span></div></div>
+        <div class="tok"><div class="demo fill" style="border-radius:99px"></div><div><b>Pill</b><span>Buttons, meters, tags</span></div></div>
+        <div class="tok"><div class="demo sh" style="border-radius:16px"></div><div><b>Shadow · soft</b><span>Resting elevation</span></div></div>
+      </div>
+    </div>
+
+    <div class="el-card">
+      <div class="el-label">Empty state</div>
+      <div class="empty-el">All caught up ✨<br>Mochi's doing a happy wiggle.</div>
+    </div>`;
+}
+
+function selectTheme(k){
+  current=k;
+  document.querySelectorAll('.card').forEach(c=>c.classList.toggle('sel',c.dataset.k===k));
+  document.querySelectorAll('.pdot').forEach(d=>d.classList.toggle('on',d.dataset.k===k));
+  renderElements();
+  renderHealth();
+}
+
+// build gallery
+document.getElementById('gallery').innerHTML=THEMES.map(sampleCard).join('');
+// build picker
+document.getElementById('picker').innerHTML=THEMES.map(t=>
+  `<button class="pdot" data-k="${t.k}" title="${t.label}" style="background:${t.hex}"></button>`).join('');
+
+// interactions
+document.addEventListener('click',e=>{
+  const tog=e.target.closest('.toggle');
+  if(tog){ tog.setAttribute('aria-pressed', tog.getAttribute('aria-pressed')==='true'?'false':'true'); return; }
+  const wrap=e.target.closest('.mochi-wrap');
+  if(wrap){ wrap.classList.remove('squish'); void wrap.offsetWidth; wrap.classList.add('squish');
+    e.stopPropagation(); return; }
+  const card=e.target.closest('.card'); if(card){ selectTheme(card.dataset.k); return; }
+  const pd=e.target.closest('.pdot'); if(pd){ selectTheme(pd.dataset.k); }
+});
+
+selectTheme('matcha');
+</script>

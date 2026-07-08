@@ -1,0 +1,58 @@
+# macOS
+.DS_Store
+
+# Xcode user-specific settings
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+
+# Xcode build output
+build/
+DerivedData/
+*.moved-aside
+
+# Xcode archives
+*.xcarchive
+
+# Xcode playgrounds
+timeline.xctimeline
+playground.xcworkspace
+
+# Swift Package Manager
+.build/
+.swiftpm/xcode/package.xcworkspace/xcuserdata/
+Package.resolved
+
+# CocoaPods
+Pods/
+
+# Carthage
+Carthage/Build/
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output/
+
+# Code coverage
+*.xccovreport
+*.xccovarchive
+
+# App packaging
+*.ipa
+*.dSYM
+*.dSYM.zip
+
+# Environment files and secrets
+.env
+.env.*
+*.pem
+*.p12
+*.mobileprovision
+GoogleService-Info.plist
+
+# Temporary files
+*.tmp
+*.swp
+*~
