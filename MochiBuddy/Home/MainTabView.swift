@@ -2,9 +2,10 @@
 //  MainTabView.swift
 //  MochiBuddy
 //
-//  The app shell after onboarding — Home · Tasks · You behind a custom
-//  bottom nav (design shell BottomNav). Tabs stay mounted so scroll and
-//  view state survive switching; pushed screens cover the bar via NavHost.
+//  The app shell after onboarding — Home · Tasks · You in a system TabView
+//  (standard bar, SF Symbol icons, stays out of the keyboard's way). Tabs
+//  stay mounted so scroll and view state survive switching, and each tab
+//  fires onAppear when selected so its screen refreshes.
 //
 
 import SwiftUI
@@ -16,9 +17,9 @@ enum MainTab: String, CaseIterable {
 
     var icon: String {
         switch self {
-        case .home: "🍡"
-        case .tasks: "🗒️"
-        case .you: "⚙️"
+        case .home: "house.fill"
+        case .tasks: "checklist"
+        case .you: "person.crop.circle.fill"
         }
     }
 
@@ -44,63 +45,18 @@ struct MainTabView: View {
     @Environment(\.mochiTheme) private var theme
 
     var body: some View {
-        VStack(spacing: 0) {
-            ZStack {
-                tab(homeTab, .home)
-                tab(tasksTab, .tasks)
-                tab(youTab, .you)
+        TabView(selection: $selected) {
+            Tab(MainTab.home.label, systemImage: MainTab.home.icon, value: .home) {
+                homeTab
             }
-            MochiTabBar(selected: $selected)
+            Tab(MainTab.tasks.label, systemImage: MainTab.tasks.icon, value: .tasks) {
+                tasksTab
+            }
+            Tab(MainTab.you.label, systemImage: MainTab.you.icon, value: .you) {
+                youTab
+            }
         }
+        .tint(theme.primaryText)
         .background(theme.bg.ignoresSafeArea())
-    }
-
-    /// Keeps every tab in the hierarchy (state survives switching) while
-    /// only the selected one is visible and hittable.
-    private func tab(_ content: some View, _ tab: MainTab) -> some View {
-        content
-            .opacity(selected == tab ? 1 : 0)
-            .allowsHitTesting(selected == tab)
-            .accessibilityHidden(selected != tab)
-    }
-}
-
-struct MochiTabBar: View {
-    @Binding var selected: MainTab
-
-    @Environment(\.mochiTheme) private var theme
-
-    var body: some View {
-        HStack(spacing: 0) {
-            ForEach(MainTab.allCases, id: \.self) { tab in
-                let isOn = tab == selected
-                Button {
-                    guard !isOn else { return }
-                    Haptics.selection()
-                    selected = tab
-                } label: {
-                    VStack(spacing: 3) {
-                        Text(tab.icon)
-                            .font(.system(size: 18))
-                            .grayscale(isOn ? 0 : 0.4)
-                            .opacity(isOn ? 1 : 0.85)
-                        Text(tab.label)
-                            .font(MochiFont.display(11, weight: .medium))
-                            .foregroundStyle(isOn ? theme.primaryText : theme.muted)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 10)
-                    .padding(.bottom, 8)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(tab.label)
-                .accessibilityAddTraits(isOn ? [.isSelected] : [])
-            }
-        }
-        .background(theme.surface)
-        .overlay(alignment: .top) {
-            theme.line.frame(height: 1)
-        }
     }
 }

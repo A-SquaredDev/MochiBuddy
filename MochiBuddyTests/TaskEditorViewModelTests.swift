@@ -40,12 +40,13 @@ struct TaskEditorNewTests {
         #expect(vm.uiState.isEditing == false)
         #expect(vm.uiState.canSave == false)
         #expect(vm.uiState.hasDate == true)
-        #expect(vm.uiState.dateText == "Today")
+        #expect(vm.uiState.selectedDateId == "today")
         #expect(vm.uiState.hasTime == false)
         #expect(vm.uiState.timeText == "Add time")
         #expect(vm.uiState.selectedPriorityId == "med")
         #expect(vm.uiState.selectedListId == "inbox")
         #expect(vm.uiState.selectedRepeatId == "none")
+        #expect(vm.uiState.repeatDayOptions.isEmpty)
         #expect(vm.uiState.overdueBanner == nil)
     }
 
@@ -109,12 +110,47 @@ struct TaskEditorWhenTests {
         let (vm, repo) = makeEditorVM()
         await vm.triggerAsync(.load)
         await vm.triggerAsync(.titleChanged("T"))
-        await vm.triggerAsync(.noDateTapped)
+        await vm.triggerAsync(.selectDateOption("noDate"))
         #expect(vm.uiState.hasDate == false)
         #expect(vm.uiState.hasTime == false)
-        #expect(vm.uiState.dateText == "Add date")
+        #expect(vm.uiState.selectedDateId == "noDate")
         await vm.triggerAsync(.saveTapped)
         #expect(repo.addedDrafts.first?.dueAt == nil)
+    }
+
+    @Test("a stray picker echo after 'No date' can't resurrect the date")
+    func noDateSurvivesPickerEcho() async {
+        // Regression: the dismissing wheel used to echo a value change that
+        // re-set dueAt to "now", shifting the saved time by a few minutes.
+        let (vm, repo) = makeEditorVM()
+        await vm.triggerAsync(.load)
+        await vm.triggerAsync(.titleChanged("T"))
+        await vm.triggerAsync(.timeTapped)
+        await vm.triggerAsync(.selectDateOption("noDate"))
+        await vm.triggerAsync(.timeChanged(.now))
+        await vm.triggerAsync(.dateChanged(.now))
+        #expect(vm.uiState.hasDate == false)
+        #expect(vm.uiState.hasTime == false)
+        await vm.triggerAsync(.saveTapped)
+        #expect(repo.addedDrafts.first?.dueAt == nil)
+        #expect(repo.addedDrafts.first?.hasTime == false)
+    }
+
+    @Test("Tomorrow chip moves the day and keeps a chosen time")
+    func tomorrowKeepsTime() async {
+        let (vm, repo) = makeEditorVM()
+        await vm.triggerAsync(.load)
+        await vm.triggerAsync(.titleChanged("T"))
+        await vm.triggerAsync(.timeTapped)
+        let fivePm = calendar.date(bySettingHour: 17, minute: 0, second: 0, of: .now)!
+        await vm.triggerAsync(.timeChanged(fivePm))
+        await vm.triggerAsync(.selectDateOption("tomorrow"))
+        #expect(vm.uiState.selectedDateId == "tomorrow")
+        await vm.triggerAsync(.saveTapped)
+
+        let dueAt = try! #require(repo.addedDrafts.first?.dueAt)
+        #expect(calendar.component(.hour, from: dueAt) == 17)
+        #expect(calendar.isDateInTomorrow(dueAt))
     }
 
     @Test("adding a time defaults to the next round hour and sets hasTime")
@@ -127,13 +163,29 @@ struct TaskEditorWhenTests {
         #expect(vm.uiState.timeText != "Add time")
     }
 
+    @Test("clearing the time keeps the day, date-only")
+    func clearTime() async {
+        let (vm, repo) = makeEditorVM()
+        await vm.triggerAsync(.load)
+        await vm.triggerAsync(.titleChanged("T"))
+        await vm.triggerAsync(.timeTapped)
+        await vm.triggerAsync(.clearTimeTapped)
+        #expect(vm.uiState.hasTime == false)
+        #expect(vm.uiState.hasDate == true)
+        await vm.triggerAsync(.saveTapped)
+        #expect(repo.addedDrafts.first?.dueAt == calendar.startOfDay(for: .now))
+        #expect(repo.addedDrafts.first?.hasTime == false)
+    }
+
     @Test("changing the date keeps the chosen time of day")
     func dateKeepsTime() async {
         let (vm, repo) = makeEditorVM()
         await vm.triggerAsync(.load)
         await vm.triggerAsync(.titleChanged("T"))
+        await vm.triggerAsync(.timeTapped)
         let fivePm = calendar.date(bySettingHour: 17, minute: 0, second: 0, of: .now)!
         await vm.triggerAsync(.timeChanged(fivePm))
+        await vm.triggerAsync(.selectDateOption("pick"))
         let nextWeek = calendar.date(byAdding: .day, value: 7, to: .now)!
         await vm.triggerAsync(.dateChanged(nextWeek))
         await vm.triggerAsync(.saveTapped)
@@ -149,6 +201,7 @@ struct TaskEditorWhenTests {
         let (vm, repo) = makeEditorVM()
         await vm.triggerAsync(.load)
         await vm.triggerAsync(.titleChanged("T"))
+        await vm.triggerAsync(.selectDateOption("pick"))
         let nextWeek = calendar.date(byAdding: .day, value: 7, to: .now)!
         await vm.triggerAsync(.dateChanged(nextWeek))
         await vm.triggerAsync(.saveTapped)
@@ -156,14 +209,78 @@ struct TaskEditorWhenTests {
         #expect(repo.addedDrafts.first?.hasTime == false)
     }
 
-    @Test("date pill toggles its picker open and closed")
+    @Test("the pick chip toggles the calendar open and closed")
     func pickerToggles() async {
         let (vm, _) = makeEditorVM()
         await vm.triggerAsync(.load)
-        await vm.triggerAsync(.dateTapped)
+        await vm.triggerAsync(.selectDateOption("pick"))
         #expect(vm.uiState.activePicker == .date)
-        await vm.triggerAsync(.dateTapped)
+        await vm.triggerAsync(.selectDateOption("pick"))
         #expect(vm.uiState.activePicker == TaskEditorBehavior.PickerTarget.none)
+    }
+}
+
+@Suite("TaskEditor · custom repeat")
+@MainActor
+struct TaskEditorRepeatTests {
+
+    @Test("selecting Custom seeds the due date's weekday and shows the day row")
+    func customSeedsDueWeekday() async {
+        let (vm, repo) = makeEditorVM()
+        await vm.triggerAsync(.load)
+        await vm.triggerAsync(.titleChanged("T"))
+        await vm.triggerAsync(.selectRepeat("custom"))
+        #expect(vm.uiState.selectedRepeatId == "custom")
+        #expect(vm.uiState.repeatDayOptions.count == 7)
+        #expect(vm.uiState.repeatDayOptions.filter(\.isOn).map(\.id)
+            == [Calendar.current.component(.weekday, from: .now)])
+
+        await vm.triggerAsync(.saveTapped)
+        #expect(repo.addedDrafts.first?.repeatRule?.customDays
+            == [Calendar.current.component(.weekday, from: .now)])
+    }
+
+    @Test("toggling days updates the rule; the last day can't be removed")
+    func toggleDays() async {
+        let (vm, repo) = makeEditorVM()
+        await vm.triggerAsync(.load)
+        await vm.triggerAsync(.titleChanged("T"))
+        await vm.triggerAsync(.selectRepeat("custom"))
+        let seeded = Calendar.current.component(.weekday, from: .now)
+        let other = seeded == 2 ? 6 : 2
+
+        await vm.triggerAsync(.toggleRepeatDay(other))
+        #expect(vm.uiState.repeatDayOptions.filter(\.isOn).count == 2)
+
+        await vm.triggerAsync(.toggleRepeatDay(seeded))
+        // Removing the last remaining day is refused.
+        await vm.triggerAsync(.toggleRepeatDay(other))
+        #expect(vm.uiState.repeatDayOptions.filter(\.isOn).map(\.id) == [other])
+
+        await vm.triggerAsync(.saveTapped)
+        #expect(repo.addedDrafts.first?.repeatRule == .custom([other]))
+    }
+
+    @Test("switching from custom to a preset drops the day row")
+    func backToPreset() async {
+        let (vm, repo) = makeEditorVM()
+        await vm.triggerAsync(.load)
+        await vm.triggerAsync(.titleChanged("T"))
+        await vm.triggerAsync(.selectRepeat("custom"))
+        await vm.triggerAsync(.selectRepeat("weekly"))
+        #expect(vm.uiState.selectedRepeatId == "weekly")
+        #expect(vm.uiState.repeatDayOptions.isEmpty)
+        await vm.triggerAsync(.saveTapped)
+        #expect(repo.addedDrafts.first?.repeatRule == .weekly)
+    }
+
+    @Test("editing a task with a custom rule preselects its days")
+    func editPrefillsCustom() async {
+        let task = makeTask(id: "t1", title: "Gym", dueAt: Dates.now, repeatRule: .custom([2, 4, 6]))
+        let (vm, _) = makeEditorVM(editing: task)
+        await vm.triggerAsync(.load)
+        #expect(vm.uiState.selectedRepeatId == "custom")
+        #expect(vm.uiState.repeatDayOptions.filter(\.isOn).map(\.id).sorted() == [2, 4, 6])
     }
 }
 

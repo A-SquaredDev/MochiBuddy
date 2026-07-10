@@ -184,19 +184,19 @@ struct YouView: View {
 
     private var navigationRows: some View {
         VStack(spacing: 8) {
-            MochiListRow(icon: "🔥", iconBg: theme.primarySoft, title: "Streaks & stats", subtitle: "Your gentle momentum") {
+            MochiListRow(title: "Streaks & stats", subtitle: "Your gentle momentum") {
                 viewModel.trigger(.statsTapped)
             }
-            MochiListRow(icon: "🔔", title: "Notifications", subtitle: viewModel.notificationsSub) {
+            MochiListRow(title: "Notifications", subtitle: viewModel.notificationsSub) {
                 viewModel.trigger(.notificationsTapped)
             }
-            MochiListRow(icon: "🍎", title: "Apple Reminders", subtitle: viewModel.remindersSub) {
+            MochiListRow(title: "Apple Reminders", subtitle: viewModel.remindersSub) {
                 viewModel.trigger(.remindersTapped)
             }
-            MochiListRow(icon: "🏝️", title: "Vacation mode", subtitle: viewModel.vacationSub) {
+            MochiListRow(title: "Vacation mode", subtitle: viewModel.vacationSub) {
                 viewModel.trigger(.vacationTapped)
             }
-            MochiListRow(icon: "🗂️", title: "Manage lists", subtitle: viewModel.listsSub) {
+            MochiListRow(title: "Manage lists", subtitle: viewModel.listsSub) {
                 viewModel.trigger(.manageListsTapped)
             }
         }
@@ -204,11 +204,10 @@ struct YouView: View {
 
     private var accountRows: some View {
         VStack(spacing: 8) {
-            MochiListRow(icon: "💳", title: "Manage subscription", subtitle: viewModel.subscriptionSub) {
+            MochiListRow(title: "Manage subscription", subtitle: viewModel.subscriptionSub) {
                 openURL(MochiLinks.manageSubscriptions)
             }
             MochiListRow(
-                icon: "♻️",
                 title: "Restore purchases",
                 onTap: { viewModel.trigger(.restoreTapped) },
                 right: {
@@ -219,12 +218,10 @@ struct YouView: View {
                     }
                 }
             )
-            MochiListRow(icon: "🚪", title: "Sign out") {
+            MochiListRow(title: "Sign out") {
                 viewModel.trigger(.signOutTapped)
             }
             MochiListRow(
-                icon: "🗑",
-                iconBg: theme.dangerSoft,
                 title: "Delete account",
                 subtitle: "Permanently erase your data",
                 isDanger: true
@@ -236,13 +233,13 @@ struct YouView: View {
 
     private var legalRows: some View {
         VStack(spacing: 8) {
-            MochiListRow(icon: "🛟", title: "Help & support", subtitle: "hello@mochibuddy.app") {
+            MochiListRow(title: "Help & support", subtitle: "hello@mochibuddy.app") {
                 openURL(MochiLinks.support)
             }
-            MochiListRow(icon: "🔒", title: "Privacy Policy") {
+            MochiListRow(title: "Privacy Policy") {
                 openURL(MochiLinks.privacyPolicy)
             }
-            MochiListRow(icon: "📄", title: "Terms of Use (EULA)") {
+            MochiListRow(title: "Terms of Use (EULA)") {
                 openURL(MochiLinks.termsOfUse)
             }
         }

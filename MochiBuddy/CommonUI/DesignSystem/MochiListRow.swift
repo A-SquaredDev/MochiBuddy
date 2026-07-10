@@ -10,12 +10,12 @@
 import SwiftUI
 
 struct MochiListRow<Right: View>: View {
-    let icon: String?
-    var iconBg: Color?
+    var icon: String? = nil
+    var iconBg: Color? = nil
     let title: String
-    var subtitle: String?
+    var subtitle: String? = nil
     var isDanger = false
-    var onTap: (() -> Void)?
+    var onTap: (() -> Void)? = nil
     @ViewBuilder var right: Right
 
     @Environment(\.mochiTheme) private var theme
@@ -69,7 +69,7 @@ struct MochiListRow<Right: View>: View {
 extension MochiListRow where Right == MochiRowChevron {
     /// Navigation row — trailing chevron implied.
     init(
-        icon: String?,
+        icon: String? = nil,
         iconBg: Color? = nil,
         title: String,
         subtitle: String? = nil,

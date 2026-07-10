@@ -73,7 +73,7 @@ struct HomeView: View {
                 MoodMeter(baseline: viewModel.baseline, buffer: viewModel.buffer)
                 VStack(spacing: 2) {
                     MochiPetView(
-                        vitality: viewModel.displayedMood,
+                        mood: viewModel.isSleeping ? .sleeping : MochiMood(vitality: viewModel.displayedMood),
                         size: 128,
                         externalSquishTrigger: viewModel.petSquishTrigger,
                         onTap: { viewModel.trigger(.petTapped) }

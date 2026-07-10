@@ -15,6 +15,9 @@ enum MochiMood: Equatable {
     case content
     case tired
     case unwell
+    /// Bedtime — closed eyes and drifting z's; hosts set this explicitly
+    /// (it never comes from vitality).
+    case sleeping
 
     /// Mood bands: 80+ thriving, 50+ content, 25+ tired, else unwell.
     init(vitality: Double) {
@@ -29,6 +32,7 @@ enum MochiMood: Equatable {
     var saturation: Double {
         switch self {
         case .thriving, .content: 1
+        case .sleeping: 0.85
         case .tired: 0.7
         case .unwell: 0.42
         }
@@ -97,6 +101,10 @@ struct MochiPetView: View {
                     .frame(width: 16 * scale, height: 16 * scale)
                     .position(x: 140 * scale, y: 74 * scale)
             }
+            if mood == .sleeping {
+                SleepZzzView(ink: faceInk, scale: scale)
+                    .position(x: 138 * scale, y: 42 * scale)
+            }
         }
         .frame(width: size, height: size * 170 / 180)
         .saturation(mood.saturation)
@@ -140,6 +148,7 @@ struct MochiPetView: View {
         case .content: "content"
         case .tired: "tired"
         case .unwell: "very sad"
+        case .sleeping: "asleep"
         }
     }
 
@@ -235,6 +244,21 @@ struct MochiPetView: View {
             ctx.stroke(mouth, with: ink, style: thinStroke)
             ctx.fill(sweatDrop(at: CGPoint(x: 126, y: 78)), with: .color(Color(hex: 0x8FD3F4)))
 
+        case .sleeping:
+            // Closed lids — gentle downward arcs — over a tiny relaxed smile.
+            var leftEye = Path()
+            leftEye.move(to: p(64, 88))
+            leftEye.addCurve(to: p(78, 88), control1: p(67, 94), control2: p(75, 94))
+            ctx.stroke(leftEye, with: ink, style: stroke)
+            var rightEye = Path()
+            rightEye.move(to: p(102, 88))
+            rightEye.addCurve(to: p(116, 88), control1: p(105, 94), control2: p(113, 94))
+            ctx.stroke(rightEye, with: ink, style: stroke)
+            var mouth = Path()
+            mouth.move(to: p(84, 106))
+            mouth.addCurve(to: p(96, 106), control1: p(87, 109), control2: p(93, 109))
+            ctx.stroke(mouth, with: ink, style: thinStroke)
+
         case .unwell:
             var leftBrow = Path()
             leftBrow.move(to: p(66, 86))
@@ -282,6 +306,38 @@ private struct SquishValue {
     var y: CGFloat = 1
 }
 
+/// Three z's drifting up from a sleeping Mochi, fading in sequence.
+private struct SleepZzzView: View {
+    let ink: Color
+    let scale: CGFloat
+    @State private var drifting = false
+
+    var body: some View {
+        ZStack {
+            zLetter(size: 13, x: -10, y: 10, delay: 0)
+            zLetter(size: 16, x: 2, y: -4, delay: 0.4)
+            zLetter(size: 19, x: 16, y: -19, delay: 0.8)
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+                drifting = true
+            }
+        }
+        .accessibilityHidden(true)
+    }
+
+    private func zLetter(size: CGFloat, x: CGFloat, y: CGFloat, delay: Double) -> some View {
+        Text("z")
+            .font(.system(size: size * scale, weight: .bold, design: .rounded))
+            .foregroundStyle(ink.opacity(drifting ? 0.75 : 0.25))
+            .offset(x: x * scale, y: (y - (drifting ? 3 : 0)) * scale)
+            .animation(
+                .easeInOut(duration: 1.2).repeatForever(autoreverses: true).delay(delay),
+                value: drifting
+            )
+    }
+}
+
 /// Four-point twinkle star, pulsing like the SVG's mochi-twinkle keyframes.
 private struct SparkleView: View {
     let color: Color
@@ -321,11 +377,16 @@ private struct SparkleShape: Shape {
 }
 
 #Preview("Moods") {
-    HStack(spacing: 12) {
-        MochiPetView(mood: .thriving, size: 90)
-        MochiPetView(mood: .content, size: 90)
-        MochiPetView(mood: .tired, size: 90)
-        MochiPetView(mood: .unwell, size: 90)
+    VStack(spacing: 12) {
+        HStack(spacing: 12) {
+            MochiPetView(mood: .thriving, size: 90)
+            MochiPetView(mood: .content, size: 90)
+            MochiPetView(mood: .tired, size: 90)
+        }
+        HStack(spacing: 12) {
+            MochiPetView(mood: .unwell, size: 90)
+            MochiPetView(mood: .sleeping, size: 90)
+        }
     }
     .padding()
     .background(MochiTheme.sesame.bg)

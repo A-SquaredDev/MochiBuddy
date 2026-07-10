@@ -26,6 +26,7 @@ final class HomeViewModel: StateViewModel<
     private var tasks: [TaskItem] = []
     private var completionsLast24h = 0
     private var vacationMode = false
+    private var bedtime: BedtimeWindow = .standard
     private var coins = 0
     private var streak = 0
     private var hasStartedTimer = false
@@ -118,6 +119,7 @@ final class HomeViewModel: StateViewModel<
             coins = profile.coins
             streak = profile.streakCount
             vacationMode = profile.vacationMode
+            bedtime = profile.bedtime
         }
         tasks = (try? await taskRepository.incompleteTasks(userId: userId)) ?? []
         let dayAgo = Date.now.addingTimeInterval(-24 * 3600)
@@ -198,6 +200,7 @@ final class HomeViewModel: StateViewModel<
         )
         let buffer = bufferStore.currentValue(now: now)
         let displayed = min(100, max(0, baseline + buffer))
+        let sleeping = !vacationMode && bedtime.contains(now)
 
         let scoped = todayScope(now: now)
         let remaining = scoped.filter { !$0.completed }.count
@@ -208,7 +211,8 @@ final class HomeViewModel: StateViewModel<
         next.baseline = baseline
         next.buffer = buffer
         next.displayedMood = displayed
-        (next.moodTitle, next.moodSub) = moodCopy(displayed)
+        next.isSleeping = sleeping
+        (next.moodTitle, next.moodSub) = moodCopy(displayed, sleeping: sleeping)
         next.todayItems = scoped.prefix(4).map { item(for: $0, now: now) }
         next.leftText = "\(remaining) left"
         next.showEmptyToday = scoped.isEmpty
@@ -284,9 +288,12 @@ final class HomeViewModel: StateViewModel<
         return HomeBehavior.TodoUIItem(id: task.id, title: task.title, meta: meta, state: state, chip: chip)
     }
 
-    private func moodCopy(_ value: Double) -> (String, String) {
+    private func moodCopy(_ value: Double, sleeping: Bool) -> (String, String) {
         if vacationMode {
             return ("Mochi is resting", "Vacation mode · nudges paused")
+        }
+        if sleeping {
+            return ("Mochi is sleeping", "Bedtime · see you in the morning")
         }
         switch value {
         case 80...: return ("Mochi is beaming", "You're on a roll ✨")

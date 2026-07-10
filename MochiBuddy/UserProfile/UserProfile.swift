@@ -14,6 +14,17 @@ struct BedtimeWindow: Equatable {
     var endMinutes: Int
 
     static let standard = BedtimeWindow(startMinutes: 22 * 60, endMinutes: 7 * 60)
+
+    /// Whether the local wall-clock time falls inside the window (which
+    /// usually wraps past midnight, e.g. 22:00 → 07:00).
+    func contains(_ date: Date, calendar: Calendar = .current) -> Bool {
+        let parts = calendar.dateComponents([.hour, .minute], from: date)
+        let minutes = (parts.hour ?? 0) * 60 + (parts.minute ?? 0)
+        guard startMinutes != endMinutes else { return false }
+        return startMinutes < endMinutes
+            ? minutes >= startMinutes && minutes < endMinutes
+            : minutes >= startMinutes || minutes < endMinutes
+    }
 }
 
 /// "How chatty should Mochi be?" — the overall nudge cadence dial.

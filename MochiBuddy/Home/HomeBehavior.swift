@@ -40,6 +40,8 @@ enum HomeBehavior {
         var buffer: Double = 0
         /// baseline + buffer, clamped — what the pet's face shows.
         var displayedMood: Double = MoodEngine.Constants.anchor
+        /// Inside the bedtime window — the pet sleeps regardless of vitality.
+        var isSleeping = false
         var moodTitle = "Mochi feels content"
         var moodSub = "Clear a task to make it beam"
         var petSquishTrigger = 0

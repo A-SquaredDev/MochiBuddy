@@ -60,8 +60,13 @@ struct TaskEditorView: View {
                         }
                     }
                     fieldBlock("Repeat") {
-                        choiceRow(viewModel.repeatOptions, selected: viewModel.selectedRepeatId) {
-                            viewModel.trigger(.selectRepeat($0))
+                        VStack(alignment: .leading, spacing: 10) {
+                            choiceRow(viewModel.repeatOptions, selected: viewModel.selectedRepeatId) {
+                                viewModel.trigger(.selectRepeat($0))
+                            }
+                            if !viewModel.repeatDayOptions.isEmpty {
+                                repeatDayRow
+                            }
                         }
                     }
                     fieldBlock("Notes") {
@@ -88,9 +93,13 @@ struct TaskEditorView: View {
             footer
         }
         .background(theme.bg)
+        // The footer stays put when the keyboard rises; scrolling still
+        // dismisses the keyboard interactively.
+        .ignoresSafeArea(.keyboard, edges: .bottom)
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .animation(MochiMotion.soft, value: viewModel.activePicker)
+        .animation(MochiMotion.soft, value: viewModel.selectedRepeatId)
         .onLoad {
             viewModel.trigger(.load)
             if !viewModel.isEditing {
@@ -145,47 +154,60 @@ struct TaskEditorView: View {
     }
 
     private var whenBlock: some View {
-        fieldBlock("When") {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 8) {
-                    valuePill(icon: "📅", text: viewModel.dateText, active: viewModel.hasDate) {
-                        viewModel.trigger(.dateTapped)
+        VStack(alignment: .leading, spacing: 16) {
+            fieldBlock("Date") {
+                VStack(alignment: .leading, spacing: 10) {
+                    choiceRow(viewModel.dateOptions, selected: viewModel.selectedDateId) {
+                        viewModel.trigger(.selectDateOption($0))
                     }
-                    valuePill(icon: "⏰", text: viewModel.timeText, active: viewModel.hasTime) {
-                        viewModel.trigger(.timeTapped)
-                    }
-                    if viewModel.hasDate {
-                        valuePill(icon: nil, text: "No date", active: false) {
-                            viewModel.trigger(.noDateTapped)
-                        }
+                    if viewModel.activePicker == .date {
+                        DatePicker(
+                            "",
+                            selection: viewModel.collectBinding(for: \.date, action: { .dateChanged($0) }),
+                            displayedComponents: .date
+                        )
+                        .datePickerStyle(.graphical)
+                        .labelsHidden()
+                        .tint(theme.primary)
+                        .colorScheme(theme.isDark ? .dark : .light)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
                     }
                 }
-                switch viewModel.activePicker {
-                case .date:
-                    DatePicker(
-                        "",
-                        selection: viewModel.collectBinding(for: \.date, action: { .dateChanged($0) }),
-                        displayedComponents: .date
-                    )
-                    .datePickerStyle(.graphical)
-                    .labelsHidden()
-                    .tint(theme.primary)
-                    .colorScheme(theme.isDark ? .dark : .light)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
-                case .time:
-                    DatePicker(
-                        "",
-                        selection: viewModel.collectBinding(for: \.time, action: { .timeChanged($0) }),
-                        displayedComponents: .hourAndMinute
-                    )
-                    .datePickerStyle(.wheel)
-                    .labelsHidden()
-                    .frame(height: 120)
-                    .clipped()
-                    .colorScheme(theme.isDark ? .dark : .light)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
-                case .none:
-                    EmptyView()
+            }
+            if viewModel.hasDate {
+                fieldBlock("Time") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(spacing: 8) {
+                            valuePill(icon: nil, text: viewModel.timeText, active: viewModel.hasTime) {
+                                viewModel.trigger(.timeTapped)
+                            }
+                            if viewModel.hasTime {
+                                Button {
+                                    Haptics.impact(.light)
+                                    viewModel.trigger(.clearTimeTapped)
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .font(.system(size: 20))
+                                        .foregroundStyle(theme.muted)
+                                }
+                                .buttonStyle(SquishButtonStyle())
+                                .accessibilityLabel("Remove time")
+                            }
+                        }
+                        if viewModel.activePicker == .time {
+                            DatePicker(
+                                "",
+                                selection: viewModel.collectBinding(for: \.time, action: { .timeChanged($0) }),
+                                displayedComponents: .hourAndMinute
+                            )
+                            .datePickerStyle(.wheel)
+                            .labelsHidden()
+                            .frame(height: 120)
+                            .clipped()
+                            .colorScheme(theme.isDark ? .dark : .light)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                        }
+                    }
                 }
             }
         }
@@ -219,6 +241,32 @@ struct TaskEditorView: View {
             )
         }
         .buttonStyle(SquishButtonStyle())
+    }
+
+    /// Sun–Sat toggles for the custom repeat cadence.
+    private var repeatDayRow: some View {
+        HStack(spacing: 6) {
+            ForEach(viewModel.repeatDayOptions) { day in
+                Button {
+                    Haptics.selection()
+                    viewModel.trigger(.toggleRepeatDay(day.id))
+                } label: {
+                    Text(day.label)
+                        .font(MochiFont.display(11.5, weight: .medium))
+                        .foregroundStyle(day.isOn ? theme.primaryInk : theme.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 9)
+                        .background(day.isOn ? theme.primary : theme.surface, in: Capsule())
+                        .overlay(Capsule().stroke(day.isOn ? theme.primary : theme.line, lineWidth: 1.5))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(day.accessibilityLabel)
+                .accessibilityAddTraits(day.isOn ? [.isSelected] : [])
+            }
+        }
+        .transition(.opacity.combined(with: .move(edge: .top)))
     }
 
     private func choiceRow(

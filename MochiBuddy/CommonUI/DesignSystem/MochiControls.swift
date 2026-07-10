@@ -8,7 +8,7 @@
 
 import SwiftUI
 
-/// Pill switch with a springy knob; track fills with the flavor primary when on.
+/// The system switch, tinted with the flavor primary.
 struct MochiToggle: View {
     @Binding var isOn: Bool
     var isDisabled = false
@@ -16,25 +16,12 @@ struct MochiToggle: View {
     @Environment(\.mochiTheme) private var theme
 
     var body: some View {
-        Button {
-            Haptics.selection()
-            withAnimation(MochiMotion.bounce) { isOn.toggle() }
-        } label: {
-            ZStack(alignment: isOn ? .trailing : .leading) {
-                Capsule()
-                    .fill(isOn ? theme.primary : theme.line)
-                Circle()
-                    .fill(.white)
-                    .shadow(color: .black.opacity(0.18), radius: 3, y: 1)
-                    .padding(3)
-            }
-            .frame(width: 48, height: 28)
-        }
-        .buttonStyle(.plain)
-        .disabled(isDisabled)
-        .opacity(isDisabled ? 0.5 : 1)
-        .accessibilityAddTraits(.isToggle)
-        .accessibilityValue(isOn ? "on" : "off")
+        Toggle("", isOn: $isOn)
+            .labelsHidden()
+            .toggleStyle(.switch)
+            .tint(theme.primary)
+            .disabled(isDisabled)
+            .onChange(of: isOn) { Haptics.selection() }
     }
 }
 

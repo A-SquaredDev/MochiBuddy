@@ -40,9 +40,9 @@ struct TaskRepeatTests {
 
     @Test("the next occurrence is always strictly after now")
     func strictlyAfterNow() {
-        for rule in TaskRepeat.allCases {
+        for rule in TaskRepeat.presets + [.custom([2, 5])] {
             let next = rule.nextOccurrence(after: at(1), now: Dates.now, calendar: calendar)
-            #expect(next > Dates.now, "\(rule.rawValue) produced \(next), not after now")
+            #expect(next > Dates.now, "\(rule.freq) produced \(next), not after now")
         }
     }
 
@@ -110,5 +110,45 @@ struct TaskRepeatTests {
         let due = at(8, 17) // 5pm
         let next = TaskRepeat.daily.nextOccurrence(after: due, now: Dates.now, calendar: calendar)
         #expect(calendar.component(.hour, from: next) == 17)
+    }
+
+    // MARK: Custom days
+
+    @Test("custom days steps to the next selected weekday")
+    func customNextSelectedDay() {
+        // Mon(2) + Fri(6); from Wed Jul 8 → Fri Jul 10.
+        let rule = TaskRepeat.custom([2, 6])
+        let next = rule.nextOccurrence(after: at(8), now: Dates.now, calendar: calendar)
+        #expect(next == at(10))
+    }
+
+    @Test("custom days wraps past the weekend to the next week")
+    func customWrapsWeek() {
+        // Wednesday only (4); from Wed Jul 8 → Wed Jul 15.
+        let rule = TaskRepeat.custom([4])
+        let next = rule.nextOccurrence(after: at(8), now: Dates.now, calendar: calendar)
+        #expect(next == at(15))
+        #expect(calendar.component(.weekday, from: next) == 4)
+    }
+
+    @Test("custom overdue skips missed occurrences and preserves the time")
+    func customSkipsMissed() {
+        // Every Tue(3); due 3 weeks ago at 5pm → next Tue Jul 14, 5pm.
+        let old = calendar.date(byAdding: .day, value: -21, to: at(7, 17))!
+        let rule = TaskRepeat.custom([3])
+        let next = rule.nextOccurrence(after: old, now: Dates.now, calendar: calendar)
+        #expect(next == at(14, 17))
+    }
+
+    @Test("the wire format round-trips a custom rule")
+    func customRoundTrip() {
+        let rule = TaskRepeat.custom([6, 2])
+        #expect(rule.freq == "custom")
+        #expect(rule.customDays == [2, 6], "days come back sorted")
+        #expect(TaskRepeat(freq: "custom", days: [2, 6]) == rule)
+        #expect(TaskRepeat(freq: "custom", days: []) == nil, "custom without days is invalid")
+        #expect(TaskRepeat(freq: "custom", days: [0, 9]) == nil, "out-of-range days are dropped")
+        #expect(TaskRepeat(freq: "weekly") == .weekly)
+        #expect(TaskRepeat(freq: "sometimes") == nil)
     }
 }

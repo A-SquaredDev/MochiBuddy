@@ -104,6 +104,25 @@ struct HomeTodayScopeTests {
         #expect(vm.uiState.moodTitle == "Mochi is resting")
         #expect(vm.uiState.baseline == MoodEngine.Constants.anchor)
     }
+
+    @Test("inside the bedtime window Mochi sleeps")
+    func bedtimeSleeps() async {
+        // A window covering the whole day so the test passes at any hour.
+        let allDay = BedtimeWindow(startMinutes: 0, endMinutes: 24 * 60)
+        let (vm, _, _, _) = makeHomeVM(profile: makeProfile(bedtime: allDay))
+        await vm.triggerAsync(.refresh)
+        #expect(vm.uiState.isSleeping == true)
+        #expect(vm.uiState.moodTitle == "Mochi is sleeping")
+    }
+
+    @Test("vacation copy outranks bedtime")
+    func vacationOutranksBedtime() async {
+        let allDay = BedtimeWindow(startMinutes: 0, endMinutes: 24 * 60)
+        let (vm, _, _, _) = makeHomeVM(profile: makeProfile(vacationMode: true, bedtime: allDay))
+        await vm.triggerAsync(.refresh)
+        #expect(vm.uiState.isSleeping == false)
+        #expect(vm.uiState.moodTitle == "Mochi is resting")
+    }
 }
 
 @Suite("HomeViewModel · actions")

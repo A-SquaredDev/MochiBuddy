@@ -4,9 +4,9 @@
 //
 //  The two-layer mood bar — this visual IS the core mechanic. A solid
 //  gradient for the baseline (only tasks move it) and a translucent striped
-//  segment stacked on top for the comfort buffer, with a dashed draining
-//  edge and a "boost fading" hint. A single combined bar would teach users
-//  that petting permanently fixes things — it doesn't.
+//  segment butted flush against it for the comfort buffer, with a "boost
+//  fading" hint. A single combined bar would teach users that petting
+//  permanently fixes things — it doesn't.
 //
 
 import SwiftUI
@@ -57,15 +57,17 @@ struct MoodMeter: View {
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule().fill(theme.primarySoft)
-                    // baseline — solid; only tasks move it
-                    Capsule()
+                    // baseline — solid; only tasks move it. Flat edges: the
+                    // outer capsule clip rounds the bar ends, so the buffer
+                    // stripes butt flush against it with no seam.
+                    Rectangle()
                         .fill(LinearGradient(
                             colors: [theme.accent2, theme.primary],
                             startPoint: .leading,
                             endPoint: .trailing
                         ))
                         .frame(width: geo.size.width * base / 100)
-                    // buffer — translucent stripes, dashed draining edge
+                    // buffer — translucent stripes stacked on the baseline
                     if bufferWidth > 0 {
                         let bufferPixels = geo.size.width * bufferWidth / 100
                         StripedFill(color: theme.primary)
@@ -74,11 +76,6 @@ struct MoodMeter: View {
                                 topLeadingRadius: 0, bottomLeadingRadius: 0,
                                 bottomTrailingRadius: height / 2, topTrailingRadius: height / 2
                             ))
-                            .overlay(alignment: .trailing) {
-                                DashedEdge()
-                                    .stroke(theme.primaryInk.opacity(0.45), style: StrokeStyle(lineWidth: 2, dash: [3, 3]))
-                                    .frame(width: 2)
-                            }
                             .offset(x: geo.size.width * base / 100)
                     }
                 }
@@ -120,14 +117,5 @@ private struct StripedFill: View {
                 x += stripe * 2
             }
         }
-    }
-}
-
-private struct DashedEdge: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.move(to: CGPoint(x: rect.midX, y: 0))
-        path.addLine(to: CGPoint(x: rect.midX, y: rect.height))
-        return path
     }
 }

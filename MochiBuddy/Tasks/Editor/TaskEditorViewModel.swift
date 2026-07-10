@@ -17,6 +17,7 @@ final class TaskEditorViewModel: ObservableStateViewModel<
 
     private static let inboxId = "inbox"
     private static let noRepeatId = "none"
+    private static let customRepeatId = "custom"
     private static let lowPriorityDot = Color(hex: 0x8FD3F4)
 
     private let authRepository: AuthRepository
@@ -68,11 +69,8 @@ final class TaskEditorViewModel: ObservableStateViewModel<
             state.title = title
             state.canSave = !title.trimmingCharacters(in: .whitespaces).isEmpty
 
-        case .dateTapped:
-            if draft.dueAt == nil {
-                draft.dueAt = Calendar.current.startOfDay(for: .now)
-            }
-            rebuild(picker: uiState.activePicker == .date ? .none : .date)
+        case .selectDateOption(let id):
+            selectDateOption(id)
 
         case .timeTapped:
             if !draft.hasTime {
@@ -83,18 +81,24 @@ final class TaskEditorViewModel: ObservableStateViewModel<
             }
             rebuild(picker: uiState.activePicker == .time ? .none : .time)
 
-        case .noDateTapped:
-            draft.dueAt = nil
+        case .clearTimeTapped:
+            if let dueAt = draft.dueAt {
+                draft.dueAt = Calendar.current.startOfDay(for: dueAt)
+            }
             draft.hasTime = false
             rebuild(picker: .none)
 
         case .dateChanged(let date):
+            // Only honor the calendar while it's shown — a picker being
+            // dismissed can echo a value change and resurrect a cleared date.
+            guard uiState.activePicker == .date else { return }
             let time = draft.hasTime ? (draft.dueAt ?? date) : nil
             draft.dueAt = time.map { Self.combine(day: date, time: $0) }
                 ?? Calendar.current.startOfDay(for: date)
             rebuild(picker: uiState.activePicker)
 
         case .timeChanged(let time):
+            guard uiState.activePicker == .time else { return }
             draft.dueAt = Self.combine(day: draft.dueAt ?? .now, time: time)
             draft.hasTime = true
             rebuild(picker: uiState.activePicker)
@@ -108,8 +112,10 @@ final class TaskEditorViewModel: ObservableStateViewModel<
             rebuild(picker: uiState.activePicker)
 
         case .selectRepeat(let id):
-            draft.repeatRule = TaskRepeat(rawValue: id)
-            rebuild(picker: uiState.activePicker)
+            selectRepeat(id)
+
+        case .toggleRepeatDay(let day):
+            toggleRepeatDay(day)
 
         case .notesChanged(let notes):
             draft.notes = notes.isEmpty ? nil : notes
@@ -131,6 +137,76 @@ final class TaskEditorViewModel: ObservableStateViewModel<
     }
 
     private var userId: String? { authRepository.currentAccount?.uid }
+
+    // MARK: - When
+
+    private func selectDateOption(_ id: String) {
+        let calendar = Calendar.current
+        switch TaskEditorBehavior.DateOption(rawValue: id) {
+        case .noDate:
+            draft.dueAt = nil
+            draft.hasTime = false
+            rebuild(picker: .none)
+
+        case .today:
+            moveToDay(calendar.startOfDay(for: .now))
+            rebuild(picker: .none)
+
+        case .tomorrow:
+            let today = calendar.startOfDay(for: .now)
+            moveToDay(calendar.date(byAdding: .day, value: 1, to: today) ?? today)
+            rebuild(picker: .none)
+
+        case .pick:
+            if draft.dueAt == nil {
+                draft.dueAt = calendar.startOfDay(for: .now)
+            }
+            rebuild(picker: uiState.activePicker == .date ? .none : .date)
+
+        case nil:
+            break
+        }
+    }
+
+    /// Changes the day while keeping any chosen time of day.
+    private func moveToDay(_ day: Date) {
+        if draft.hasTime, let current = draft.dueAt {
+            draft.dueAt = Self.combine(day: day, time: current)
+        } else {
+            draft.dueAt = day
+        }
+    }
+
+    // MARK: - Repeat
+
+    private func selectRepeat(_ id: String) {
+        if id == Self.customRepeatId {
+            // Keep an existing day selection; otherwise seed with the due
+            // date's weekday so the rule starts out matching the task.
+            if draft.repeatRule?.customDays == nil {
+                let anchor = draft.dueAt ?? .now
+                draft.repeatRule = .custom([Calendar.current.component(.weekday, from: anchor)])
+            }
+        } else {
+            draft.repeatRule = TaskRepeat(freq: id)
+        }
+        rebuild(picker: uiState.activePicker)
+    }
+
+    private func toggleRepeatDay(_ day: Int) {
+        guard case .custom(var days) = draft.repeatRule else { return }
+        if days.contains(day) {
+            // A custom rule needs at least one day — ignore removing the last.
+            guard days.count > 1 else { return }
+            days.remove(day)
+        } else {
+            days.insert(day)
+        }
+        draft.repeatRule = .custom(days)
+        rebuild(picker: uiState.activePicker)
+    }
+
+    // MARK: - Side effects
 
     private func save() async {
         let title = draft.title.trimmingCharacters(in: .whitespaces)
@@ -170,6 +246,7 @@ final class TaskEditorViewModel: ObservableStateViewModel<
     // MARK: - Derivation
 
     private func rebuild(picker: TaskEditorBehavior.PickerTarget) {
+        let calendar = Calendar.current
         var next = uiState
         next.isEditing = editingTask != nil
         next.title = draft.title
@@ -182,13 +259,31 @@ final class TaskEditorViewModel: ObservableStateViewModel<
 
         next.hasDate = draft.dueAt != nil
         next.date = draft.dueAt ?? .now
+
+        var selectedDate = TaskEditorBehavior.DateOption.noDate
+        var pickLabel = "Pick a date…"
         if let dueAt = draft.dueAt {
-            next.dateText = Calendar.current.isDateInToday(dueAt)
-                ? "Today"
-                : dueAt.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated))
-        } else {
-            next.dateText = "Add date"
+            if calendar.isDateInToday(dueAt) {
+                selectedDate = .today
+            } else if calendar.isDateInTomorrow(dueAt) {
+                selectedDate = .tomorrow
+            } else {
+                selectedDate = .pick
+                pickLabel = dueAt.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated))
+            }
         }
+        if picker == .date {
+            // The calendar is open — the pick chip is what's being edited.
+            selectedDate = .pick
+        }
+        next.dateOptions = [
+            .init(id: TaskEditorBehavior.DateOption.noDate.rawValue, label: "No date"),
+            .init(id: TaskEditorBehavior.DateOption.today.rawValue, label: "Today"),
+            .init(id: TaskEditorBehavior.DateOption.tomorrow.rawValue, label: "Tomorrow"),
+            .init(id: TaskEditorBehavior.DateOption.pick.rawValue, label: pickLabel),
+        ]
+        next.selectedDateId = selectedDate.rawValue
+
         next.hasTime = draft.hasTime
         next.time = draft.dueAt ?? .now
         next.timeText = draft.hasTime
@@ -207,11 +302,32 @@ final class TaskEditorViewModel: ObservableStateViewModel<
         next.selectedListId = draft.listId ?? Self.inboxId
 
         next.repeatOptions = [.init(id: Self.noRepeatId, label: "None")]
-            + TaskRepeat.allCases.map { .init(id: $0.rawValue, label: $0.rawValue.capitalized) }
-        next.selectedRepeatId = draft.repeatRule?.rawValue ?? Self.noRepeatId
+            + TaskRepeat.presets.map { .init(id: $0.freq, label: $0.freq.capitalized) }
+            + [.init(id: Self.customRepeatId, label: "Custom")]
+        next.selectedRepeatId = draft.repeatRule.map {
+            $0.customDays == nil ? $0.freq : Self.customRepeatId
+        } ?? Self.noRepeatId
+        next.repeatDayOptions = Self.dayChips(for: draft.repeatRule, calendar: calendar)
 
         next.notes = draft.notes ?? ""
         setUIState(next)
+    }
+
+    /// The Sun–Sat toggle row, ordered by the locale's first weekday.
+    private static func dayChips(
+        for rule: TaskRepeat?,
+        calendar: Calendar
+    ) -> [TaskEditorBehavior.DayChip] {
+        guard case .custom(let days) = rule else { return [] }
+        return (0..<7).map { offset in
+            let weekday = (calendar.firstWeekday - 1 + offset) % 7 + 1
+            return TaskEditorBehavior.DayChip(
+                id: weekday,
+                label: calendar.shortStandaloneWeekdaySymbols[weekday - 1],
+                accessibilityLabel: calendar.standaloneWeekdaySymbols[weekday - 1],
+                isOn: days.contains(weekday)
+            )
+        }
     }
 
     private static func combine(day: Date, time: Date, calendar: Calendar = .current) -> Date {

@@ -87,11 +87,13 @@ func makeProfile(
     streak: Int = 0,
     bestStreak: Int = 0,
     lastActiveDate: Date? = nil,
-    vacationMode: Bool = false
+    vacationMode: Bool = false,
+    // An empty window so mood assertions don't flip when the suite runs at night.
+    bedtime: BedtimeWindow = BedtimeWindow(startMinutes: 0, endMinutes: 0)
 ) -> UserProfile {
     UserProfile(
         id: "user1", displayName: "Alex Rivera", authProvider: nil, createdAt: nil,
-        timezone: nil, bedtime: .standard, themeId: nil,
+        timezone: nil, bedtime: bedtime, themeId: nil,
         coins: coins, streakCount: streak, bestStreakCount: bestStreak,
         lastActiveDate: lastActiveDate, isSubscribed: false, trialEndsAt: nil,
         onboardingComplete: true, notificationsEnabled: nil,

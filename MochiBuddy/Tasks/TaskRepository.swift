@@ -70,7 +70,7 @@ final class FirestoreTaskRepository: TaskRepository {
             fields["listId"] = listId
         }
         if let rule = draft.repeatRule {
-            fields["repeatRule"] = ["freq": rule.rawValue, "interval": 1]
+            fields["repeatRule"] = Self.repeatRuleFields(rule)
         }
         // Not awaited: offline persistence applies the write to the local
         // cache instantly; awaiting would block until a server ack.
@@ -100,7 +100,7 @@ final class FirestoreTaskRepository: TaskRepository {
         fields["notes"] = task.notes ?? FieldValue.delete()
         fields["dueAt"] = task.dueAt.map(Timestamp.init(date:)) ?? FieldValue.delete()
         fields["listId"] = task.listId ?? FieldValue.delete()
-        fields["repeatRule"] = task.repeatRule.map { ["freq": $0.rawValue, "interval": 1] } ?? FieldValue.delete()
+        fields["repeatRule"] = task.repeatRule.map(Self.repeatRuleFields) ?? FieldValue.delete()
         tasks(userId).document(task.id).setData(fields, merge: true, completion: nil)
     }
 
@@ -136,6 +136,19 @@ final class FirestoreTaskRepository: TaskRepository {
         tasks(userId).document(taskId).setData(fields, merge: true, completion: nil)
     }
 
+    private static func repeatRuleFields(_ rule: TaskRepeat) -> [String: Any] {
+        var fields: [String: Any] = ["freq": rule.freq, "interval": 1]
+        if let days = rule.customDays {
+            fields["days"] = days
+        }
+        return fields
+    }
+
+    private static func repeatRule(from data: [String: Any]?) -> TaskRepeat? {
+        guard let freq = data?["freq"] as? String else { return nil }
+        return TaskRepeat(freq: freq, days: data?["days"] as? [Int])
+    }
+
     private static func taskItem(from document: QueryDocumentSnapshot) -> TaskItem {
         let data = document.data()
         return TaskItem(
@@ -146,7 +159,7 @@ final class FirestoreTaskRepository: TaskRepository {
             hasTime: data["hasTime"] as? Bool ?? false,
             priority: TaskPriority(rawValue: data["priority"] as? String ?? "") ?? .med,
             listId: data["listId"] as? String,
-            repeatRule: ((data["repeatRule"] as? [String: Any])?["freq"] as? String).flatMap(TaskRepeat.init(rawValue:)),
+            repeatRule: Self.repeatRule(from: data["repeatRule"] as? [String: Any]),
             completed: data["completed"] as? Bool ?? false,
             completedAt: (data["completedAt"] as? Timestamp)?.dateValue(),
             createdAt: (data["createdAt"] as? Timestamp)?.dateValue()
