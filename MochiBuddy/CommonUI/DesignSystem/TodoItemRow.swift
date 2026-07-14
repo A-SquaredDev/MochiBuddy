@@ -24,6 +24,11 @@ struct TodoItemRow: View {
     var meta: String?
     var state: TodoRowState = .normal
     var chip: String?
+    /// List membership indicator — colored dot + name on the meta line.
+    var listName: String? = nil
+    var listColor: Color? = nil
+    /// Tiny capsule after the title for externally-sourced rows ("Reminders").
+    var sourceBadge: String? = nil
     /// Row-body tap (opens detail/edit); the checkbox stays independent.
     var onTap: (() -> Void)?
     let onToggle: () -> Void
@@ -72,15 +77,48 @@ struct TodoItemRow: View {
             .accessibilityLabel(isDone ? "Mark incomplete" : "Mark complete")
 
             VStack(alignment: .leading, spacing: 1) {
-                Text(title)
-                    .font(MochiFont.body(12, weight: .heavy))
-                    .foregroundStyle(theme.ink)
-                    .strikethrough(isDone, color: theme.muted)
-                    .lineLimit(2)
-                if let meta {
-                    Text(meta)
-                        .font(MochiFont.body(10.5, weight: metaEmphasized ? .heavy : .bold))
-                        .foregroundStyle(metaColor)
+                HStack(spacing: 5) {
+                    Text(title)
+                        .font(MochiFont.body(12, weight: .heavy))
+                        .foregroundStyle(theme.ink)
+                        .strikethrough(isDone, color: theme.muted)
+                        .lineLimit(2)
+                    if let sourceBadge {
+                        Text(sourceBadge)
+                            .font(MochiFont.body(9, weight: .heavy))
+                            .foregroundStyle(theme.muted)
+                            .padding(EdgeInsets(top: 1.5, leading: 5, bottom: 1.5, trailing: 5))
+                            .background(theme.surface, in: Capsule())
+                            .overlay(Capsule().stroke(theme.line, lineWidth: 1))
+                    }
+                }
+                if meta != nil || listName != nil {
+                    HStack(spacing: 4) {
+                        if state == .due {
+                            Image(systemName: "clock.fill")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundStyle(theme.warn)
+                        }
+                        if let meta {
+                            Text(meta)
+                                .font(MochiFont.body(10.5, weight: metaEmphasized ? .heavy : .bold))
+                                .foregroundStyle(metaColor)
+                        }
+                        if let listName {
+                            if meta != nil {
+                                Text("·")
+                                    .font(MochiFont.body(10.5, weight: .bold))
+                                    .foregroundStyle(theme.muted)
+                            }
+                            Circle()
+                                .fill(listColor ?? theme.muted)
+                                .frame(width: 7, height: 7)
+                            Text(listName)
+                                .font(MochiFont.body(10.5, weight: .bold))
+                                .foregroundStyle(theme.muted)
+                                .lineLimit(1)
+                        }
+                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -102,6 +140,15 @@ struct TodoItemRow: View {
             RoundedRectangle(cornerRadius: MochiRadius.md)
                 .stroke(state == .overdue ? .clear : theme.line, lineWidth: 1.5)
         )
+        .overlay(alignment: .leading) {
+            // "Due soon" gets an unmistakable accent, not just a bold date.
+            if state == .due {
+                Capsule()
+                    .fill(theme.warn)
+                    .frame(width: 3)
+                    .padding(EdgeInsets(top: 6, leading: 4, bottom: 6, trailing: 0))
+            }
+        }
         .opacity(isDone ? 0.6 : 1)
         .animation(MochiMotion.soft, value: state)
     }

@@ -31,6 +31,8 @@ final class TaskEditorViewModel: ObservableStateViewModel<
 
     init(
         editingTask: TaskItem?,
+        draftTitle: String? = nil,
+        draftListId: String? = nil,
         authRepository: AuthRepository,
         taskRepository: TaskRepository,
         listRepository: ListRepository
@@ -50,10 +52,21 @@ final class TaskEditorViewModel: ObservableStateViewModel<
                 repeatRule: task.repeatRule
             )
         } else {
-            // Fast capture defaults to due today (date-only).
-            draft = TaskDraft(title: "", dueAt: Calendar.current.startOfDay(for: .now))
+            // Fast capture defaults to due today (date-only). Callers may
+            // seed a title (Home quick-add → plus) or a list (list detail).
+            draft = TaskDraft(
+                title: draftTitle ?? "",
+                dueAt: Calendar.current.startOfDay(for: .now),
+                listId: draftListId
+            )
         }
-        super.init(initialState: TaskEditorBehavior.UIState())
+        // Seed the fields the View reads before `.load` finishes — the
+        // onLoad focus check consults `isEditing` synchronously.
+        var initial = TaskEditorBehavior.UIState()
+        initial.isEditing = editingTask != nil
+        initial.title = draft.title
+        initial.canSave = !draft.title.trimmingCharacters(in: .whitespaces).isEmpty
+        super.init(initialState: initial)
     }
 
     override func triggerAsync(_ action: TaskEditorBehavior.ViewAction) async {

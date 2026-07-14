@@ -10,9 +10,17 @@ import SwiftUI
 
 @MainActor
 protocol TasksRouting: BackRouting {
-    /// The add/edit sheet — `task: nil` means new capture.
-    func taskEditor(task: TaskItem?) -> AnyView
+    /// The add/edit sheet — `task: nil` means new capture, optionally
+    /// seeded with a title (Home quick-add) or a list (ListDetail).
+    func taskEditor(task: TaskItem?, draftTitle: String?, draftListId: String?) -> AnyView
     func navigateToManageLists()
+    func navigateToListDetail(source: ListDetailSource)
+}
+
+extension TasksRouting {
+    func taskEditor(task: TaskItem?) -> AnyView {
+        taskEditor(task: task, draftTitle: nil, draftListId: nil)
+    }
 }
 
 @MainActor
@@ -33,19 +41,37 @@ final class TasksRouter: TasksRouting {
             taskRepository: container.taskRepository,
             listRepository: container.listRepository,
             profileRepository: container.profileRepository,
-            completionStore: container.taskCompletionStore
+            completionStore: container.taskCompletionStore,
+            remindersGateway: container.remindersGateway
         )
         return AnyView(TasksView(viewModel: viewModel, router: self))
     }
 
-    func taskEditor(task: TaskItem?) -> AnyView {
+    func taskEditor(task: TaskItem?, draftTitle: String?, draftListId: String?) -> AnyView {
         let viewModel = TaskEditorViewModel(
             editingTask: task,
+            draftTitle: draftTitle,
+            draftListId: draftListId,
             authRepository: container.authRepository,
             taskRepository: container.taskRepository,
             listRepository: container.listRepository
         )
         return AnyView(TaskEditorView(viewModel: viewModel))
+    }
+
+    func navigateToListDetail(source: ListDetailSource) {
+        let viewModel = ListDetailViewModel(
+            source: source,
+            authRepository: container.authRepository,
+            taskRepository: container.taskRepository,
+            profileRepository: container.profileRepository,
+            completionStore: container.taskCompletionStore,
+            remindersGateway: container.remindersGateway
+        )
+        navController.navigate(
+            route: AdHocRoute(key: "tasks.listDetail"),
+            view: AnyView(ListDetailView(viewModel: viewModel, router: self))
+        )
     }
 
     func navigateToManageLists() {

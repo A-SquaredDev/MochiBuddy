@@ -3,7 +3,7 @@
 //  MochiBuddy
 //
 
-import Foundation
+import SwiftUI
 
 enum HomeBehavior {
 
@@ -13,6 +13,9 @@ enum HomeBehavior {
         let meta: String
         let state: TodoRowState
         let chip: String
+        var listName: String? = nil
+        var listColor: Color? = nil
+        var sourceBadge: String? = nil
     }
 
     struct TreatUIItem: Equatable, Identifiable {
@@ -26,12 +29,25 @@ enum HomeBehavior {
     }
 
     /// Identifiable wrapper so the editor sheet presents via sheet(item:).
+    /// `task: nil` is a new capture — optionally seeded with a draft title
+    /// typed into the quick-add field.
     struct EditingTask: Equatable, Identifiable {
-        let task: TaskItem
-        var id: String { task.id }
+        let task: TaskItem?
+        var draftTitle: String? = nil
+        var id: String { task?.id ?? "new" }
+    }
+
+    /// One compact row in the "This week" preview.
+    struct WeekPreviewItem: Equatable, Identifiable {
+        let id: String        // "d1"…"d6"
+        let dayLabel: String  // "Tomorrow" / "Fri"
+        let summary: String   // "Gym · Groceries +1 more"
+        let count: Int
     }
 
     struct UIState: UpdatableStruct, Equatable {
+        /// True until the first Firestore fetch lands — drives the skeleton.
+        var isLoading = true
         var greeting = "Hi, friend"
         var subGreeting = "Let's keep Mochi happy"
         var coins = 0
@@ -46,7 +62,13 @@ enum HomeBehavior {
         var moodSub = "Clear a task to make it beam"
         var petSquishTrigger = 0
         var quickAddText = ""
+        var todayDateText = ""
         var todayItems: [TodoUIItem] = []
+        /// Tasks completed today — their own section under Today.
+        var doneTodayItems: [TodoUIItem] = []
+        var weekPreview: [WeekPreviewItem] = []
+        /// "boost fades in ~12m" — nil when no boost is active.
+        var boostFadeText: String?
         var leftText = "0 left"
         var showEmptyToday = false
         var showTreats = false
@@ -66,6 +88,8 @@ enum HomeBehavior {
         case giveTreat(String)
         case quickAddChanged(String)
         case quickAddSubmitted
+        /// Plus button — opens the full editor seeded with the typed title.
+        case composeTapped
         case toggleTask(String)
         case taskTapped(String)
         case editorDismissed

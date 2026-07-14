@@ -20,6 +20,9 @@ enum TasksBehavior {
         let meta: String
         let state: TodoRowState
         let chip: String
+        var listName: String? = nil
+        var listColor: Color? = nil
+        var sourceBadge: String? = nil
     }
 
     /// A labelled run of rows ("Overdue · 2", "Tomorrow · Wed", "Yesterday").
@@ -37,6 +40,8 @@ enum TasksBehavior {
         let name: String
         let countText: String
         let color: Color
+        /// "Reminders" tag for externally-synced lists.
+        var badge: String? = nil
     }
 
     /// Identifiable wrapper so the editor sheet presents via sheet(item:).
@@ -46,6 +51,8 @@ enum TasksBehavior {
     }
 
     struct UIState: UpdatableStruct, Equatable {
+        /// True until the first Firestore fetch lands — drives the skeleton.
+        var isLoading = true
         var segment: Segment = .today
         var subtitle = ""
         var coins = 0
@@ -56,8 +63,13 @@ enum TasksBehavior {
         var streakDays = 0
         /// Done only: the coins-earned celebration card.
         var doneCelebration: String?
+        /// Muted caption under the segment's content (Upcoming's explainer).
+        var footnote: String?
         /// Lists only.
         var listItems: [ListUIItem] = []
+        /// Lists only: shown when synced Reminders lists exist but access
+        /// was revoked in Settings.
+        var remindersAccessHint: String?
         var editingTask: EditingTask?
     }
 
@@ -68,10 +80,13 @@ enum TasksBehavior {
         case taskTapped(String)
         case addTapped
         case editorDismissed
+        case dismissCelebration
+        case listTapped(String)
         case manageListsTapped
     }
 
     enum NavigationEvent {
         case showManageLists
+        case showListDetail(ListDetailSource)
     }
 }

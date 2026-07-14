@@ -13,6 +13,13 @@ import FirebaseFirestore
 struct CompletedTaskStat: Equatable {
     let completedAt: Date
     let dueAt: Date?
+    let listId: String?
+
+    init(completedAt: Date, dueAt: Date?, listId: String? = nil) {
+        self.completedAt = completedAt
+        self.dueAt = dueAt
+        self.listId = listId
+    }
 }
 
 protocol TaskRepository: AnyObject {
@@ -23,6 +30,8 @@ protocol TaskRepository: AnyObject {
     func incompleteTasks(userId: String) async throws -> [TaskItem]
     /// Most recent completions, newest first.
     func completedTasks(limit: Int, userId: String) async throws -> [TaskItem]
+    /// Completions on/after `since`, newest first.
+    func completedTasks(since: Date, userId: String) async throws -> [TaskItem]
     func setCompleted(taskId: String, completed: Bool, userId: String) async throws
     /// Rewrites the editable fields from the domain model.
     func updateTask(_ task: TaskItem, userId: String) async throws
@@ -85,6 +94,15 @@ final class FirestoreTaskRepository: TaskRepository {
             .whereField("completedAt", isGreaterThan: Timestamp(date: Date(timeIntervalSince1970: 0)))
             .order(by: "completedAt", descending: true)
             .limit(to: limit)
+            .getDocuments()
+        return snapshot.documents.map(Self.taskItem(from:))
+    }
+
+    func completedTasks(since: Date, userId: String) async throws -> [TaskItem] {
+        // Range + order on the same field — no composite index needed.
+        let snapshot = try await tasks(userId)
+            .whereField("completedAt", isGreaterThanOrEqualTo: Timestamp(date: since))
+            .order(by: "completedAt", descending: true)
             .getDocuments()
         return snapshot.documents.map(Self.taskItem(from:))
     }
@@ -190,7 +208,8 @@ final class FirestoreTaskRepository: TaskRepository {
             }
             return CompletedTaskStat(
                 completedAt: completedAt,
-                dueAt: (data["dueAt"] as? Timestamp)?.dateValue()
+                dueAt: (data["dueAt"] as? Timestamp)?.dateValue(),
+                listId: data["listId"] as? String
             )
         }
     }

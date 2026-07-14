@@ -89,7 +89,8 @@ func makeProfile(
     lastActiveDate: Date? = nil,
     vacationMode: Bool = false,
     // An empty window so mood assertions don't flip when the suite runs at night.
-    bedtime: BedtimeWindow = BedtimeWindow(startMinutes: 0, endMinutes: 0)
+    bedtime: BedtimeWindow = BedtimeWindow(startMinutes: 0, endMinutes: 0),
+    importedReminderListIds: [String] = []
 ) -> UserProfile {
     UserProfile(
         id: "user1", displayName: "Alex Rivera", authProvider: nil, createdAt: nil,
@@ -99,7 +100,7 @@ func makeProfile(
         onboardingComplete: true, notificationsEnabled: nil,
         notificationPrefs: .standard, soundEnabled: false,
         vacationMode: vacationMode, vacationResumeAt: nil,
-        importedReminderListIds: []
+        importedReminderListIds: importedReminderListIds
     )
 }
 
@@ -288,6 +289,9 @@ final class StubTaskRepository: TaskRepository {
     }
     func incompleteTasks(userId: String) async throws -> [TaskItem] { incomplete }
     func completedTasks(limit: Int, userId: String) async throws -> [TaskItem] { completed }
+    func completedTasks(since: Date, userId: String) async throws -> [TaskItem] {
+        completed.filter { ($0.completedAt ?? .distantPast) >= since }
+    }
     func setCompleted(taskId: String, completed: Bool, userId: String) async throws {
         setCompletedCalls.append((taskId, completed))
     }
@@ -308,21 +312,61 @@ final class StubListRepository: ListRepository {
     private(set) var createdNames: [String] = []
 
     func fetchLists(userId: String) async throws -> [TaskList] { lists }
-    func createList(name: String, colorHex: String, icon: String, order: Int, userId: String) async throws {
+    @discardableResult
+    func createList(name: String, colorHex: String, icon: String, order: Int, userId: String) async throws -> TaskList {
         createdNames.append(name)
+        return TaskList(id: "created-\(createdNames.count)", name: name, colorHex: colorHex, icon: icon, order: order)
     }
     func renameList(id: String, name: String, userId: String) async throws {}
     func deleteList(id: String, userId: String) async throws {}
     func saveOrder(ids: [String], userId: String) async throws {}
 }
 
+final class StubRemindersGateway: RemindersGateway {
+    var access: RemindersAccess = .granted
+    var lists: [ReminderList] = []
+    var openReminders: [ReminderTaskItem] = []
+    var setCompletedResult = true
+    private(set) var setCompletedCalls: [(id: String, completed: Bool)] = []
+
+    var accessStatus: RemindersAccess { access }
+    func requestFullAccess() async -> Bool { access == .granted }
+    func fetchLists() async -> [ReminderList] { lists }
+    func fetchOpenReminders(listIds: [String]) async -> [ReminderTaskItem] {
+        guard access == .granted else { return [] }
+        return openReminders.filter { listIds.contains($0.listId) }
+    }
+    func setReminderCompleted(id: String, completed: Bool) async -> Bool {
+        setCompletedCalls.append((id, completed))
+        return setCompletedResult
+    }
+}
+
+func makeReminder(
+    id: String = UUID().uuidString,
+    title: String = "Reminder",
+    dueAt: Date? = nil,
+    hasTime: Bool = false,
+    listId: String = "ek-list",
+    listName: String = "Groceries",
+    completed: Bool = false
+) -> ReminderTaskItem {
+    ReminderTaskItem(
+        id: id, title: title, dueAt: dueAt, hasTime: hasTime,
+        listId: listId, listName: listName, completed: completed
+    )
+}
+
 final class StubComfortBufferStore: ComfortBufferStore {
     private(set) var boosts: [(lift: Double, duration: TimeInterval)] = []
     var value: Double = 0
+    var expiry: Date?
 
     func add(lift: Double, duration: TimeInterval) {
         boosts.append((lift, duration))
         value = min(MoodEngine.Constants.bufferCap, value + lift)
+        expiry = Date.now.addingTimeInterval(duration)
     }
     func currentValue(now: Date) -> Double { value }
+    func latestExpiry(now: Date) -> Date? { value > 0 ? expiry : nil }
 }

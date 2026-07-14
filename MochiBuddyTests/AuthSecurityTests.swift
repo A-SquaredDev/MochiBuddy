@@ -108,6 +108,7 @@ struct DataScopingTests {
             authRepository: auth,
             profileRepository: profileRepo,
             taskRepository: taskRepo,
+            listRepository: StubListRepository(),
             bufferStore: StubComfortBufferStore(),
             rewardsStore: RewardsStore(profileRepository: profileRepo),
             completionStore: TaskCompletionStore(

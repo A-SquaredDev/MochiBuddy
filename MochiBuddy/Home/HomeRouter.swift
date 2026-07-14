@@ -24,6 +24,7 @@ final class HomeRouter {
             authRepository: container.authRepository,
             profileRepository: container.profileRepository,
             taskRepository: container.taskRepository,
+            listRepository: container.listRepository,
             bufferStore: container.comfortBufferStore,
             rewardsStore: container.rewardsStore,
             completionStore: container.taskCompletionStore
@@ -31,10 +32,11 @@ final class HomeRouter {
         return AnyView(HomeView(viewModel: viewModel, router: self))
     }
 
-    /// The edit sheet for a Today row.
-    func taskEditor(task: TaskItem?) -> AnyView {
+    /// The add/edit sheet — `draftTitle` seeds a new capture from quick-add.
+    func taskEditor(task: TaskItem?, draftTitle: String? = nil) -> AnyView {
         let viewModel = TaskEditorViewModel(
             editingTask: task,
+            draftTitle: draftTitle,
             authRepository: container.authRepository,
             taskRepository: container.taskRepository,
             listRepository: container.listRepository

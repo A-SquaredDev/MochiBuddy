@@ -18,10 +18,19 @@ final class TaskCompletionStore {
         let streak: Int?
         /// The next occurrence created for a repeating task.
         let spawnedNext: TaskItem?
+        /// The spawned occurrence deleted because its completion was undone
+        /// — callers must drop it from their local arrays too.
+        var reapedTaskId: String? = nil
     }
 
     private let taskRepository: TaskRepository
     private let rewardsStore: RewardsStore
+
+    /// Which spawn each completion created, so an undo can reap it instead
+    /// of leaving a duplicate future occurrence behind. Session-scoped: an
+    /// undo after relaunch can't reap (the link isn't persisted), which
+    /// matches the old behavior at worst.
+    private var spawnByCompletedTaskId: [String: String] = [:]
 
     init(taskRepository: TaskRepository, rewardsStore: RewardsStore) {
         self.taskRepository = taskRepository
@@ -38,7 +47,12 @@ final class TaskCompletionStore {
 
         guard completed else {
             let delta = await rewardsStore.revokeCompletion(currentCoins: currentCoins, userId: userId)
-            return ToggleOutcome(coinsDelta: delta, streak: nil, spawnedNext: nil)
+            var reaped: String?
+            if let spawnedId = spawnByCompletedTaskId.removeValue(forKey: task.id) {
+                try? await taskRepository.deleteTask(id: spawnedId, userId: userId)
+                reaped = spawnedId
+            }
+            return ToggleOutcome(coinsDelta: delta, streak: nil, spawnedNext: nil, reapedTaskId: reaped)
         }
 
         var spawned: TaskItem?
@@ -60,6 +74,7 @@ final class TaskCompletionStore {
                     listId: task.listId, repeatRule: rule,
                     completed: false, completedAt: nil, createdAt: .now
                 )
+                spawnByCompletedTaskId[task.id] = id
             }
         }
 

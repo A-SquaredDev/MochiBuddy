@@ -26,6 +26,8 @@ protocol ComfortBufferStore: AnyObject {
     func add(lift: Double, duration: TimeInterval)
     /// Sum of active boosts, clamped to the buffer cap (+30).
     func currentValue(now: Date) -> Double
+    /// When the last active boost fully fades — nil when nothing is active.
+    func latestExpiry(now: Date) -> Date?
 }
 
 final class UserDefaultsComfortBufferStore: ComfortBufferStore {
@@ -47,6 +49,13 @@ final class UserDefaultsComfortBufferStore: ComfortBufferStore {
     func currentValue(now: Date) -> Double {
         let total = load().reduce(0) { $0 + $1.value(at: now) }
         return min(MoodEngine.Constants.bufferCap, total)
+    }
+
+    func latestExpiry(now: Date) -> Date? {
+        load()
+            .filter { $0.value(at: now) > 0 }
+            .map { $0.startedAt.addingTimeInterval($0.duration) }
+            .max()
     }
 
     private func load() -> [BufferBoost] {

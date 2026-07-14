@@ -50,6 +50,24 @@ struct TaskEditorNewTests {
         #expect(vm.uiState.overdueBanner == nil)
     }
 
+    @Test("a seeded draft title prefills the field and enables save")
+    func draftTitleSeed() async {
+        let taskRepo = StubTaskRepository()
+        let vm = TaskEditorViewModel(
+            editingTask: nil,
+            draftTitle: "Plan the trip",
+            authRepository: StubAuthRepository(),
+            taskRepository: taskRepo,
+            listRepository: StubListRepository()
+        )
+        #expect(vm.uiState.title == "Plan the trip")
+        #expect(vm.uiState.canSave == true)
+        #expect(vm.uiState.isEditing == false)
+        await vm.triggerAsync(.load)
+        await vm.triggerAsync(.saveTapped)
+        #expect(taskRepo.addedDrafts.first?.title == "Plan the trip")
+    }
+
     @Test("a real title enables save; whitespace doesn't")
     func canSave() async {
         let (vm, _) = makeEditorVM()
@@ -298,6 +316,18 @@ struct TaskEditorEditTests {
             priority: .high,
             listId: "work"
         )
+    }
+
+    @Test("isEditing is true before .load runs — the focus check reads it synchronously")
+    func isEditingSetAtInit() async {
+        let (editVM, _) = makeEditorVM(editing: overdueTask)
+        #expect(editVM.uiState.isEditing == true, "must not wait for .load — the View decides keyboard focus in onLoad")
+        #expect(editVM.uiState.title == "Reply to Sam's email")
+        #expect(editVM.uiState.canSave == true)
+
+        let (newVM, _) = makeEditorVM()
+        #expect(newVM.uiState.isEditing == false)
+        #expect(newVM.uiState.canSave == false)
     }
 
     @Test("edit mode prefills every field and shows the overdue banner")

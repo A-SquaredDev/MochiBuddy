@@ -13,7 +13,9 @@ import Testing
 @MainActor
 private func makeHomeVM(
     incomplete: [TaskItem] = [],
+    completed: [TaskItem] = [],
     completedStats: [CompletedTaskStat] = [],
+    lists: [TaskList] = [],
     profile: UserProfile = makeProfile(coins: 100, streak: 4)
 ) -> (HomeViewModel, StubTaskRepository, StubProfileRepository, StubComfortBufferStore) {
     let auth = StubAuthRepository()
@@ -21,12 +23,16 @@ private func makeHomeVM(
     profileRepo.profile = profile
     let taskRepo = StubTaskRepository()
     taskRepo.incomplete = incomplete
+    taskRepo.completed = completed
     taskRepo.completedStats = completedStats
+    let listRepo = StubListRepository()
+    listRepo.lists = lists
     let buffer = StubComfortBufferStore()
     let vm = HomeViewModel(
         authRepository: auth,
         profileRepository: profileRepo,
         taskRepository: taskRepo,
+        listRepository: listRepo,
         bufferStore: buffer,
         rewardsStore: RewardsStore(profileRepository: profileRepo),
         completionStore: TaskCompletionStore(
@@ -35,6 +41,41 @@ private func makeHomeVM(
         )
     )
     return (vm, taskRepo, profileRepo, buffer)
+}
+
+@Suite("HomeViewModel · loading")
+@MainActor
+struct HomeLoadingTests {
+
+    @Test("skeleton shows until the first refresh lands, then never again")
+    func loadingClearsAfterRefresh() async {
+        let (vm, _, _, _) = makeHomeVM(incomplete: [makeTask(id: "t1")])
+        #expect(vm.uiState.isLoading == true)
+        await vm.triggerAsync(.refresh)
+        #expect(vm.uiState.isLoading == false)
+    }
+
+    @Test("loading clears even when signed out, so the skeleton never sticks")
+    func loadingClearsWithoutUser() async {
+        let auth = StubAuthRepository()
+        auth.currentAccount = nil
+        let profileRepo = StubProfileRepository()
+        let taskRepo = StubTaskRepository()
+        let vm = HomeViewModel(
+            authRepository: auth,
+            profileRepository: profileRepo,
+            taskRepository: taskRepo,
+            listRepository: StubListRepository(),
+            bufferStore: StubComfortBufferStore(),
+            rewardsStore: RewardsStore(profileRepository: profileRepo),
+            completionStore: TaskCompletionStore(
+                taskRepository: taskRepo,
+                rewardsStore: RewardsStore(profileRepository: profileRepo)
+            )
+        )
+        await vm.triggerAsync(.refresh)
+        #expect(vm.uiState.isLoading == false)
+    }
 }
 
 @Suite("HomeViewModel · today scope")
@@ -58,13 +99,55 @@ struct HomeTodayScopeTests {
         #expect(vm.uiState.showEmptyToday == false)
     }
 
-    @Test("the glance list caps at 4 rows but counts everything remaining")
-    func capAtFour() async {
+    @Test("every scoped task is listed — the count and the rows always agree")
+    func noCap() async {
         let tasks = (0..<6).map { makeTask(id: "t\($0)", dueAt: Calendar.current.startOfDay(for: .now)) }
         let (vm, _, _, _) = makeHomeVM(incomplete: tasks)
         await vm.triggerAsync(.refresh)
-        #expect(vm.uiState.todayItems.count == 4)
+        #expect(vm.uiState.todayItems.count == 6)
         #expect(vm.uiState.leftText == "6 left")
+    }
+
+    @Test("tasks completed today land in their own Done section, not Today")
+    func doneTodaySection() async {
+        let doneAtNoon = makeTask(
+            id: "d1", completed: true,
+            completedAt: Calendar.current.startOfDay(for: .now).addingTimeInterval(12 * 3600)
+        )
+        let open = makeTask(id: "t1", dueAt: Calendar.current.startOfDay(for: .now))
+        let (vm, _, _, _) = makeHomeVM(incomplete: [open], completed: [doneAtNoon])
+        await vm.triggerAsync(.refresh)
+        #expect(vm.uiState.todayItems.map(\.id) == ["t1"])
+        #expect(vm.uiState.doneTodayItems.map(\.id) == ["d1"])
+        #expect(vm.uiState.doneTodayItems[0].state == .done)
+        #expect(vm.uiState.leftText == "1 left")
+    }
+
+    @Test("the week preview groups days 1–6 out and skips further-out tasks")
+    func weekPreview() async {
+        let tomorrow = makeTask(id: "a", title: "Gym", dueAt: Date.now.addingTimeInterval(1 * 24 * 3600))
+        let plus3 = makeTask(id: "b", title: "Groceries", dueAt: Date.now.addingTimeInterval(3 * 24 * 3600))
+        let plus9 = makeTask(id: "c", dueAt: Date.now.addingTimeInterval(9 * 24 * 3600))
+        let (vm, _, _, _) = makeHomeVM(incomplete: [plus9, plus3, tomorrow])
+        await vm.triggerAsync(.refresh)
+        #expect(vm.uiState.weekPreview.map(\.id) == ["d1", "d3"])
+        #expect(vm.uiState.weekPreview[0].dayLabel == "Tomorrow")
+        #expect(vm.uiState.weekPreview[0].summary == "Gym")
+        #expect(vm.uiState.weekPreview[1].count == 1)
+    }
+
+    @Test("rows carry their list's name and color; inbox rows carry none")
+    func listIndicator() async {
+        let groceries = TaskList(id: "l1", name: "Groceries", colorHex: "#8FD3F4", icon: "🛒", order: 0)
+        let inList = makeTask(id: "t1", dueAt: Calendar.current.startOfDay(for: .now), listId: "l1")
+        let inboxTask = makeTask(id: "t2", dueAt: Calendar.current.startOfDay(for: .now))
+        let (vm, _, _, _) = makeHomeVM(incomplete: [inList, inboxTask], lists: [groceries])
+        await vm.triggerAsync(.refresh)
+        let listed = try! #require(vm.uiState.todayItems.first { $0.id == "t1" })
+        #expect(listed.listName == "Groceries")
+        #expect(listed.listColor != nil)
+        let inbox = try! #require(vm.uiState.todayItems.first { $0.id == "t2" })
+        #expect(inbox.listName == nil)
     }
 
     @Test("no tasks in scope shows the calm empty state")
@@ -143,6 +226,22 @@ struct HomeActionTests {
         #expect(vm.uiState.todayItems.contains { $0.title == "Water the plants" })
     }
 
+    @Test("a post-submit echo of the submitted title can't resurrect the cleared field")
+    func quickAddSwallowsEcho() async {
+        let (vm, _, _, _) = makeHomeVM()
+        await vm.triggerAsync(.quickAddChanged("Buuy milk"))
+        await vm.triggerAsync(.quickAddSubmitted)
+        // A focused TextField can push its buffer back repeatedly (autocorrect
+        // commit, focus resign, sheet presentation) — every echo of the exact
+        // submitted title must be ignored…
+        await vm.triggerAsync(.quickAddChanged("Buuy milk"))
+        await vm.triggerAsync(.quickAddChanged("Buuy milk"))
+        #expect(vm.uiState.quickAddText.isEmpty)
+        // …while genuinely new input still lands.
+        await vm.triggerAsync(.quickAddChanged("Call mom"))
+        #expect(vm.uiState.quickAddText == "Call mom")
+    }
+
     @Test("quick add ignores whitespace-only input")
     func quickAddRejectsEmpty() async {
         let (vm, taskRepo, _, _) = makeHomeVM()
@@ -151,7 +250,47 @@ struct HomeActionTests {
         #expect(taskRepo.addedDrafts.isEmpty)
     }
 
-    @Test("completing a task pays coins, bumps the streak, and keeps the row visible as done")
+    @Test("the plus button opens the editor seeded with the typed title and clears the field")
+    func composeWithDraft() async {
+        let (vm, taskRepo, _, _) = makeHomeVM()
+        await vm.triggerAsync(.quickAddChanged("  Plan the trip  "))
+        await vm.triggerAsync(.composeTapped)
+
+        let editing = try! #require(vm.uiState.editingTask)
+        #expect(editing.task == nil)
+        #expect(editing.draftTitle == "Plan the trip")
+        #expect(vm.uiState.quickAddText.isEmpty)
+        #expect(taskRepo.addedDrafts.isEmpty, "compose opens the editor — it never instant-adds")
+        // The echo guard covers this path too.
+        await vm.triggerAsync(.quickAddChanged("  Plan the trip  "))
+        #expect(vm.uiState.quickAddText.isEmpty)
+    }
+
+    @Test("the plus button with an empty field opens a blank editor")
+    func composeBlank() async {
+        let (vm, _, _, _) = makeHomeVM()
+        await vm.triggerAsync(.composeTapped)
+        let editing = try! #require(vm.uiState.editingTask)
+        #expect(editing.task == nil)
+        #expect(editing.draftTitle == nil)
+    }
+
+    @Test("an active boost surfaces a fade countdown that clears when the boost dies")
+    func boostCountdown() async {
+        let (vm, _, _, buffer) = makeHomeVM()
+        await vm.triggerAsync(.refresh)
+        #expect(vm.uiState.boostFadeText == nil)
+
+        await vm.triggerAsync(.petTapped)
+        let text = try! #require(vm.uiState.boostFadeText)
+        #expect(text.hasPrefix("boost fades in ~"))
+
+        buffer.value = 0
+        await vm.triggerAsync(.tick)
+        #expect(vm.uiState.boostFadeText == nil)
+    }
+
+    @Test("completing a task pays coins, bumps the streak, and moves the row to Done today")
     func toggleComplete() async {
         let task = makeTask(id: "t1", dueAt: Calendar.current.startOfDay(for: .now))
         let (vm, taskRepo, _, _) = makeHomeVM(incomplete: [task], profile: makeProfile(coins: 0, streak: 0))
@@ -161,7 +300,8 @@ struct HomeActionTests {
         #expect(taskRepo.setCompletedCalls.first?.completed == true)
         #expect(vm.uiState.coins == RewardsStore.coinsPerTask)
         #expect(vm.uiState.streakDays == 1)
-        let item = try! #require(vm.uiState.todayItems.first { $0.id == "t1" })
+        #expect(vm.uiState.todayItems.isEmpty)
+        let item = try! #require(vm.uiState.doneTodayItems.first { $0.id == "t1" })
         #expect(item.state == .done)
         #expect(vm.uiState.leftText == "0 left")
     }
@@ -177,6 +317,8 @@ struct HomeActionTests {
         #expect(afterComplete == RewardsStore.coinsPerTask)
         #expect(vm.uiState.coins == 0)
         #expect(vm.uiState.leftText == "1 left")
+        #expect(vm.uiState.doneTodayItems.isEmpty, "undo moves the row back to Today")
+        #expect(vm.uiState.todayItems.map(\.id) == ["t1"])
     }
 
     @Test("petting adds the pet boost and lifts the displayed mood, not the baseline")
@@ -233,7 +375,10 @@ struct HomeActionTests {
         await vm.triggerAsync(.refresh)
         await vm.triggerAsync(.toggleTask("t1"))
         #expect(taskRepo.addedDrafts.count == 1, "the next daily occurrence must be created")
-        // Tomorrow's occurrence is out of today's scope — the done row remains.
-        #expect(vm.uiState.todayItems.map(\.id) == ["t1"])
+        // Tomorrow's occurrence is out of today's scope; the done row moved
+        // to the Done-today section and the spawn shows in the week preview.
+        #expect(vm.uiState.todayItems.isEmpty)
+        #expect(vm.uiState.doneTodayItems.map(\.id) == ["t1"])
+        #expect(vm.uiState.weekPreview.map(\.id) == ["d1"])
     }
 }

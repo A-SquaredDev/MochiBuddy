@@ -111,7 +111,8 @@ final class YouRouter: YouRouting {
         let viewModel = StatsViewModel(
             authRepository: container.authRepository,
             profileRepository: container.profileRepository,
-            taskRepository: container.taskRepository
+            taskRepository: container.taskRepository,
+            listRepository: container.listRepository
         )
         navController.navigate(
             route: AdHocRoute(key: "you.stats"),

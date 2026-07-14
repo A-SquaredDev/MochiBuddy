@@ -96,6 +96,24 @@ struct TaskCompletionStoreTests {
         #expect(taskRepo.addedDrafts.isEmpty, "undo must never spawn an occurrence")
     }
 
+    @Test("undoing a completion reaps the occurrence it spawned")
+    func undoReapsSpawn() async {
+        let (store, taskRepo, _) = makeStore()
+        let task = makeTask(id: "t1", dueAt: Dates.days(3), repeatRule: .weekly)
+
+        let completed = await store.setCompleted(task, completed: true, currentCoins: 0, userId: "user1")
+        let spawnedId = try! #require(completed.spawnedNext?.id)
+
+        let undone = await store.setCompleted(task, completed: false, currentCoins: 10, userId: "user1")
+        #expect(undone.reapedTaskId == spawnedId)
+        #expect(taskRepo.deletedIds == [spawnedId], "the premature next occurrence must be deleted")
+
+        // A second undo has nothing left to reap.
+        let again = await store.setCompleted(task, completed: false, currentCoins: 0, userId: "user1")
+        #expect(again.reapedTaskId == nil)
+        #expect(taskRepo.deletedIds.count == 1)
+    }
+
     @Test("un-completing with a low balance clamps the clawback")
     func uncompleteClamps() async {
         let (store, _, _) = makeStore()

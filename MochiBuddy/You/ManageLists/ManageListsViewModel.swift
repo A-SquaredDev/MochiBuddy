@@ -20,6 +20,9 @@ final class ManageListsViewModel: StateViewModel<
     private var lists: [TaskList] = []
     private var deleteCandidateId: String?
     private var renameCandidateId: String?
+    /// After create clears the field, the focused TextField can echo the
+    /// old draft back — swallow that exact string until different input.
+    private var lastCreatedDraftName: String?
 
     init(authRepository: AuthRepository, listRepository: ListRepository) {
         self.authRepository = authRepository
@@ -38,6 +41,8 @@ final class ManageListsViewModel: StateViewModel<
             await reload()
 
         case .draftNameChanged(let name):
+            if let echo = lastCreatedDraftName, name == echo { return }
+            lastCreatedDraftName = nil
             state.draftName = name
             state.canCreate = !name.trimmingCharacters(in: .whitespaces).isEmpty
 
@@ -48,16 +53,21 @@ final class ManageListsViewModel: StateViewModel<
             let name = uiState.draftName.trimmingCharacters(in: .whitespaces)
             guard !name.isEmpty, let userId else { return }
             Haptics.success()
-            try? await listRepository.createList(
+            // Optimistic: a re-fetch here can race the fire-and-forget
+            // write and make the new list look like it was never created.
+            if let created = try? await listRepository.createList(
                 name: name,
                 colorHex: uiState.selectedColorId,
                 icon: TaskListDefaults.icon,
                 order: (lists.map(\.order).max() ?? -1) + 1,
                 userId: userId
-            )
+            ) {
+                lists.append(created)
+                rebuildRows()
+            }
+            lastCreatedDraftName = uiState.draftName
             state.draftName = ""
             state.canCreate = false
-            await reload()
 
         case .moveList(let from, let to):
             lists.move(fromOffsets: from, toOffset: to)

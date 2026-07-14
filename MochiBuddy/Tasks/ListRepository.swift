@@ -11,7 +11,10 @@ import FirebaseFirestore
 
 protocol ListRepository: AnyObject {
     func fetchLists(userId: String) async throws -> [TaskList]
-    func createList(name: String, colorHex: String, icon: String, order: Int, userId: String) async throws
+    /// Returns the created list so callers can update optimistically —
+    /// a re-fetch can race the un-acked fire-and-forget write.
+    @discardableResult
+    func createList(name: String, colorHex: String, icon: String, order: Int, userId: String) async throws -> TaskList
     func renameList(id: String, name: String, userId: String) async throws
     func deleteList(id: String, userId: String) async throws
     /// Persists a full reorder — ids in their new display order.
@@ -44,13 +47,14 @@ final class FirestoreListRepository: ListRepository {
         }
     }
 
-    func createList(name: String, colorHex: String, icon: String, order: Int, userId: String) async throws {
-        lists(userId).addDocument(data: [
+    func createList(name: String, colorHex: String, icon: String, order: Int, userId: String) async throws -> TaskList {
+        let reference = lists(userId).addDocument(data: [
             "name": name,
             "color": colorHex,
             "icon": icon,
             "order": order,
         ], completion: nil)
+        return TaskList(id: reference.documentID, name: name, colorHex: colorHex, icon: icon, order: order)
     }
 
     func renameList(id: String, name: String, userId: String) async throws {

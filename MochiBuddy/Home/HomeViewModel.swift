@@ -7,7 +7,7 @@
 //  baseline comes from MoodEngine; the buffer decays via a 30s tick.
 //
 
-import UIKit
+import SwiftUI
 import Combine
 
 final class HomeViewModel: StateViewModel<
@@ -18,23 +18,32 @@ final class HomeViewModel: StateViewModel<
     private let authRepository: AuthRepository
     private let profileRepository: UserProfileRepository
     private let taskRepository: TaskRepository
+    private let listRepository: ListRepository
     private let bufferStore: ComfortBufferStore
     private let rewardsStore: RewardsStore
     private let completionStore: TaskCompletionStore
 
     // Domain source of truth — UIState is derived from these.
+    /// Incomplete tasks only; completions move to `completedToday`.
     private var tasks: [TaskItem] = []
+    private var completedToday: [TaskItem] = []
+    private var lists: [TaskList] = []
     private var completionsLast24h = 0
     private var vacationMode = false
     private var bedtime: BedtimeWindow = .standard
     private var coins = 0
     private var streak = 0
     private var hasStartedTimer = false
+    /// After submit clears the field, a focused TextField can echo one last
+    /// `.quickAddChanged` with the submitted title (autocorrect committing on
+    /// return) and resurrect the text — swallow exactly that one echo.
+    private var lastSubmittedQuickAddTitle: String?
 
     init(
         authRepository: AuthRepository,
         profileRepository: UserProfileRepository,
         taskRepository: TaskRepository,
+        listRepository: ListRepository,
         bufferStore: ComfortBufferStore,
         rewardsStore: RewardsStore,
         completionStore: TaskCompletionStore
@@ -42,6 +51,7 @@ final class HomeViewModel: StateViewModel<
         self.authRepository = authRepository
         self.profileRepository = profileRepository
         self.taskRepository = taskRepository
+        self.listRepository = listRepository
         self.bufferStore = bufferStore
         self.rewardsStore = rewardsStore
         self.completionStore = completionStore
@@ -74,16 +84,33 @@ final class HomeViewModel: StateViewModel<
             await giveTreat(id: id)
 
         case .quickAddChanged(let text):
+            // The field can echo the submitted title more than once (focus
+            // resign + autocorrect commit + sheet presentation), so keep
+            // swallowing that exact string until different input arrives.
+            if let echo = lastSubmittedQuickAddTitle, text == echo { return }
+            lastSubmittedQuickAddTitle = nil
             state.quickAddText = text
 
         case .quickAddSubmitted:
             await quickAdd()
 
+        case .composeTapped:
+            let title = uiState.quickAddText.trimmingCharacters(in: .whitespaces)
+            if !uiState.quickAddText.isEmpty {
+                lastSubmittedQuickAddTitle = uiState.quickAddText
+                state.quickAddText = ""
+            }
+            Haptics.impact(.light)
+            state.editingTask = HomeBehavior.EditingTask(
+                task: nil,
+                draftTitle: title.isEmpty ? nil : title
+            )
+
         case .toggleTask(let id):
             await toggleTask(id: id)
 
         case .taskTapped(let id):
-            if let task = tasks.first(where: { $0.id == id }) {
+            if let task = (tasks + completedToday).first(where: { $0.id == id }) {
                 state.editingTask = HomeBehavior.EditingTask(task: task)
             }
 
@@ -108,6 +135,7 @@ final class HomeViewModel: StateViewModel<
     }
 
     private func refresh() async {
+        defer { state.isLoading = false }
         guard let userId else { return }
 
         if let account = authRepository.currentAccount {
@@ -122,6 +150,9 @@ final class HomeViewModel: StateViewModel<
             bedtime = profile.bedtime
         }
         tasks = (try? await taskRepository.incompleteTasks(userId: userId)) ?? []
+        let startOfToday = Calendar.current.startOfDay(for: .now)
+        completedToday = (try? await taskRepository.completedTasks(since: startOfToday, userId: userId)) ?? []
+        lists = (try? await listRepository.fetchLists(userId: userId)) ?? []
         let dayAgo = Date.now.addingTimeInterval(-24 * 3600)
         completionsLast24h = (try? await taskRepository.completedTaskStats(since: dayAgo, userId: userId).count) ?? 0
 
@@ -146,6 +177,7 @@ final class HomeViewModel: StateViewModel<
     private func quickAdd() async {
         let title = uiState.quickAddText.trimmingCharacters(in: .whitespaces)
         guard !title.isEmpty, let userId else { return }
+        lastSubmittedQuickAddTitle = uiState.quickAddText
         state.quickAddText = ""
 
         // Date-only, due today — shows up in the list without stressing Mochi.
@@ -161,11 +193,29 @@ final class HomeViewModel: StateViewModel<
     }
 
     private func toggleTask(id: String) async {
-        guard let index = tasks.firstIndex(where: { $0.id == id }), let userId else { return }
-        let nowCompleted = !tasks[index].completed
-        let task = tasks[index]
-        tasks[index].completed = nowCompleted
-        tasks[index].completedAt = nowCompleted ? .now : nil
+        guard let userId else { return }
+
+        // Completing moves the task into today's done list; undoing moves
+        // it back — the two arrays stay disjoint.
+        let task: TaskItem
+        let nowCompleted: Bool
+        if let index = tasks.firstIndex(where: { $0.id == id }) {
+            task = tasks[index]
+            nowCompleted = true
+            var moved = tasks.remove(at: index)
+            moved.completed = true
+            moved.completedAt = .now
+            completedToday.insert(moved, at: 0)
+        } else if let index = completedToday.firstIndex(where: { $0.id == id }) {
+            task = completedToday[index]
+            nowCompleted = false
+            var moved = completedToday.remove(at: index)
+            moved.completed = false
+            moved.completedAt = nil
+            tasks.append(moved)
+        } else {
+            return
+        }
 
         if nowCompleted {
             completionsLast24h += 1
@@ -185,6 +235,9 @@ final class HomeViewModel: StateViewModel<
         if let spawned = outcome.spawnedNext {
             tasks.append(spawned)
         }
+        if let reaped = outcome.reapedTaskId {
+            tasks.removeAll { $0.id == reaped }
+        }
         rebuildDerivedState()
     }
 
@@ -203,7 +256,6 @@ final class HomeViewModel: StateViewModel<
         let sleeping = !vacationMode && bedtime.contains(now)
 
         let scoped = todayScope(now: now)
-        let remaining = scoped.filter { !$0.completed }.count
 
         var next = uiState
         next.coins = coins
@@ -213,8 +265,12 @@ final class HomeViewModel: StateViewModel<
         next.displayedMood = displayed
         next.isSleeping = sleeping
         (next.moodTitle, next.moodSub) = moodCopy(displayed, sleeping: sleeping)
-        next.todayItems = scoped.prefix(4).map { item(for: $0, now: now) }
-        next.leftText = "\(remaining) left"
+        next.todayDateText = now.formatted(.dateTime.weekday(.wide).day().month(.wide))
+        next.todayItems = scoped.map { item(for: $0, now: now) }
+        next.doneTodayItems = completedToday.map { item(for: $0, now: now) }
+        next.weekPreview = weekPreview(now: now)
+        next.boostFadeText = boostFadeText(buffer: buffer, now: now)
+        next.leftText = "\(scoped.count) left"
         next.showEmptyToday = scoped.isEmpty
         next.bufferLabel = "+\(Int(buffer.rounded())) / \(Int(MoodEngine.Constants.bufferCap))"
         next.petActionMeta = "+\(Int(TreatCatalog.Pet.lift)) · lasts \(TreatCatalog.Pet.durationText)"
@@ -233,11 +289,10 @@ final class HomeViewModel: StateViewModel<
     }
 
     /// Overdue first (most overdue leading), then today's by time, then
-    /// undated. Tasks completed this session stay visible as done rows.
+    /// undated. Completed tasks live in `completedToday`, not here.
     private func todayScope(now: Date) -> [TaskItem] {
         let calendar = Calendar.current
         func bucket(_ task: TaskItem) -> Int? {
-            if task.completed { return 1 }
             if let hours = MoodEngine.hoursOverdue(task, now: now) {
                 if hours > 0 { return 0 }
                 return calendar.isDate(task.dueAt ?? now, inSameDayAs: now) ? 1 : nil
@@ -255,37 +310,51 @@ final class HomeViewModel: StateViewModel<
             .map(\.0)
     }
 
-    private func item(for task: TaskItem, now: Date) -> HomeBehavior.TodoUIItem {
-        let state: TodoRowState
-        let meta: String
-
-        if task.completed {
-            state = .done
-            meta = "Done · nice one"
-        } else if let hours = MoodEngine.hoursOverdue(task, now: now), hours > 0 {
-            state = .overdue
-            meta = "⏰ Overdue by \(Self.overdueText(hours: hours))"
-        } else if let dueAt = task.dueAt {
-            let timeText = dueAt.formatted(date: .omitted, time: .shortened)
-            if task.hasTime, dueAt.timeIntervalSince(now) < 3 * 3600 {
-                state = .due
-                meta = "Due soon · \(timeText)"
-            } else {
-                state = .normal
-                meta = task.hasTime ? "Due today · \(timeText)" : "Due later today"
+    /// Days 1…6 out, one compact row per day that has tasks.
+    private func weekPreview(now: Date) -> [HomeBehavior.WeekPreviewItem] {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: now)
+        var byOffset: [Int: [TaskItem]] = [:]
+        for task in tasks {
+            guard let dueAt = task.dueAt else { continue }
+            let offset = calendar.dateComponents(
+                [.day], from: today, to: calendar.startOfDay(for: dueAt)
+            ).day ?? 0
+            guard (1...6).contains(offset) else { continue }
+            byOffset[offset, default: []].append(task)
+        }
+        return byOffset.keys.sorted().map { offset in
+            let day = calendar.date(byAdding: .day, value: offset, to: today) ?? today
+            let dayTasks = byOffset[offset]!.sorted {
+                ($0.dueAt ?? .distantFuture) < ($1.dueAt ?? .distantFuture)
             }
-        } else {
-            state = .normal
-            meta = "Anytime"
+            let titles = dayTasks.prefix(2).map(\.title).joined(separator: " · ")
+            let extra = dayTasks.count - min(dayTasks.count, 2)
+            return HomeBehavior.WeekPreviewItem(
+                id: "d\(offset)",
+                dayLabel: offset == 1 ? "Tomorrow" : day.formatted(.dateTime.weekday(.abbreviated)),
+                summary: extra > 0 ? "\(titles) +\(extra) more" : titles,
+                count: dayTasks.count
+            )
         }
+    }
 
-        let chip = switch state {
-        case .done: "Done"
-        case .due: "Soon"
-        case .overdue, .normal: task.priority == .high ? "High" : "Focus"
-        }
+    private func boostFadeText(buffer: Double, now: Date) -> String? {
+        guard buffer > 0, let expiry = bufferStore.latestExpiry(now: now) else { return nil }
+        let minutes = max(1, Int(ceil(expiry.timeIntervalSince(now) / 60)))
+        if minutes < 60 { return "boost fades in ~\(minutes)m" }
+        return "boost fades in ~\(minutes / 60)h \(minutes % 60)m"
+    }
 
-        return HomeBehavior.TodoUIItem(id: task.id, title: task.title, meta: meta, state: state, chip: chip)
+    private func item(for task: TaskItem, now: Date) -> HomeBehavior.TodoUIItem {
+        let display = TodoItemDisplay.row(for: task, now: now)
+        let listTag = TodoItemDisplay.listTag(for: task.listId, in: lists)
+        return HomeBehavior.TodoUIItem(
+            id: task.id, title: task.title,
+            meta: display.meta, state: display.state, chip: display.chip,
+            listName: listTag?.name,
+            listColor: listTag?.color
+        )
     }
 
     private func moodCopy(_ value: Double, sleeping: Bool) -> (String, String) {
@@ -303,13 +372,4 @@ final class HomeViewModel: StateViewModel<
         }
     }
 
-    private static func overdueText(hours: Double) -> String {
-        if hours < 1 { return "a moment" }
-        if hours < 24 {
-            let h = Int(hours)
-            return "\(h) hr"
-        }
-        let days = Int(hours / 24)
-        return "\(days) day\(days == 1 ? "" : "s")"
-    }
 }
