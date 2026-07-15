@@ -79,7 +79,7 @@ struct StatsTrendTests {
             CompletedTaskStat(completedAt: due, dueAt: nil),                            // undated → on time
         ]
         #expect(StatsViewModel.onTimeText(stats) == "75%")
-        #expect(StatsViewModel.onTimeText([]) == "—")
+        #expect(StatsViewModel.onTimeText([]) == "–")
     }
 
     @Test("busiest weekday names the weekday with the most completions")
@@ -100,7 +100,7 @@ struct StatsTrendTests {
 @MainActor
 struct StatsListBreakdownTests {
 
-    private let work = TaskList(id: "work", name: "Work", colorHex: "#FF9DC4", icon: "💼", order: 0)
+    private let work = TaskList(id: "work", name: "Work", colorHex: "#FF9DC4", icon: "briefcase.fill", order: 0)
 
     @Test("slices map listIds to names, bucket nil as Inbox, and sort by count")
     func slices() {
@@ -120,7 +120,7 @@ struct StatsListBreakdownTests {
             Array(repeating: CompletedTaskStat(completedAt: .now, dueAt: nil, listId: "l\(index)"), count: 7 - index)
         }
         let lists = (0..<7).map {
-            TaskList(id: "l\($0)", name: "List \($0)", colorHex: "#C9A6FF", icon: "🏷️", order: $0)
+            TaskList(id: "l\($0)", name: "List \($0)", colorHex: "#C9A6FF", icon: "tag.fill", order: $0)
         }
         let slices = StatsViewModel.listSlices(stats: stats, lists: lists, limit: 5)
         #expect(slices.count == 6)

@@ -9,7 +9,7 @@ enum FirstTaskBehavior {
 
     struct UIState: UpdatableStruct, Equatable {
         var title = ""
-        var suggestions: [String] = ["💧 Drink water", "📞 Call mum", "🧾 Pay rent"]
+        var suggestions: [String] = ["Drink water", "Call mum", "Pay rent"]
         var canAdd = false
         var isSaving = false
     }

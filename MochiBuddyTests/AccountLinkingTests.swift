@@ -2,7 +2,7 @@
 //  AccountLinkingTests.swift
 //  MochiBuddyTests
 //
-//  Continue with Apple / Google — the anonymous session is linked, the
+//  Continue with Apple / Google - the anonymous session is linked, the
 //  display name travels to the profile document, and purchases follow
 //  whichever uid we actually end up signed in as.
 //
@@ -56,7 +56,7 @@ struct AppleLinkingTests {
         let call = try! #require(auth.appleSignIns.first)
         #expect(call.idToken == "id-token-123")
         #expect(call.rawNonce == "raw-nonce", "Firebase needs the raw nonce that hashes to the request's")
-        #expect(call.fullName == name, "Apple only provides the name ONCE — losing it here loses it forever")
+        #expect(call.fullName == name, "Apple only provides the name ONCE - losing it here loses it forever")
     }
 
     @Test("the linked account's name and provider land on the profile document")
@@ -74,7 +74,7 @@ struct AppleLinkingTests {
         #expect(link.displayName == "Alex Rivera")
     }
 
-    @Test("purchases follow the uid we actually became — even when the credential belonged to an existing account")
+    @Test("purchases follow the uid we actually became - even when the credential belonged to an existing account")
     func identifyFollowsActualUid() async {
         let (vm, auth, _, membership) = makeAccountVM()
         // The Apple credential already had a Mochi account: sign-in lands on
@@ -92,7 +92,7 @@ struct AppleLinkingTests {
     @Test("a completion without a prepared nonce is refused outright")
     func noNonceNoSignIn() async {
         let (vm, auth, _, _) = makeAccountVM()
-        // No .load — pendingNonce was never created.
+        // No .load - pendingNonce was never created.
         await vm.triggerAsync(.appleCompleted(idToken: "t", fullName: nil))
         #expect(auth.appleSignIns.isEmpty, "must never call Firebase with an unverifiable nonce")
         #expect(vm.uiState.errorMessage != nil)
@@ -107,7 +107,7 @@ struct AppleLinkingTests {
         await vm.triggerAsync(.appleCompleted(idToken: "t", fullName: nil))
         #expect(vm.uiState.errorMessage?.contains("Apple") == true)
         #expect(vm.uiState.isWorking == false)
-        #expect(auth.makeNonceCount == noncesBefore + 1, "a nonce is single-use — retry needs a fresh one")
+        #expect(auth.makeNonceCount == noncesBefore + 1, "a nonce is single-use - retry needs a fresh one")
     }
 
     @Test("user-cancelled Apple sign-in shows no error but still rotates the nonce")

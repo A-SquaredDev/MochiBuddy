@@ -26,7 +26,7 @@ struct FirstTaskView: View {
                 OnbHeading(
                     eyebrow: "Your first task",
                     title: "What's one thing on your mind?",
-                    bodyText: "Jot it down — Mochi's already rooting for you to check it off.",
+                    bodyText: "Jot it down. Mochi's already rooting for you to check it off.",
                     align: .leading
                 )
                 .padding(.top, 8)
@@ -39,7 +39,7 @@ struct FirstTaskView: View {
 
                 VStack(spacing: 4) {
                     MochiPetView(vitality: 90, size: 110)
-                    Text("Ooh, a fresh start ✨")
+                    Text("Ooh, a fresh start")
                         .font(MochiFont.display(13.5, weight: .semibold))
                         .foregroundStyle(theme.ink)
                     Text("Finish it later and I'll do a happy wiggle.")
@@ -71,7 +71,9 @@ struct FirstTaskView: View {
 
     private var taskInput: some View {
         HStack(spacing: 7) {
-            Text("✏️").font(.system(size: 13))
+            Image(systemName: "pencil")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(theme.muted)
             TextField(
                 "What's next on the list?",
                 text: viewModel.collectBinding(for: \.title, action: { .titleChanged($0) })

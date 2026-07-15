@@ -2,7 +2,7 @@
 //  MochiButton.swift
 //  MochiBuddy
 //
-//  The primary Mochi action control — Fredoka type, full pill, springy
+//  The primary Mochi action control - Fredoka type, full pill, springy
 //  press. Primary fills with the flavor primary; ghost uses the soft tint.
 //
 

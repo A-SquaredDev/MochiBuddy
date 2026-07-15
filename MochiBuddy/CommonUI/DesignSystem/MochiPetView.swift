@@ -2,7 +2,7 @@
 //  MochiPetView.swift
 //  MochiBuddy
 //
-//  The brand's virtual pet — a soft blob whose face and saturation reflect
+//  The brand's virtual pet - a soft blob whose face and saturation reflect
 //  vitality. Ported from the design system's MochiPet SVG (viewBox 180×170).
 //  Four moods: thriving, content, tired, unwell. Body colors come from the
 //  flavor's pet tokens; sparkles use primary/accent2. Tap to squish.
@@ -15,7 +15,7 @@ enum MochiMood: Equatable {
     case content
     case tired
     case unwell
-    /// Bedtime — closed eyes and drifting z's; hosts set this explicitly
+    /// Bedtime - closed eyes and drifting z's; hosts set this explicitly
     /// (it never comes from vitality).
     case sleeping
 
@@ -46,7 +46,7 @@ struct MochiPetView: View {
     var bobbing = false
     /// Bump this to squish from outside (e.g. a "Pet Mochi" button).
     var externalSquishTrigger = 0
-    /// Fires on tap regardless of squishOnTap — hosts hook petting here.
+    /// Fires on tap regardless of squishOnTap - hosts hook petting here.
     var onTap: (() -> Void)?
 
     @Environment(\.mochiTheme) private var theme
@@ -245,7 +245,7 @@ struct MochiPetView: View {
             ctx.fill(sweatDrop(at: CGPoint(x: 126, y: 78)), with: .color(Color(hex: 0x8FD3F4)))
 
         case .sleeping:
-            // Closed lids — gentle downward arcs — over a tiny relaxed smile.
+            // Closed lids - gentle downward arcs - over a tiny relaxed smile.
             var leftEye = Path()
             leftEye.move(to: p(64, 88))
             leftEye.addCurve(to: p(78, 88), control1: p(67, 94), control2: p(75, 94))

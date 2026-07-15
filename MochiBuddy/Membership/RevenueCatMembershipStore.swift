@@ -2,7 +2,7 @@
 //  RevenueCatMembershipStore.swift
 //  MochiBuddy
 //
-//  The production MembershipStore — StoreKit via RevenueCat, per the design
+//  The production MembershipStore - StoreKit via RevenueCat, per the design
 //  doc. One entitlement ("membership") gates everything; the offering's
 //  annual/monthly packages map to MembershipPlan.
 //
@@ -50,7 +50,7 @@ final class RevenueCatMembershipStore: MembershipStore {
     }
 
     func restorablePurchase() async -> RestorablePurchase? {
-        // syncPurchases quietly re-reads the store receipt — no UI, no charge.
+        // syncPurchases quietly re-reads the store receipt - no UI, no charge.
         guard let info = try? await Purchases.shared.syncPurchases(),
               let entitlement = info.entitlements[RevenueCatConfig.entitlementID],
               entitlement.isActive
@@ -98,7 +98,7 @@ final class RevenueCatMembershipStore: MembershipStore {
             return .notSubscribed
         }
         guard entitlement.isActive else {
-            // Had the entitlement once, not anymore — the lapsed re-entry path.
+            // Had the entitlement once, not anymore - the lapsed re-entry path.
             return .lapsed
         }
         if entitlement.periodType == .trial {

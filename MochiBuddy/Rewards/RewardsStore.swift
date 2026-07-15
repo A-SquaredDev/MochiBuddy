@@ -2,7 +2,7 @@
 //  RewardsStore.swift
 //  MochiBuddy
 //
-//  Coins & streak business logic. Coins are earn-only (flat per task —
+//  Coins & streak business logic. Coins are earn-only (flat per task -
 //  priority scaling would invite mislabeling), still awarded for overdue
 //  completions (clearing a late task is the recovery moment we most want
 //  to reward). One sink: treats.

@@ -2,9 +2,9 @@
 //  MochiListRow.swift
 //  MochiBuddy
 //
-//  The generic settings/list row from the design shell: emoji icon tile,
-//  title + optional subtitle, and a trailing accessory (chevron by default
-//  when tappable). Danger tone recolors the title.
+//  The generic settings/list row from the design shell: SF Symbol icon
+//  tile, title + optional subtitle, and a trailing accessory (chevron by
+//  default when tappable). Danger tone recolors the title.
 //
 
 import SwiftUI
@@ -37,8 +37,9 @@ struct MochiListRow<Right: View>: View {
     private var rowContent: some View {
         HStack(spacing: 11) {
             if let icon {
-                Text(icon)
-                    .font(.system(size: 16))
+                Image(systemName: icon)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(theme.ink)
                     .frame(width: 34, height: 34)
                     .background(iconBg ?? theme.surface, in: RoundedRectangle(cornerRadius: 11))
                     .shadow(color: .black.opacity(0.08), radius: 5, y: 2)
@@ -67,7 +68,7 @@ struct MochiListRow<Right: View>: View {
 }
 
 extension MochiListRow where Right == MochiRowChevron {
-    /// Navigation row — trailing chevron implied.
+    /// Navigation row - trailing chevron implied.
     init(
         icon: String? = nil,
         iconBg: Color? = nil,
@@ -98,7 +99,7 @@ struct MochiRowChevron: View {
     }
 }
 
-/// Title + optional subtitle with a MochiToggle — the card-embedded pref rows.
+/// Title + optional subtitle with a MochiToggle - the card-embedded pref rows.
 struct MochiToggleRow: View {
     let title: String
     var subtitle: String?

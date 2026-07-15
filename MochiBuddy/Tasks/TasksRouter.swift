@@ -3,14 +3,14 @@
 //  MochiBuddy
 //
 //  Builds the Tasks tab, its editor sheet, and the push into Manage lists
-//  (shared with the You flow — same screen, this tab's back stack).
+//  (shared with the You flow - same screen, this tab's back stack).
 //
 
 import SwiftUI
 
 @MainActor
 protocol TasksRouting: BackRouting {
-    /// The add/edit sheet — `task: nil` means new capture, optionally
+    /// The add/edit sheet - `task: nil` means new capture, optionally
     /// seeded with a title (Home quick-add) or a list (ListDetail).
     func taskEditor(task: TaskItem?, draftTitle: String?, draftListId: String?) -> AnyView
     func navigateToManageLists()
@@ -34,7 +34,7 @@ final class TasksRouter: TasksRouting {
         self.container = container
     }
 
-    /// Root of the tab — the Tasks screen.
+    /// Root of the tab - the Tasks screen.
     func start() -> AnyView {
         let viewModel = TasksViewModel(
             authRepository: container.authRepository,

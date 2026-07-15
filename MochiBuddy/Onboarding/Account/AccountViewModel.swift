@@ -2,7 +2,7 @@
 //  AccountViewModel.swift
 //  MochiBuddy
 //
-//  8 · Continue with Apple / Google — placed after the value moment.
+//  8 · Continue with Apple / Google - placed after the value moment.
 //  Links the credential onto the anonymous session so nothing is lost.
 //
 
@@ -34,7 +34,7 @@ final class AccountViewModel: ObservableStateViewModel<
 
         case .appleCompleted(let idToken, let fullName):
             guard let nonce = pendingNonce else {
-                state.errorMessage = "Something went wrong — please try again."
+                state.errorMessage = "Something went wrong. Please try again."
                 prepareNonce()
                 return
             }
@@ -45,7 +45,7 @@ final class AccountViewModel: ObservableStateViewModel<
                     rawNonce: nonce.raw,
                     fullName: fullName
                 )
-                // Sign-in can land on a different uid (existing account) —
+                // Sign-in can land on a different uid (existing account) -
                 // re-point purchases at whoever we actually are now.
                 await membershipStore.identify(userId: account.uid)
                 await onboardingStore.recordAccountLink(account)
@@ -58,7 +58,7 @@ final class AccountViewModel: ObservableStateViewModel<
             }
 
         case .appleFailed(let message):
-            // User-cancelled flows arrive here too — only surface real failures.
+            // User-cancelled flows arrive here too - only surface real failures.
             if !message.isEmpty {
                 state.errorMessage = message
             }

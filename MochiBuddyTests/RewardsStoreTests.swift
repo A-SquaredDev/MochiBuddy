@@ -2,7 +2,7 @@
 //  RewardsStoreTests.swift
 //  MochiBuddyTests
 //
-//  Coins are earned, never bought — and never farmable. Streaks extend on
+//  Coins are earned, never bought - and never farmable. Streaks extend on
 //  consecutive days, hold within a day, and restart after a gap.
 //
 
@@ -39,7 +39,7 @@ struct RewardsCoinsTests {
         #expect(delta == -4)
     }
 
-    @Test("clawback with an empty balance is a no-op — no write at all")
+    @Test("clawback with an empty balance is a no-op - no write at all")
     func revokeEmptyBalance() async {
         let repo = StubProfileRepository()
         let store = RewardsStore(profileRepository: repo)
@@ -48,7 +48,7 @@ struct RewardsCoinsTests {
         #expect(repo.coinDeltas.isEmpty)
     }
 
-    @Test("toggle-spam nets zero coins — complete/undo/complete/undo")
+    @Test("toggle-spam nets zero coins - complete/undo/complete/undo")
     func toggleSpamNetsZero() async {
         let repo = StubProfileRepository()
         let store = RewardsStore(profileRepository: repo)
@@ -133,7 +133,7 @@ struct RewardsStreakTests {
 
     @Test("a same-day completion with a zero streak still records at least 1")
     func zeroStreakSameDay() async {
-        // Corrupt-ish state: active today but streak 0 — never report 0 after completing.
+        // Corrupt-ish state: active today but streak 0 - never report 0 after completing.
         let (store, _) = store(profile: makeProfile(streak: 0, lastActiveDate: today))
         let outcome = await store.awardCompletion(userId: "user1")
         #expect(outcome.streak == 1)

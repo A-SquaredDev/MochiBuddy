@@ -67,13 +67,14 @@ struct DeleteSubActiveView: View {
 
     private var warningCard: some View {
         HStack(alignment: .top, spacing: 11) {
-            Text("⚠️")
-                .font(.system(size: 22))
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 20))
+                .foregroundStyle(theme.warn)
             VStack(alignment: .leading, spacing: 4) {
                 Text("Your subscription keeps billing")
                     .font(MochiFont.display(14.5, weight: .semibold))
                     .foregroundStyle(theme.warn)
-                Text("Your Mochi+ membership belongs to your Apple ID, not this account — deleting your account \(Text("won't cancel it.").fontWeight(.heavy)) You'll keep being charged \(viewModel.priceLine) until you cancel with Apple.")
+                Text("Your Mochi+ membership belongs to your Apple ID, not this account, so deleting your account \(Text("won't cancel it.").fontWeight(.heavy)) You'll keep being charged \(viewModel.priceLine) until you cancel with Apple.")
                     .font(MochiFont.body(12, weight: .bold))
                     .foregroundStyle(theme.ink)
                     .lineSpacing(3)

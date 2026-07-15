@@ -2,7 +2,7 @@
 //  TaskItem.swift
 //  MochiBuddy
 //
-//  Domain model for users/{uid}/tasks — deliberately lean (v1).
+//  Domain model for users/{uid}/tasks - deliberately lean (v1).
 //
 
 import Foundation
@@ -56,7 +56,7 @@ enum TaskRepeat: Equatable {
         }
     }
 
-    /// The next due date strictly after `now` — an overdue repeating task
+    /// The next due date strictly after `now` - an overdue repeating task
     /// completed late skips the occurrences that already passed.
     func nextOccurrence(after due: Date, now: Date = .now, calendar: Calendar = .current) -> Date {
         var next = due
@@ -94,7 +94,7 @@ enum TaskRepeat: Equatable {
     }
 }
 
-/// A task as it exists — the mood engine and every task surface read this.
+/// A task as it exists - the mood engine and every task surface read this.
 struct TaskItem: Equatable, Identifiable {
     let id: String
     var title: String

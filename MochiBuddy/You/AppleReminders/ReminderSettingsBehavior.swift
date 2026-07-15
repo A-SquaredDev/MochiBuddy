@@ -16,9 +16,9 @@ enum ReminderSettingsBehavior {
 
     enum Status: Equatable {
         case loading
-        /// EventKit access not granted yet — show the primer + connect CTA.
+        /// EventKit access not granted yet - show the primer + connect CTA.
         case disconnected
-        /// Access refused at the OS level — only Settings can undo it.
+        /// Access refused at the OS level - only Settings can undo it.
         case systemDenied
         case connected
     }

@@ -2,7 +2,7 @@
 //  TasksViewModel.swift
 //  MochiBuddy
 //
-//  The Tasks tab — Today (overdue pinned up top), Upcoming (grouped by
+//  The Tasks tab - Today (overdue pinned up top), Upcoming (grouped by
 //  day), Lists (categories overview), Done (with coins earned). Check-offs
 //  route through TaskCompletionStore, same as Home.
 //
@@ -29,7 +29,7 @@ final class TasksViewModel: ObservableStateViewModel<
     private let remindersGateway: RemindersGateway
     private let defaults: UserDefaults
 
-    // Domain source of truth — UIState is derived from these.
+    // Domain source of truth - UIState is derived from these.
     private var incomplete: [TaskItem] = []
     private var completed: [TaskItem] = []
     private var lists: [TaskList] = []
@@ -71,7 +71,7 @@ final class TasksViewModel: ObservableStateViewModel<
             await toggleTask(id: id)
 
         case .taskTapped(let id):
-            // Reminder rows have no editor — they're managed in Apple Reminders.
+            // Reminder rows have no editor - they're managed in Apple Reminders.
             guard !id.hasPrefix(Self.reminderIdPrefix) else { return }
             let all = incomplete + completed
             if let task = all.first(where: { $0.id == id }) {
@@ -108,7 +108,7 @@ final class TasksViewModel: ObservableStateViewModel<
         }
     }
 
-    /// "2026-07-14" — dismissal is per-day so the banner returns tomorrow.
+    /// "2026-07-14" - dismissal is per-day so the banner returns tomorrow.
     private static func dayKey(for date: Date) -> String {
         date.formatted(.iso8601.year().month().day().dateSeparator(.dash))
     }
@@ -131,7 +131,7 @@ final class TasksViewModel: ObservableStateViewModel<
         rebuild()
     }
 
-    /// Access can flip in Settings mid-session — re-check every refresh.
+    /// Access can flip in Settings mid-session - re-check every refresh.
     private func refreshReminders(syncedListIds: [String]) async {
         guard !syncedListIds.isEmpty else {
             (reminders, reminderLists, remindersBlocked) = ([], [], false)
@@ -193,7 +193,7 @@ final class TasksViewModel: ObservableStateViewModel<
         rebuild()
     }
 
-    /// Reminder check-offs write back to Apple Reminders only — no coins,
+    /// Reminder check-offs write back to Apple Reminders only - no coins,
     /// no streak, no repeat-spawning. Reverts the flip if the save fails.
     private func toggleReminder(id: String) async {
         guard let index = reminders.firstIndex(where: { $0.id == id }) else { return }
@@ -225,10 +225,10 @@ final class TasksViewModel: ObservableStateViewModel<
         next.listItems = []
         next.groups = []
         next.remindersAccessHint = remindersBlocked
-            ? "Reminders access is off — re-enable it in Settings to see your synced lists."
+            ? "Reminders access is off. Re-enable it in Settings to see your synced lists."
             : nil
 
-        // Firestore completions only — reminder check-offs earn no coins,
+        // Firestore completions only - reminder check-offs earn no coins,
         // so they must never feed the celebration math.
         let doneToday = completed.filter {
             $0.completedAt.map { Calendar.current.isDateInToday($0) } ?? false
@@ -269,7 +269,7 @@ final class TasksViewModel: ObservableStateViewModel<
         case .upcoming:
             next.subtitle = "Next 7 days"
             next.groups = upcomingGroups(over: incomplete + openReminderTasks, now: now)
-            next.footnote = "All future-dated tasks live here — no date means Someday, "
+            next.footnote = "All future-dated tasks live here. No date means Someday, "
                 + "beyond 7 days means Later. Repeating tasks appear once their "
                 + "next occurrence is scheduled."
 
@@ -283,7 +283,7 @@ final class TasksViewModel: ObservableStateViewModel<
             }.count
             next.subtitle = "\(doneThisWeek) done this week"
             // Honest math (today's completions × the flat per-task rate) and
-            // per-day dismissible — never a running total of stale history.
+            // per-day dismissible - never a running total of stale history.
             let dismissedToday = defaults.string(forKey: Self.celebrationDismissedDayKey) == Self.dayKey(for: now)
             if !doneToday.isEmpty, !dismissedToday {
                 next.doneCelebration = "Earned +\(doneToday.count * RewardsStore.coinsPerTask) coins today"
@@ -350,7 +350,7 @@ final class TasksViewModel: ObservableStateViewModel<
         return groups
     }
 
-    /// One group per calendar day, newest first — the Done tab renders these
+    /// One group per calendar day, newest first - the Done tab renders these
     /// as a dated timeline. Fetch is capped at the 50 newest completions, so
     /// the oldest day may be partial.
     private func doneGroups(now: Date) -> [TasksBehavior.Group] {
@@ -395,7 +395,7 @@ final class TasksViewModel: ObservableStateViewModel<
         }
         var rows = [TasksBehavior.ListUIItem(
             id: "inbox",
-            icon: "📥",
+            icon: "tray.fill",
             name: "Inbox",
             countText: countText(countByList[nil] ?? 0),
             color: Color(hexString: TaskListDefaults.colorChoices[0])
@@ -413,7 +413,7 @@ final class TasksViewModel: ObservableStateViewModel<
             let openCount = reminders.filter { $0.listId == list.id && !$0.completed }.count
             return TasksBehavior.ListUIItem(
                 id: Self.reminderIdPrefix + list.id,
-                icon: "☑️",
+                icon: "checklist",
                 name: list.name,
                 countText: countText(openCount),
                 color: list.colorHex.map { Color(hexString: $0) }
@@ -425,7 +425,7 @@ final class TasksViewModel: ObservableStateViewModel<
     }
 
     /// Reminder-backed rows dressed as tasks so grouping/sorting reuse the
-    /// task pipelines. They never touch Firestore — actions route by prefix.
+    /// task pipelines. They never touch Firestore - actions route by prefix.
     private func reminderPseudoTask(_ reminder: ReminderTaskItem) -> TaskItem {
         TaskItem(
             id: Self.reminderIdPrefix + reminder.id,

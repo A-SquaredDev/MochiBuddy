@@ -3,7 +3,7 @@
 //  MochiBuddy
 //
 //  Wraps the one-shot iOS notification prompt. The onboarding primer fires
-//  this only after the user opts in — we get exactly one shot at the
+//  this only after the user opts in - we get exactly one shot at the
 //  system dialog.
 //
 

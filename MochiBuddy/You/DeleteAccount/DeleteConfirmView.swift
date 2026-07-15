@@ -35,7 +35,7 @@ struct DeleteConfirmView: View {
                     Text("This is permanent")
                         .font(MochiFont.display(12.5, weight: .semibold))
                         .foregroundStyle(theme.danger)
-                    Text("Tasks, lists, coins and streak are gone forever. Subscription access can be restored on a fresh install with \u{201C}Restore Purchases\u{201D} — your data cannot.")
+                    Text("Tasks, lists, coins and streak are gone forever. Subscription access can be restored on a fresh install with \u{201C}Restore Purchases\u{201D}, but your data cannot.")
                         .font(MochiFont.body(11, weight: .bold))
                         .foregroundStyle(theme.danger.opacity(0.85))
                         .lineSpacing(3)
@@ -82,8 +82,9 @@ struct DeleteConfirmView: View {
     private var verifyCard: some View {
         MochiCard(padding: EdgeInsets(top: 16, leading: 15, bottom: 16, trailing: 15)) {
             VStack(spacing: 6) {
-                Text(viewModel.isVerified ? "✅" : "🔐")
-                    .font(.system(size: 34))
+                Image(systemName: viewModel.isVerified ? "checkmark.circle.fill" : "lock.fill")
+                    .font(.system(size: 30))
+                    .foregroundStyle(viewModel.isVerified ? theme.primaryText : theme.muted)
                 Text(viewModel.isVerified ? "It's you" : "Verify it's you")
                     .font(MochiFont.display(16, weight: .semibold))
                     .foregroundStyle(theme.ink)
@@ -123,7 +124,7 @@ struct DeleteConfirmView: View {
                     }
                     viewModel.trigger(.appleCompleted(idToken: idToken))
                 case .failure:
-                    // Treat as cancellation — no error surfaced.
+                    // Treat as cancellation - no error surfaced.
                     viewModel.trigger(.appleFailed(message: ""))
                 }
             }

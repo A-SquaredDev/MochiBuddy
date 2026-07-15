@@ -2,7 +2,7 @@
 //  VacationViewModel.swift
 //  MochiBuddy
 //
-//  Vacation mode — pause nudges and stress accrual entirely. Optional
+//  Vacation mode - pause nudges and stress accrual entirely. Optional
 //  auto-resume date; otherwise on until turned off. Persists immediately.
 //
 
@@ -81,7 +81,7 @@ final class VacationViewModel: StateViewModel<
     }
 
     private var toggleSub: String {
-        guard isOn else { return "Off — nudges as usual" }
+        guard isOn else { return "Off · nudges as usual" }
         guard let resumeAt else { return "On until you turn it off" }
         return "On until \(resumeAt.formatted(.dateTime.day().month(.abbreviated)))"
     }

@@ -2,7 +2,7 @@
 //  WelcomeBackViewModel.swift
 //  MochiBuddy
 //
-//  R · Welcome back — account recognised, Mochi drooped a little while
+//  R · Welcome back - account recognised, Mochi drooped a little while
 //  away. Continue routes on membership state: active purchase found →
 //  restore, otherwise → the lapsed gate.
 //

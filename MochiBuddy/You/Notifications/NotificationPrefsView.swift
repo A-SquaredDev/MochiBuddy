@@ -64,7 +64,9 @@ struct NotificationPrefsView: View {
                 }
 
                 HStack(spacing: 8) {
-                    Text("🌙")
+                    Image(systemName: "moon.fill")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(theme.muted)
                     Text("Reminders are capped so Mochi never floods your lock screen.")
                         .font(MochiFont.body(11, weight: .bold))
                         .foregroundStyle(theme.muted)
@@ -108,8 +110,9 @@ struct NotificationPrefsView: View {
     private var deniedBanner: some View {
         MochiCard(padding: EdgeInsets(top: 13, leading: 15, bottom: 13, trailing: 15)) {
             HStack(spacing: 11) {
-                Text("🔕")
-                    .font(.system(size: 20))
+                Image(systemName: "bell.slash.fill")
+                    .font(.system(size: 18))
+                    .foregroundStyle(theme.warn)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Notifications are off in Settings")
                         .font(MochiFont.body(13, weight: .heavy))

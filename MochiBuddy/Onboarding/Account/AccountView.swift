@@ -27,7 +27,7 @@ struct AccountView: View {
             OnbHeading(
                 eyebrow: "Almost there",
                 title: "Let's keep your Mochi safe",
-                bodyText: "Create an account so your tasks, coins and Mochi's mood follow you to any device — and nothing gets lost."
+                bodyText: "Create an account so your tasks, coins and Mochi's mood follow you to any device, and nothing gets lost."
             )
         } footer: {
             appleButton
@@ -52,7 +52,7 @@ struct AccountView: View {
             "Google sign-in isn't ready yet",
             isPresented: viewModel.collectBinding(for: \.showGoogleUnavailable, action: .dismissGoogleUnavailable),
             actions: { Button("OK", role: .cancel) { viewModel.trigger(.dismissGoogleUnavailable) } },
-            message: { Text("Use Continue with Apple for now — Google support is on the way.") }
+            message: { Text("Use Continue with Apple for now. Google support is on the way.") }
         )
         .onLoad { viewModel.trigger(.load) }
         .onReceive(viewModel.navigationEvents) { event in
@@ -80,7 +80,7 @@ struct AccountView: View {
                 }
                 viewModel.trigger(.appleCompleted(idToken: idToken, fullName: credential.fullName))
             case .failure:
-                // Treat as cancellation — no error surfaced.
+                // Treat as cancellation - no error surfaced.
                 viewModel.trigger(.appleFailed(message: ""))
             }
         }

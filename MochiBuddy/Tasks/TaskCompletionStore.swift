@@ -2,7 +2,7 @@
 //  TaskCompletionStore.swift
 //  MochiBuddy
 //
-//  The one place a check-off happens — Home and the Tasks tab both route
+//  The one place a check-off happens - Home and the Tasks tab both route
 //  through here so persistence, coins/streak, and repeat-spawning never
 //  drift apart. Completing a repeating occurrence spawns the next one.
 //
@@ -14,12 +14,12 @@ final class TaskCompletionStore {
 
     struct ToggleOutcome {
         let coinsDelta: Int
-        /// Updated streak — only present when a completion extended it.
+        /// Updated streak - only present when a completion extended it.
         let streak: Int?
         /// The next occurrence created for a repeating task.
         let spawnedNext: TaskItem?
         /// The spawned occurrence deleted because its completion was undone
-        /// — callers must drop it from their local arrays too.
+        /// - callers must drop it from their local arrays too.
         var reapedTaskId: String? = nil
     }
 

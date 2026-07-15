@@ -33,7 +33,7 @@ struct PlanCardModel: Equatable, Identifiable {
         badge: nil
     )
 
-    /// Presenter helper — maps a store-priced plan option into the card.
+    /// Presenter helper - maps a store-priced plan option into the card.
     /// `monthlyPrice` (the other plan's raw price) powers the savings note.
     static func from(_ option: MembershipPlanOption, monthlyPrice: Decimal?) -> PlanCardModel {
         switch option.plan {

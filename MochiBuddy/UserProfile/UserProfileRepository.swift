@@ -50,7 +50,7 @@ final class FirestoreUserProfileRepository: UserProfileRepository {
         let snapshot = try await document(account.uid).getDocument()
         guard !snapshot.exists else { return }
         // Not awaited: with offline persistence on, server acks can be
-        // arbitrarily delayed — the local cache applies the write instantly.
+        // arbitrarily delayed - the local cache applies the write instantly.
         document(account.uid).setData([
             "createdAt": FieldValue.serverTimestamp(),
             "authProvider": account.isAnonymous ? "anonymous" : (account.providerId ?? "unknown"),
@@ -137,7 +137,7 @@ final class FirestoreUserProfileRepository: UserProfileRepository {
     }
 
     private func merge(_ fields: [String: Any], userId: String) async throws {
-        // Not awaited — see ensureProfile. The write lands in the local cache
+        // Not awaited - see ensureProfile. The write lands in the local cache
         // immediately and syncs when the network allows.
         document(userId).setData(fields, merge: true, completion: nil)
     }

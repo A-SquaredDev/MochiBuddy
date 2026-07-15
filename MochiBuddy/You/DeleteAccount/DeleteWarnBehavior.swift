@@ -26,7 +26,7 @@ enum DeleteWarnBehavior {
     }
 
     enum NavigationEvent {
-        /// An active subscription keeps billing — show the warning first.
+        /// An active subscription keeps billing - show the warning first.
         case showSubscriptionWarning
         case showFinalConfirm
         case close

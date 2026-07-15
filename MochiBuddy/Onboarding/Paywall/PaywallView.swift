@@ -28,7 +28,7 @@ struct PaywallView: View {
                         OnbHeading(
                             eyebrow: "Membership",
                             title: "Unlock the full Mochi",
-                            bodyText: "Mochi is a membership app — one plan, everything included. Try it all free for a week."
+                            bodyText: "Mochi is a membership app: one plan, everything included. Try it all free for a week."
                         )
                     }
 
@@ -52,7 +52,11 @@ struct PaywallView: View {
                     .padding(.top, 6)
 
                     HStack(spacing: 13) {
-                        Text("🔔 Reminder before it ends")
+                        HStack(spacing: 4) {
+                            Image(systemName: "bell.fill")
+                                .font(.system(size: 9, weight: .bold))
+                            Text("Reminder before it ends")
+                        }
                         Text("·")
                         Button("Restore") { viewModel.trigger(.restoreTapped) }
                             .buttonStyle(.plain)
@@ -94,8 +98,9 @@ private struct HookRow: View {
 
     var body: some View {
         HStack(spacing: 11) {
-            Text(hook.icon)
-                .font(.system(size: 15))
+            Image(systemName: hook.icon)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(theme.primaryText)
                 .frame(width: 32, height: 32)
                 .background(theme.primarySoft, in: RoundedRectangle(cornerRadius: 11))
             VStack(alignment: .leading, spacing: 1) {

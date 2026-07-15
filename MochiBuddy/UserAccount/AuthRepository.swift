@@ -32,7 +32,7 @@ enum AuthRepositoryError: Error {
     /// The provider needs an SDK/config not present yet.
     case providerUnavailable(String)
     case invalidCredential
-    /// The user dismissed the provider's sign-in sheet — not an error to surface.
+    /// The user dismissed the provider's sign-in sheet - not an error to surface.
     case cancelled
 }
 
@@ -52,7 +52,7 @@ protocol AuthRepository: AnyObject {
     /// Fresh-login proof Firebase requires before destructive operations.
     func reauthenticateWithApple(idToken: String, rawNonce: String) async throws
     func reauthenticateWithGoogle() async throws
-    /// Deletes the Firebase Auth user. Erase the Firestore subtree first —
+    /// Deletes the Firebase Auth user. Erase the Firestore subtree first -
     /// once the user is gone, security rules lock the data forever.
     func deleteCurrentUser() async throws
 }
@@ -74,7 +74,7 @@ final class FirebaseAuthRepository: AuthRepository {
                 // the account was deleted in the Firebase console). Start over.
                 try? Auth.auth().signOut()
             } catch {
-                // Offline or transient — keep the cached session.
+                // Offline or transient - keep the cached session.
                 return Self.account(from: user)
             }
         }
@@ -185,16 +185,16 @@ final class FirebaseAuthRepository: AuthRepository {
                     await Self.applyDisplayNameIfMissing(pendingDisplayName, to: result.user)
                     return Self.account(from: result.user)
                 } catch let error as NSError where error.code == AuthErrorCode.credentialAlreadyInUse.rawValue {
-                    // The provider account already has a Mochi account — sign into it.
+                    // The provider account already has a Mochi account - sign into it.
                     let existing = (error.userInfo[AuthErrorUserInfoUpdatedCredentialKey] as? AuthCredential) ?? credential
                     let result = try await Auth.auth().signIn(with: existing)
                     return Self.account(from: result.user)
                 } catch let error as NSError where error.code == AuthErrorCode.providerAlreadyLinked.rawValue {
-                    // Retry after a partial success — the user is already linked.
+                    // Retry after a partial success - the user is already linked.
                     return Self.account(from: user)
                 }
             } else {
-                // Stale keychain session (user deleted server-side) — drop it
+                // Stale keychain session (user deleted server-side) - drop it
                 // and sign in fresh with the provider credential.
                 try? Auth.auth().signOut()
             }

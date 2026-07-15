@@ -2,7 +2,7 @@
 //  NotificationPrimerViewModel.swift
 //  MochiBuddy
 //
-//  6 · Notification primer — we control this screen and only fire the real
+//  6 · Notification primer - we control this screen and only fire the real
 //  iOS prompt if the user says yes (one shot at the system dialog).
 //
 

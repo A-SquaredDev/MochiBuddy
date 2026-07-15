@@ -2,7 +2,7 @@
 //  RestoreSuccessView.swift
 //  MochiBuddy
 //
-//  R3 · Membership restored — everything's unlocked, straight into the app.
+//  R3 · Membership restored - everything's unlocked, straight into the app.
 //  Static screen: navigation goes directly through the Router.
 //
 
@@ -28,8 +28,8 @@ struct RestoreSuccessView: View {
                     }
             }
             OnbHeading(
-                eyebrow: "Membership restored ✨",
-                title: "You're all set — welcome home",
+                eyebrow: "Membership restored",
+                title: "You're all set, welcome home",
                 bodyText: "Everything's unlocked and Mochi's beaming again. Let's get back to it."
             )
             VitalityMeter(value: 99, label: "Vitality")

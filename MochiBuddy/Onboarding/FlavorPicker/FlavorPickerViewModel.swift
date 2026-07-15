@@ -2,7 +2,7 @@
 //  FlavorPickerViewModel.swift
 //  MochiBuddy
 //
-//  4 · Choose Mochi's flavor — recolors the whole app live. All included.
+//  4 · Choose Mochi's flavor - recolors the whole app live. All included.
 //
 
 import Foundation

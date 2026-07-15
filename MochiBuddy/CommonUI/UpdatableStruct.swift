@@ -2,7 +2,7 @@
 //  UpdatableStruct.swift
 //  MochiBuddy
 //
-//  CommonUI — ergonomic chained mutations for UIState structs.
+//  CommonUI - ergonomic chained mutations for UIState structs.
 //
 
 import Foundation

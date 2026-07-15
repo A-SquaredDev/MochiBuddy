@@ -26,15 +26,16 @@ struct LapsedGateView: View {
                         Halo(size: 128, glow: false) {
                             MochiPetView(vitality: 8, size: 104)
                                 .overlay(alignment: .bottomTrailing) {
-                                    Text("🔒")
-                                        .font(.system(size: 20))
+                                    Image(systemName: "lock.fill")
+                                        .font(.system(size: 18))
+                                        .foregroundStyle(theme.muted)
                                         .offset(x: 6, y: 2)
                                 }
                         }
                         OnbHeading(
                             eyebrow: "Membership expired",
                             title: "Let's wake Mochi back up",
-                            bodyText: "Your membership lapsed, so Mochi's dozed off. Reactivate to bring everything back to life — nothing was deleted."
+                            bodyText: "Your membership lapsed, so Mochi's dozed off. Reactivate to bring everything back to life. Nothing was deleted."
                         )
                     }
 
@@ -91,7 +92,9 @@ private struct WaitingStat: View {
 
     var body: some View {
         VStack(spacing: 2) {
-            Text(stat.icon).font(.system(size: 17))
+            Image(systemName: stat.icon)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(theme.primaryText)
             Text(stat.value)
                 .font(MochiFont.display(17, weight: .semibold))
                 .foregroundStyle(theme.ink)

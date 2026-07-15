@@ -9,18 +9,18 @@ import SwiftUI
 enum ListDetailSource: Equatable {
     case inbox
     case mochi(TaskList)
-    /// A synced Apple Reminders list — read-only apart from check-offs.
+    /// A synced Apple Reminders list - read-only apart from check-offs.
     case reminders(listId: String, name: String, colorHex: String?)
 }
 
 enum ListDetailBehavior {
 
     struct UIState: UpdatableStruct, Equatable {
-        /// True until the first fetch lands — drives the skeleton.
+        /// True until the first fetch lands - drives the skeleton.
         var isLoading = true
         var title = ""
         var subtitle = ""      // "3 open · 5 done"
-        var icon = "📥"
+        var icon = "tray.fill"
         var accent: Color = .clear
         var openItems: [TasksBehavior.TodoUIItem] = []
         var doneItems: [TasksBehavior.TodoUIItem] = []

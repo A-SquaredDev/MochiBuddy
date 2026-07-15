@@ -2,7 +2,7 @@
 //  DeleteConfirmViewModel.swift
 //  MochiBuddy
 //
-//  Delete account · 3 — reauthenticate (Firebase requires a recent login),
+//  Delete account · 3 - reauthenticate (Firebase requires a recent login),
 //  then erase: Firestore subtree first (rules lock it once the user is
 //  gone), then the Auth user. Guest accounts skip straight to the button.
 //
@@ -37,14 +37,14 @@ final class DeleteConfirmViewModel: ObservableStateViewModel<
             case "google.com":
                 state.method = .google
             default:
-                // Anonymous/guest — recent anonymous sign-in needs no reauth.
+                // Anonymous/guest - recent anonymous sign-in needs no reauth.
                 state.method = .none
                 state.isVerified = true
             }
 
         case .appleCompleted(let idToken):
             guard let nonce = pendingNonce else {
-                state.errorMessage = "Something went wrong — please try again."
+                state.errorMessage = "Something went wrong. Please try again."
                 prepareNonce()
                 return
             }
@@ -60,7 +60,7 @@ final class DeleteConfirmViewModel: ObservableStateViewModel<
             }
 
         case .appleFailed(let message):
-            // User-cancelled flows arrive here too — only surface real failures.
+            // User-cancelled flows arrive here too - only surface real failures.
             if !message.isEmpty {
                 state.errorMessage = message
             }

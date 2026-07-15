@@ -2,7 +2,7 @@
 //  FinishView.swift
 //  MochiBuddy
 //
-//  10 · You're all set — widget nudge, then into the app. Static screen:
+//  10 · You're all set: widget nudge, then into the app. Static screen:
 //  navigation goes straight through the Router.
 //
 
@@ -19,9 +19,9 @@ struct FinishView: View {
             VStack(spacing: 4) {
                 MochiPetView(vitality: 96, size: 104)
                 OnbHeading(
-                    eyebrow: "You're all set ✨",
+                    eyebrow: "You're all set",
                     title: "Keep Mochi where you'll see it",
-                    bodyText: "A home-screen widget shows Mochi's mood and your next task at a glance — the single best way to stay on track."
+                    bodyText: "A home-screen widget shows Mochi's mood and your next task at a glance. It's the single best way to stay on track."
                 )
             }
             widgetPreviews
@@ -97,7 +97,7 @@ private struct WidgetHelpSheet: View {
                 MochiPetView(vitality: 90, size: 90)
                 OnbHeading(
                     title: "Adding the widget",
-                    bodyText: "Touch and hold your home screen, tap Edit, then Add Widget, and search for Mochi. The Mochi widget arrives with the next update — we'll nudge you when it's live."
+                    bodyText: "Touch and hold your home screen, tap Edit, then Add Widget, and search for Mochi. The Mochi widget arrives with the next update. We'll nudge you when it's live."
                 )
                 MochiButton(title: "Got it") { onDone() }
             }

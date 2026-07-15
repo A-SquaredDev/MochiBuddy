@@ -113,7 +113,7 @@ final class StubAuthRepository: AuthRepository {
     )
 
     var ensureSessionError: Error?
-    /// Result of a provider sign-in — may be a DIFFERENT account than the
+    /// Result of a provider sign-in - may be a DIFFERENT account than the
     /// current one (credential already belonged to an existing user).
     var signInResult: AuthAccount?
     var appleSignInError: Error?

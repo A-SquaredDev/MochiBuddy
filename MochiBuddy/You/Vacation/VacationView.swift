@@ -19,7 +19,7 @@ struct VacationView: View {
             VStack(spacing: 12) {
                 ScreenTopBar(
                     title: "Vacation mode",
-                    subtitle: "Rest easy — Mochi's got you",
+                    subtitle: "Rest easy · Mochi's got you",
                     onBack: { router.navigateBack() }
                 )
 
@@ -27,8 +27,9 @@ struct VacationView: View {
                     VStack(spacing: 6) {
                         MochiPetView(mood: .content, size: 130, squishOnTap: false)
                             .overlay(alignment: .topTrailing) {
-                                Text("💤")
-                                    .font(.system(size: 22))
+                                Image(systemName: "zzz")
+                                    .font(.system(size: 20, weight: .semibold))
+                                    .foregroundStyle(theme.primaryText)
                                     .offset(x: 4, y: 2)
                             }
                         Text(viewModel.isOn ? "Nudges are paused" : "Need a breather?")

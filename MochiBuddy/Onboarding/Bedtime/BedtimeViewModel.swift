@@ -2,7 +2,7 @@
 //  BedtimeViewModel.swift
 //  MochiBuddy
 //
-//  5 · Quiet hours — Mochi sleeps while you do. Sensible default
+//  5 · Quiet hours - Mochi sleeps while you do. Sensible default
 //  (10:00 PM – 7:00 AM), changeable later in Settings.
 //
 
@@ -16,7 +16,7 @@ final class BedtimeViewModel: ObservableStateViewModel<
 
     private let onboardingStore: OnboardingStore
 
-    // Domain source of truth — wall-clock minutes, not instants.
+    // Domain source of truth - wall-clock minutes, not instants.
     private var window: BedtimeWindow = .standard
 
     init(onboardingStore: OnboardingStore) {

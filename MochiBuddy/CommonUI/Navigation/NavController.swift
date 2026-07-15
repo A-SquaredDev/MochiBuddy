@@ -2,7 +2,7 @@
 //  NavController.swift
 //  MochiBuddy
 //
-//  CommonUI — the navigation abstraction Routers talk to.
+//  CommonUI - the navigation abstraction Routers talk to.
 //  Backed by SwiftUI NavigationStack via NavHost; Views and ViewModels
 //  never touch it directly.
 //

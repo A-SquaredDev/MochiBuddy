@@ -51,7 +51,7 @@ enum TasksBehavior {
     }
 
     struct UIState: UpdatableStruct, Equatable {
-        /// True until the first Firestore fetch lands — drives the skeleton.
+        /// True until the first Firestore fetch lands - drives the skeleton.
         var isLoading = true
         var segment: Segment = .today
         var subtitle = ""

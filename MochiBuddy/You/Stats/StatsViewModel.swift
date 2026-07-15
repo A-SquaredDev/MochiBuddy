@@ -2,7 +2,7 @@
 //  StatsViewModel.swift
 //  MochiBuddy
 //
-//  Streaks & stats — gentle momentum, not a scoreboard. Week strip and
+//  Streaks & stats - gentle momentum, not a scoreboard. Week strip and
 //  tiles come from completed-task timestamps; streak/coins from the profile.
 //
 
@@ -55,7 +55,7 @@ final class StatsViewModel: StateViewModel<
         }
         next.streakText = "\(streak) day\(streak == 1 ? "" : "s")"
         next.streakSub = streak > 0
-            ? "Keep it going — a task a day does it"
+            ? "Keep it going, a task a day does it"
             : "A task a day starts one"
 
         let calendar = Calendar.current
@@ -80,7 +80,7 @@ final class StatsViewModel: StateViewModel<
 
         next.trend = Self.trendPoints(stats: stats, start: trendStart, calendar: calendar)
         next.onTimeText = Self.onTimeText(stats)
-        next.busiestWeekdayText = Self.busiestWeekday(stats: stats, calendar: calendar) ?? "—"
+        next.busiestWeekdayText = Self.busiestWeekday(stats: stats, calendar: calendar) ?? "–"
         next.trendCaption = stats.isEmpty
             ? nil
             : "\(Self.onTimeText(stats)) on time · busiest on \(next.busiestWeekdayText)s"
@@ -92,8 +92,8 @@ final class StatsViewModel: StateViewModel<
     // MARK: - Chart derivations (pure, testable)
 
     static func onTimeText(_ stats: [CompletedTaskStat]) -> String {
-        guard !stats.isEmpty else { return "—" }
-        // No due date counts as on time — undated tasks can't be late.
+        guard !stats.isEmpty else { return "–" }
+        // No due date counts as on time - undated tasks can't be late.
         let onTime = stats.filter { stat in
             guard let due = stat.dueAt else { return true }
             return stat.completedAt <= due
@@ -170,7 +170,7 @@ final class StatsViewModel: StateViewModel<
         }
 
         let formatter = DateFormatter()
-        formatter.dateFormat = "EEEEE" // narrow weekday — "M", "T", …
+        formatter.dateFormat = "EEEEE" // narrow weekday - "M", "T", …
 
         return (0..<7).compactMap { offset in
             guard let day = calendar.date(byAdding: .day, value: offset, to: weekStart) else {

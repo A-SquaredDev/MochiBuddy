@@ -25,10 +25,10 @@ enum ManageListsBehavior {
         var selectedColorId = ""
         var draftName = ""
         var canCreate = false
-        /// List pending deletion — drives the confirm alert.
+        /// List pending deletion - drives the confirm alert.
         var deleteCandidateName: String?
         var showDeleteConfirm = false
-        /// List being renamed — drives the rename alert.
+        /// List being renamed - drives the rename alert.
         var renameDraft = ""
         var showRename = false
     }

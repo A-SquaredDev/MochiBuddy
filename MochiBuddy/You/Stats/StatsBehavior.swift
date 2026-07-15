@@ -45,10 +45,10 @@ enum StatsBehavior {
         var tiles: [StatTile] = []
         /// 28 daily points, oldest first.
         var trend: [TrendPoint] = []
-        /// 4-week caption under the trend — "82% on time · busiest on Tuesdays".
+        /// 4-week caption under the trend - "82% on time · busiest on Tuesdays".
         var trendCaption: String?
-        var onTimeText = "—"
-        var busiestWeekdayText = "—"
+        var onTimeText = "–"
+        var busiestWeekdayText = "–"
         var listBreakdown: [ListSlice] = []
     }
 

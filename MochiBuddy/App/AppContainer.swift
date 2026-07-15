@@ -2,7 +2,7 @@
 //  AppContainer.swift
 //  MochiBuddy
 //
-//  Composition root — every dependency is created once here and injected
+//  Composition root - every dependency is created once here and injected
 //  (no singleton access anywhere below this).
 //
 

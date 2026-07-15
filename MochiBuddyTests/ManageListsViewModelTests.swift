@@ -2,7 +2,7 @@
 //  ManageListsViewModelTests.swift
 //  MochiBuddyTests
 //
-//  Manage lists — creation must update the rows optimistically, never
+//  Manage lists - creation must update the rows optimistically, never
 //  via a re-fetch that can race the fire-and-forget Firestore write.
 //
 
@@ -36,14 +36,14 @@ struct ManageListsCreateTests {
 
         #expect(repo.createdNames == ["Errands"])
         #expect(vm.uiState.lists.map(\.name) == ["Errands"],
-                "the row must come from the returned list, not a reload — repo.lists was never updated")
+                "the row must come from the returned list, not a reload - repo.lists was never updated")
         #expect(vm.uiState.draftName.isEmpty)
         #expect(vm.uiState.canCreate == false)
     }
 
     @Test("creation appends after existing lists")
     func appendsAfterExisting() async {
-        let groceries = TaskList(id: "l1", name: "Groceries", colorHex: "#C9A6FF", icon: "🏷️", order: 0)
+        let groceries = TaskList(id: "l1", name: "Groceries", colorHex: "#C9A6FF", icon: "tag.fill", order: 0)
         let (vm, _) = makeManageListsVM(lists: [groceries])
         await vm.triggerAsync(.load)
         await vm.triggerAsync(.draftNameChanged("Work"))

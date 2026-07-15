@@ -2,7 +2,7 @@
 //  SplashView.swift
 //  MochiBuddy
 //
-//  1 · Splash — branded, Mochi bobbing while Firebase spins up.
+//  1 · Splash - branded, Mochi bobbing while Firebase spins up.
 //
 
 import SwiftUI

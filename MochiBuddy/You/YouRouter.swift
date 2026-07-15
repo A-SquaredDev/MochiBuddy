@@ -2,7 +2,7 @@
 //  YouRouter.swift
 //  MochiBuddy
 //
-//  One router for the You tab and its sub-screens (settings sub-flow —
+//  One router for the You tab and its sub-screens (settings sub-flow -
 //  the flow-coordinator scoping from the routing doc). Creates each
 //  screen's ViewModel with its dependencies and drives NavController.
 //
@@ -21,9 +21,9 @@ protocol YouRouting: BackRouting {
     func navigateToDeleteSubscriptionWarning()
     func navigateToDeleteConfirm()
     func navigateBack()
-    /// "Keep my account" / cancel anywhere in the delete flow — back to You.
+    /// "Keep my account" / cancel anywhere in the delete flow - back to You.
     func exitDeleteFlow()
-    /// Signed out or account deleted — back to the onboarding flow.
+    /// Signed out or account deleted - back to the onboarding flow.
     func exitToOnboarding()
 }
 
@@ -38,7 +38,7 @@ final class YouRouter: YouRouting {
         self.container = container
     }
 
-    /// Root of the tab — the You screen.
+    /// Root of the tab - the You screen.
     func start() -> AnyView {
         let viewModel = YouViewModel(
             authRepository: container.authRepository,

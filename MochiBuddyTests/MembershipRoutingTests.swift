@@ -138,7 +138,7 @@ struct PaywallTests {
         #expect(vm.uiState.isPurchasing == false)
     }
 
-    @Test("cancelling the purchase sheet is quiet — no error, no navigation, no mirror")
+    @Test("cancelling the purchase sheet is quiet - no error, no navigation, no mirror")
     func purchaseCancelled() async {
         let membership = StubMembershipStore()
         membership.purchaseError = MembershipStoreError.cancelled

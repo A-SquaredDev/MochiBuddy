@@ -2,11 +2,11 @@
 //  MoodMeter.swift
 //  MochiBuddy
 //
-//  The two-layer mood bar — this visual IS the core mechanic. A solid
+//  The two-layer mood bar - this visual IS the core mechanic. A solid
 //  gradient for the baseline (only tasks move it) and a translucent striped
 //  segment butted flush against it for the comfort buffer, with a "boost
 //  fading" hint. A single combined bar would teach users that petting
-//  permanently fixes things — it doesn't.
+//  permanently fixes things - it doesn't.
 //
 
 import SwiftUI
@@ -57,7 +57,7 @@ struct MoodMeter: View {
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule().fill(theme.primarySoft)
-                    // baseline — solid; only tasks move it. Flat edges: the
+                    // baseline - solid; only tasks move it. Flat edges: the
                     // outer capsule clip rounds the bar ends, so the buffer
                     // stripes butt flush against it with no seam.
                     Rectangle()
@@ -67,7 +67,7 @@ struct MoodMeter: View {
                             endPoint: .trailing
                         ))
                         .frame(width: geo.size.width * base / 100)
-                    // buffer — translucent stripes stacked on the baseline
+                    // buffer - translucent stripes stacked on the baseline
                     if bufferWidth > 0 {
                         let bufferPixels = geo.size.width * bufferWidth / 100
                         StripedFill(color: theme.primary)

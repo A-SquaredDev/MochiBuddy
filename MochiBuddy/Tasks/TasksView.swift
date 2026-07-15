@@ -82,7 +82,7 @@ struct TasksView: View {
 
     // MARK: - Loading skeleton
 
-    /// A ghost "Today" group while the first fetch runs — group label,
+    /// A ghost "Today" group while the first fetch runs - group label,
     /// dashed divider, and rows matching TodoItemRow's shape.
     private var loadingSkeleton: some View {
         VStack(spacing: 7) {
@@ -169,7 +169,7 @@ struct TasksView: View {
         }
     }
 
-    /// Done tab: per-day timeline — date header, dashed rail, node per task.
+    /// Done tab: per-day timeline - date header, dashed rail, node per task.
     private var doneTimeline: some View {
         ForEach(viewModel.groups) { group in
             VStack(spacing: 7) {
@@ -253,7 +253,7 @@ struct TasksView: View {
             }
             if let hint = viewModel.remindersAccessHint {
                 MochiListRow(
-                    icon: "☑️",
+                    icon: "checklist",
                     title: "Apple Reminders paused",
                     subtitle: hint,
                     right: { EmptyView() }
@@ -287,37 +287,49 @@ struct TasksView: View {
         MochiCard(padding: EdgeInsets(top: 26, leading: 18, bottom: 26, trailing: 18)) {
             VStack(spacing: 6) {
                 MochiPetView(mood: .thriving, size: 128)
-                Text("All caught up ✨")
+                Text("All caught up")
                     .font(MochiFont.display(17, weight: .semibold))
                     .foregroundStyle(theme.ink)
                 Text("Mochi's doing a happy wiggle.")
                     .font(MochiFont.body(12, weight: .bold))
                     .foregroundStyle(theme.muted)
                 if viewModel.streakDays > 0 {
-                    Text("🔥 \(viewModel.streakDays)-day streak going strong")
-                        .font(MochiFont.display(13, weight: .medium))
-                        .foregroundStyle(theme.primaryText)
-                        .padding(EdgeInsets(top: 7, leading: 13, bottom: 7, trailing: 13))
-                        .background(theme.primarySoft, in: Capsule())
-                        .padding(.top, 8)
+                    HStack(spacing: 5) {
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: 11, weight: .bold))
+                        Text("\(viewModel.streakDays)-day streak going strong")
+                            .font(MochiFont.display(13, weight: .medium))
+                    }
+                    .foregroundStyle(theme.primaryText)
+                    .padding(EdgeInsets(top: 7, leading: 13, bottom: 7, trailing: 13))
+                    .background(theme.primarySoft, in: Capsule())
+                    .padding(.top, 8)
                 }
             }
             .frame(maxWidth: .infinity)
         }
         .overlay(alignment: .topLeading) {
-            Text("✨").font(.system(size: 15)).offset(x: 50, y: 14)
+            Image(systemName: "sparkles")
+                .font(.system(size: 14))
+                .foregroundStyle(theme.primaryText)
+                .offset(x: 50, y: 14)
         }
         .overlay(alignment: .topTrailing) {
-            Text("🎉").font(.system(size: 15)).offset(x: -60, y: 26)
+            Image(systemName: "sparkle")
+                .font(.system(size: 11))
+                .foregroundStyle(theme.primaryText)
+                .offset(x: -60, y: 26)
         }
     }
 
-    /// Swipe horizontally past the threshold — or tap the ✕ — to dismiss
+    /// Swipe horizontally past the threshold - or tap the ✕ - to dismiss
     /// for the rest of the day.
     private func celebrationCard(_ text: String) -> some View {
         MochiCard(padding: EdgeInsets(top: 13, leading: 15, bottom: 13, trailing: 15)) {
             HStack(spacing: 12) {
-                Text("🎉").font(.system(size: 26))
+                Image(systemName: "party.popper.fill")
+                    .font(.system(size: 22))
+                    .foregroundStyle(theme.primaryText)
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Nice momentum")
                         .font(MochiFont.display(13.5, weight: .semibold))

@@ -2,7 +2,7 @@
 //  MoodEngine.swift
 //  MochiBuddy
 //
-//  The mood baseline — a pure, deterministic function of task state
+//  The mood baseline - a pure, deterministic function of task state
 //  (mochi-design-doc.md "Mood algorithm"). Volume ≠ stress: only overdue
 //  tasks contribute; completions add momentum, gated so you can't fake
 //  happiness while behind. Runs on-device and offline.
@@ -14,7 +14,7 @@ enum MoodEngine {
 
     /// Tuning constants from the design doc (Remote Config candidates).
     enum Constants {
-        /// Content anchor — the mood with nothing due and nothing done.
+        /// Content anchor - the mood with nothing due and nothing done.
         static let anchor: Double = 58
         /// Lateness saturates after this many hours overdue.
         static let latenessCapHours: Double = 48
@@ -28,7 +28,7 @@ enum MoodEngine {
         static let bufferCap: Double = 30
     }
 
-    /// Baseline mood 0–100. Pets/treats never touch this — see ComfortBuffer.
+    /// Baseline mood 0–100. Pets/treats never touch this - see ComfortBuffer.
     static func baseline(
         incompleteTasks: [TaskItem],
         completionsLast24h: Int,

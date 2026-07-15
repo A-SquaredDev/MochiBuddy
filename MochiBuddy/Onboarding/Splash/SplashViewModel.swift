@@ -61,7 +61,7 @@ final class SplashViewModel: ObservableStateViewModel<
                 setNavigationEvent(.showWelcomeBack(summary(account: account, profile: profile)))
             }
         } catch {
-            // Offline or Firebase unreachable — never trap the user on splash.
+            // Offline or Firebase unreachable - never trap the user on splash.
             await minimumBeat.value
             setNavigationEvent(.showMeetMochi)
         }

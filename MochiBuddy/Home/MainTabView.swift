@@ -2,7 +2,7 @@
 //  MainTabView.swift
 //  MochiBuddy
 //
-//  The app shell after onboarding — Home · Tasks · You in a system TabView
+//  The app shell after onboarding - Home · Tasks · You in a system TabView
 //  (standard bar, SF Symbol icons, stays out of the keyboard's way). Tabs
 //  stay mounted so scroll and view state survive switching, and each tab
 //  fires onAppear when selected so its screen refreshes.

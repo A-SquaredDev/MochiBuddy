@@ -2,7 +2,7 @@
 //  ReminderSettingsViewModel.swift
 //  MochiBuddy
 //
-//  Apple Reminders in Settings — connect (EventKit full access), pick
+//  Apple Reminders in Settings - connect (EventKit full access), pick
 //  which lists Mochi watches, or stop syncing. Tasks stay in EventKit;
 //  only the chosen list ids live on the profile.
 //

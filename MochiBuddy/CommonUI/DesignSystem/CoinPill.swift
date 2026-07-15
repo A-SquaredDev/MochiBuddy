@@ -2,7 +2,7 @@
 //  CoinPill.swift
 //  MochiBuddy
 //
-//  Coin balance pill — the ¢ badge on a soft tinted capsule. Coins are
+//  Coin balance pill - the ¢ badge on a soft tinted capsule. Coins are
 //  earned, never bought; this is glanceable balance, not a store button.
 //
 

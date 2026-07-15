@@ -25,7 +25,7 @@ struct MochiToggle: View {
     }
 }
 
-/// Segmented progress across onboarding steps — the active segment stretches.
+/// Segmented progress across onboarding steps - the active segment stretches.
 /// On appear it animates from the previous step, so each pushed screen shows
 /// the bar springing forward instead of loading pre-filled.
 struct SegmentedProgressBar: View {

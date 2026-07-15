@@ -2,7 +2,7 @@
 //  ComfortBufferTests.swift
 //  MochiBuddyTests
 //
-//  The comfort buffer is temporary and capped — pets/treats decay back to
+//  The comfort buffer is temporary and capped - pets/treats decay back to
 //  the baseline and can never exceed +30 no matter how much is spent.
 //
 
@@ -98,7 +98,7 @@ struct ComfortBufferStoreTests {
         let sorted = TreatCatalog.all.sorted { $0.duration < $1.duration }
         let costs = sorted.map(\.cost)
         #expect(costs == costs.sorted(), "longer comfort must never be cheaper")
-        // Lift differences stay small — the buffer cap makes lift a bad differentiator.
+        // Lift differences stay small - the buffer cap makes lift a bad differentiator.
         let lifts = sorted.map(\.lift)
         #expect((lifts.max()! - lifts.min()!) <= 5)
     }

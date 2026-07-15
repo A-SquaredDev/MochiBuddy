@@ -3,10 +3,10 @@
 //  MochiBuddy
 //
 //  A single task row (design system TodoItem). Four states drive the look:
-//    normal  — surface-2 tile, muted checkbox
-//    due     — warn meta ("Due soon")
-//    overdue — danger-soft fill, danger meta
-//    done    — filled flavor check, strikethrough, dimmed
+//    normal  - surface-2 tile, muted checkbox
+//    due     - warn meta ("Due soon")
+//    overdue - danger-soft fill, danger meta
+//    done    - filled flavor check, strikethrough, dimmed
 //  A trailing chip communicates priority/state.
 //
 
@@ -24,7 +24,7 @@ struct TodoItemRow: View {
     var meta: String?
     var state: TodoRowState = .normal
     var chip: String?
-    /// List membership indicator — colored dot + name on the meta line.
+    /// List membership indicator - colored dot + name on the meta line.
     var listName: String? = nil
     var listColor: Color? = nil
     /// Tiny capsule after the title for externally-sourced rows ("Reminders").

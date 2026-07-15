@@ -8,7 +8,7 @@ import Foundation
 enum DeleteSubActiveBehavior {
 
     struct UIState: UpdatableStruct, Equatable {
-        /// "$29.99/yr" — billing that survives account deletion.
+        /// "$29.99/yr" - billing that survives account deletion.
         var priceLine = "your subscription price"
         var acknowledged = false
     }

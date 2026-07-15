@@ -69,7 +69,7 @@ struct MochiTimeline<Item: Identifiable & Equatable, RowContent: View>: View {
     }
 }
 
-/// Day label above a timeline group — "Today", "Yesterday", "Mon 6 Jul".
+/// Day label above a timeline group - "Today", "Yesterday", "Mon 6 Jul".
 struct MochiTimelineDateHeader: View {
     let text: String
 

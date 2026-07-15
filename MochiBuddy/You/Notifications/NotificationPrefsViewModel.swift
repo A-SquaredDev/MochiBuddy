@@ -2,7 +2,7 @@
 //  NotificationPrefsViewModel.swift
 //  MochiBuddy
 //
-//  "Gentle nudges, never nags" — the chattiness dial and per-type toggles.
+//  "Gentle nudges, never nags" - the chattiness dial and per-type toggles.
 //  Every change persists immediately to the profile document.
 //
 
@@ -18,7 +18,7 @@ final class NotificationPrefsViewModel: StateViewModel<
     private let profileRepository: UserProfileRepository
     private let permissionService: NotificationPermissionService
 
-    // Domain source of truth — UIState is derived from this.
+    // Domain source of truth - UIState is derived from this.
     private var prefs: NotificationPrefs = .standard
     private var bedtime: BedtimeWindow = .standard
 

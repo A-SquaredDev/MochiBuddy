@@ -2,7 +2,7 @@
 //  Haptics.swift
 //  MochiBuddy
 //
-//  Squishy motion deserves squishy feedback — small helpers so every
+//  Squishy motion deserves squishy feedback - small helpers so every
 //  control speaks the same haptic language.
 //
 
@@ -20,7 +20,7 @@ enum Haptics {
         UISelectionFeedbackGenerator().selectionChanged()
     }
 
-    /// Milestones — finishing onboarding, restoring a membership.
+    /// Milestones - finishing onboarding, restoring a membership.
     static func success() {
         UINotificationFeedbackGenerator().notificationOccurred(.success)
     }

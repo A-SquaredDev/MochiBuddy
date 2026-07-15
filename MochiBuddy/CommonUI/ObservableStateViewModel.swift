@@ -2,7 +2,7 @@
 //  ObservableStateViewModel.swift
 //  MochiBuddy
 //
-//  CommonUI — the formalized ViewState MVVM base class.
+//  CommonUI - the formalized ViewState MVVM base class.
 //  View renders UIState, sends ViewAction via trigger(_:); one-shot
 //  NavigationEvents are published for the View to relay to its Router.
 //
@@ -42,7 +42,7 @@ class ObservableStateViewModel<UIState, ViewAction, NavigationEvent> {
     private let navigationSubject = PassthroughSubject<NavigationEvent, Never>()
 
     /// One-shot navigation requests. Stored (stable identity) so SwiftUI's
-    /// `onReceive` keeps a single live subscription — a computed publisher
+    /// `onReceive` keeps a single live subscription - a computed publisher
     /// forces a resubscribe on every render, and events sent in that window
     /// are silently dropped (PassthroughSubject doesn't buffer).
     let navigationEvents: AnyPublisher<NavigationEvent, Never>
@@ -61,7 +61,7 @@ class ObservableStateViewModel<UIState, ViewAction, NavigationEvent> {
         Task { await triggerAsync(action) }
     }
 
-    /// Override point — handle actions with async business logic.
+    /// Override point - handle actions with async business logic.
     func triggerAsync(_ action: ViewAction) async {}
 
     /// The sanctioned way to replace the whole UIState from subclasses.
@@ -78,7 +78,7 @@ class ObservableStateViewModel<UIState, ViewAction, NavigationEvent> {
         uiState[keyPath: keyPath]
     }
 
-    /// Two-way Binding mediated by the ViewModel — writes go through trigger(_:).
+    /// Two-way Binding mediated by the ViewModel - writes go through trigger(_:).
     func collectBinding<Value>(for keyPath: KeyPath<UIState, Value>, action: @escaping (Value) -> ViewAction) -> Binding<Value> {
         Binding(
             get: { self.uiState[keyPath: keyPath] },
@@ -86,7 +86,7 @@ class ObservableStateViewModel<UIState, ViewAction, NavigationEvent> {
         )
     }
 
-    /// Boolean convenience — the action fires when the value flips to `false`
+    /// Boolean convenience - the action fires when the value flips to `false`
     /// (alert/sheet dismissal).
     func collectBinding(for keyPath: KeyPath<UIState, Bool>, action: ViewAction) -> Binding<Bool> {
         Binding(

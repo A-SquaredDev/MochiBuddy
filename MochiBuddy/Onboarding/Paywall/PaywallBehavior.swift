@@ -15,10 +15,12 @@ enum PaywallBehavior {
     }
 
     static let hooks: [Hook] = [
-        Hook(icon: "🍡", title: "Your Mochi, fully alive", sub: "Every mood, reaction & happy dance"),
-        Hook(icon: "🔔", title: "Gentle nudges that work", sub: "Smart reminders, repeats & morning rundowns"),
-        Hook(icon: "🎨", title: "All five flavors", sub: "Recolour the whole app anytime"),
-        Hook(icon: "🎁", title: "Treats, coins & widgets", sub: "Comfort Mochi from your home screen"),
+        // DESIGN NOTE: placeholder icon until the content team's Mochi
+        // brand mark lands.
+        Hook(icon: PlaceholderArt.symbol, title: "Your Mochi, fully alive", sub: "Every mood, reaction & happy dance"),
+        Hook(icon: "bell.fill", title: "Gentle nudges that work", sub: "Smart reminders, repeats & morning rundowns"),
+        Hook(icon: "paintpalette.fill", title: "All five flavors", sub: "Recolour the whole app anytime"),
+        Hook(icon: "gift.fill", title: "Treats, coins & widgets", sub: "Comfort Mochi from your home screen"),
     ]
 
     struct UIState: UpdatableStruct, Equatable {

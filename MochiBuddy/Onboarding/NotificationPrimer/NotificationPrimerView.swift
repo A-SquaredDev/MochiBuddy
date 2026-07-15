@@ -26,15 +26,15 @@ struct NotificationPrimerView: View {
             OnbHeading(
                 eyebrow: "A gentle nudge",
                 title: "Let Mochi give you a little nudge",
-                bodyText: "A soft tap when something needs you, and a warm hello each morning. Never spammy — Mochi goes quiet the moment you're caught up."
+                bodyText: "A soft tap when something needs you, and a warm hello each morning. Never spammy. Mochi goes quiet the moment you're caught up."
             )
             MockNotification(
                 title: "Mochi",
-                message: "Morning! 3 things today — light one, we've got this ☀️",
+                message: "Morning! 3 things today. Light one, we've got this.",
                 time: "8:02"
             )
         } footer: {
-            MochiButton(title: "Enable reminders 🔔", isLoading: viewModel.isRequesting) {
+            MochiButton(title: "Enable reminders", isLoading: viewModel.isRequesting) {
                 viewModel.trigger(.enableTapped)
             }
             MochiTextLink(title: "Maybe later") {
@@ -60,10 +60,9 @@ private struct MockNotification: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 11) {
-            Text("🍡")
-                .font(.system(size: 18))
-                .frame(width: 34, height: 34)
-                .background(theme.primarySoft, in: RoundedRectangle(cornerRadius: 10))
+            // DESIGN NOTE: placeholder until the content team's app-icon
+            // asset lands (this mocks the notification's app icon).
+            PlaceholderArtIcon(size: 34)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .firstTextBaseline) {
                     Text(title)

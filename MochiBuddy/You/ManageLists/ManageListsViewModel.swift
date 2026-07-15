@@ -2,7 +2,7 @@
 //  ManageListsViewModel.swift
 //  MochiBuddy
 //
-//  Manage lists — create, rename, reorder, remove. Tasks in a deleted
+//  Manage lists - create, rename, reorder, remove. Tasks in a deleted
 //  list fall back to the Inbox (list resolution is the task surface's job).
 //
 
@@ -21,7 +21,7 @@ final class ManageListsViewModel: StateViewModel<
     private var deleteCandidateId: String?
     private var renameCandidateId: String?
     /// After create clears the field, the focused TextField can echo the
-    /// old draft back — swallow that exact string until different input.
+    /// old draft back - swallow that exact string until different input.
     private var lastCreatedDraftName: String?
 
     init(authRepository: AuthRepository, listRepository: ListRepository) {

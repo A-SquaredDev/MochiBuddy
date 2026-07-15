@@ -2,7 +2,7 @@
 //  ListDetailView.swift
 //  MochiBuddy
 //
-//  Pushed from a Lists row — the tasks living in one list, open then done.
+//  Pushed from a Lists row - the tasks living in one list, open then done.
 //
 
 import SwiftUI
@@ -20,8 +20,10 @@ struct ListDetailView: View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 12) {
                 ScreenTopBar(
-                    title: "\(viewModel.icon) \(viewModel.title)",
+                    title: viewModel.title,
                     subtitle: viewModel.subtitle,
+                    icon: viewModel.icon,
+                    iconTint: viewModel.accent,
                     onBack: { router.navigateBack() }
                 ) {
                     if viewModel.canAdd {

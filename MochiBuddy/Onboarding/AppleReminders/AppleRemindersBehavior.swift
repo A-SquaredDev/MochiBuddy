@@ -10,7 +10,7 @@ enum AppleRemindersBehavior {
     enum Phase: Equatable {
         /// Explains the import; the EventKit prompt hasn't fired yet.
         case primer
-        /// Access granted — the user picks which lists to bring in.
+        /// Access granted - the user picks which lists to bring in.
         case picking
     }
 

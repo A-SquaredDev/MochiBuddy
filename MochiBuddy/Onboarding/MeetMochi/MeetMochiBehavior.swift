@@ -22,8 +22,8 @@ enum MeetMochiBehavior {
         Page(
             eyebrow: "Meet Mochi",
             title: "This is Mochi.",
-            body: "A little friend who keeps an eye on your to-do list. Stay on top of things and Mochi beams — happy dances and all.",
-            cta: "Hi, Mochi 👋",
+            body: "A little friend who keeps an eye on your to-do list. Stay on top of things and Mochi beams, happy dances and all.",
+            cta: "Hi, Mochi",
             vitality: 96,
             glow: true,
             meterValue: nil,
@@ -32,7 +32,7 @@ enum MeetMochiBehavior {
         Page(
             eyebrow: nil,
             title: "Fall behind, and Mochi feels it too.",
-            body: "Overdue tasks weigh on Mochi. No scolding, no red badges screaming at you — just a soft nudge that says, let's take care of things.",
+            body: "Overdue tasks weigh on Mochi. No scolding, no red badges screaming at you, just a soft nudge that says, let's take care of things.",
             cta: "I get it",
             vitality: 9,
             glow: false,
@@ -42,7 +42,7 @@ enum MeetMochiBehavior {
         Page(
             eyebrow: nil,
             title: "Every task you finish lifts Mochi back up.",
-            body: "Check one off and watch the mood rise — plus a few coins to spoil Mochi with. Helping Mochi is really just helping you.",
+            body: "Check one off and watch the mood rise, plus a few coins to spoil Mochi with. Helping Mochi is really just helping you.",
             cta: "Let's begin",
             vitality: 82,
             glow: true,

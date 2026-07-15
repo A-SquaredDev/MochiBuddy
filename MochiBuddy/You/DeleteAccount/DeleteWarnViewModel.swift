@@ -2,7 +2,7 @@
 //  DeleteWarnViewModel.swift
 //  MochiBuddy
 //
-//  Delete account · 1 — show exactly what's destroyed (Apple 5.1.1(v)).
+//  Delete account · 1 - show exactly what's destroyed (Apple 5.1.1(v)).
 //  Continue branches on the live entitlement: active billing gets its own
 //  warning screen before the final confirm.
 //
@@ -81,20 +81,22 @@ final class DeleteWarnViewModel: ObservableStateViewModel<
 
     private static func items(taskLine: String, coins: Int?, streak: Int?) -> [DeleteWarnBehavior.ErasedItem] {
         [
-            .init(id: "tasks", icon: "📋", title: "All tasks & lists", subtitle: taskLine),
+            .init(id: "tasks", icon: "checklist", title: "All tasks & lists", subtitle: taskLine),
             .init(
                 id: "streak",
-                icon: "🔥",
+                icon: "flame.fill",
                 title: "Your streak",
-                subtitle: (streak ?? 0) > 0 ? "\(streak ?? 0) days — reset to zero" : "Reset to zero"
+                subtitle: (streak ?? 0) > 0 ? "\(streak ?? 0) days, reset to zero" : "Reset to zero"
             ),
             .init(
                 id: "coins",
-                icon: "🪙",
+                icon: "centsign.circle.fill",
                 title: "Coins",
                 subtitle: coins.map { "\($0) ¢ balance" } ?? "Your whole balance"
             ),
-            .init(id: "mochi", icon: "🍡", title: "Mochi", subtitle: "Your companion & its history"),
+            // DESIGN NOTE: placeholder icon until the content team's Mochi
+            // brand mark lands.
+            .init(id: "mochi", icon: PlaceholderArt.symbol, title: "Mochi", subtitle: "Your companion & its history"),
         ]
     }
 }

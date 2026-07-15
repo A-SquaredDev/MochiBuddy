@@ -27,7 +27,7 @@ struct BedtimeWindow: Equatable {
     }
 }
 
-/// "How chatty should Mochi be?" — the overall nudge cadence dial.
+/// "How chatty should Mochi be?" - the overall nudge cadence dial.
 enum NudgeLevel: String, CaseIterable, Equatable {
     case rarely
     case balanced
@@ -55,7 +55,7 @@ struct UserProfile: Equatable {
     var coins: Int
     var streakCount: Int
     var bestStreakCount: Int
-    /// Last local day with ≥1 completion — drives the streak.
+    /// Last local day with ≥1 completion - drives the streak.
     var lastActiveDate: Date?
     var isSubscribed: Bool
     var trialEndsAt: Date?

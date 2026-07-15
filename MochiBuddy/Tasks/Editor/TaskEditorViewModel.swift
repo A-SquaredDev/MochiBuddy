@@ -2,7 +2,7 @@
 //  TaskEditorViewModel.swift
 //  MochiBuddy
 //
-//  Add & Edit task — the full field set (title, when, priority, list,
+//  Add & Edit task - the full field set (title, when, priority, list,
 //  repeat, notes) plus snooze and delete in edit mode. The domain task
 //  is the source of truth; every action mutates it then re-derives.
 //
@@ -60,7 +60,7 @@ final class TaskEditorViewModel: ObservableStateViewModel<
                 listId: draftListId
             )
         }
-        // Seed the fields the View reads before `.load` finishes — the
+        // Seed the fields the View reads before `.load` finishes - the
         // onLoad focus check consults `isEditing` synchronously.
         var initial = TaskEditorBehavior.UIState()
         initial.isEditing = editingTask != nil
@@ -102,7 +102,7 @@ final class TaskEditorViewModel: ObservableStateViewModel<
             rebuild(picker: .none)
 
         case .dateChanged(let date):
-            // Only honor the calendar while it's shown — a picker being
+            // Only honor the calendar while it's shown - a picker being
             // dismissed can echo a value change and resurrect a cleared date.
             guard uiState.activePicker == .date else { return }
             let time = draft.hasTime ? (draft.dueAt ?? date) : nil
@@ -209,7 +209,7 @@ final class TaskEditorViewModel: ObservableStateViewModel<
     private func toggleRepeatDay(_ day: Int) {
         guard case .custom(var days) = draft.repeatRule else { return }
         if days.contains(day) {
-            // A custom rule needs at least one day — ignore removing the last.
+            // A custom rule needs at least one day - ignore removing the last.
             guard days.count > 1 else { return }
             days.remove(day)
         } else {
@@ -245,7 +245,7 @@ final class TaskEditorViewModel: ObservableStateViewModel<
     }
 
     /// Pushes the due date a day forward (design doc: snooze increments the
-    /// reschedule counter — the v2 procrastination signal).
+    /// reschedule counter - the v2 procrastination signal).
     private func snooze() async {
         guard let task = editingTask, let userId else { return }
         let calendar = Calendar.current
@@ -286,7 +286,7 @@ final class TaskEditorViewModel: ObservableStateViewModel<
             }
         }
         if picker == .date {
-            // The calendar is open — the pick chip is what's being edited.
+            // The calendar is open - the pick chip is what's being edited.
             selectedDate = .pick
         }
         next.dateOptions = [

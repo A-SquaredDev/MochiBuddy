@@ -2,7 +2,7 @@
 //  ManageListsView.swift
 //  MochiBuddy
 //
-//  A List (not ScrollView) so rows get drag-to-reorder for free —
+//  A List (not ScrollView) so rows get drag-to-reorder for free -
 //  long-press a row and drag. Everything else is restyled to match
 //  the design shell.
 //
@@ -70,7 +70,7 @@ struct ManageListsView: View {
                 Button("Delete", role: .destructive) { viewModel.trigger(.confirmDelete) }
                 Button("Keep", role: .cancel) { viewModel.trigger(.cancelDelete) }
             },
-            message: { Text("Its tasks move to your Inbox — nothing is lost.") }
+            message: { Text("Its tasks move to your Inbox, so nothing is lost.") }
         )
         .alert(
             "Rename list",
@@ -94,10 +94,15 @@ struct ManageListsView: View {
             Circle()
                 .fill(list.color)
                 .frame(width: 12, height: 12)
-            Text("\(list.icon) \(list.name)")
-                .font(MochiFont.body(13, weight: .heavy))
-                .foregroundStyle(theme.ink)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: 6) {
+                Image(systemName: list.icon)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(theme.muted)
+                Text(list.name)
+                    .font(MochiFont.body(13, weight: .heavy))
+                    .foregroundStyle(theme.ink)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
             Button {
                 viewModel.trigger(.renameTapped(id: list.id))
             } label: {
@@ -153,7 +158,9 @@ struct ManageListsView: View {
 
     private var nameInput: some View {
         HStack(spacing: 10) {
-            Text("🏷️")
+            Image(systemName: "tag.fill")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(theme.muted)
             TextField(
                 "Name your list…",
                 text: viewModel.collectBinding(for: \.draftName, action: { .draftNameChanged($0) })
@@ -190,9 +197,10 @@ struct ManageListsView: View {
     private var emptyHint: some View {
         MochiCard {
             HStack(spacing: 11) {
-                Text("🗂️")
-                    .font(.system(size: 20))
-                Text("No lists yet — Mochi files everything in the Inbox. Make one below to sort your tasks.")
+                Image(systemName: "folder")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(theme.muted)
+                Text("No lists yet. Mochi files everything in the Inbox. Make one below to sort your tasks.")
                     .font(MochiFont.body(12, weight: .bold))
                     .foregroundStyle(theme.muted)
             }

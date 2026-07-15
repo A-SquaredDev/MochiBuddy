@@ -2,7 +2,7 @@
 //  ComfortBufferStore.swift
 //  MochiBuddy
 //
-//  The comfort buffer — a temporary lift from pets/treats that decays back
+//  The comfort buffer - a temporary lift from pets/treats that decays back
 //  to the baseline and never moves it. On-device only (design doc): the
 //  widget will read this from the App Group later; it needs no cloud sync.
 //
@@ -26,7 +26,7 @@ protocol ComfortBufferStore: AnyObject {
     func add(lift: Double, duration: TimeInterval)
     /// Sum of active boosts, clamped to the buffer cap (+30).
     func currentValue(now: Date) -> Double
-    /// When the last active boost fully fades — nil when nothing is active.
+    /// When the last active boost fully fades - nil when nothing is active.
     func latestExpiry(now: Date) -> Date?
 }
 

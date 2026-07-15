@@ -21,7 +21,6 @@ enum HomeBehavior {
     struct TreatUIItem: Equatable, Identifiable {
         let id: String
         let name: String
-        let emoji: String
         let liftText: String      // "+18"
         let durationText: String  // "lasts ~3 hr"
         let costText: String      // "Give · 30 ¢"
@@ -29,7 +28,7 @@ enum HomeBehavior {
     }
 
     /// Identifiable wrapper so the editor sheet presents via sheet(item:).
-    /// `task: nil` is a new capture — optionally seeded with a draft title
+    /// `task: nil` is a new capture - optionally seeded with a draft title
     /// typed into the quick-add field.
     struct EditingTask: Equatable, Identifiable {
         let task: TaskItem?
@@ -46,7 +45,7 @@ enum HomeBehavior {
     }
 
     struct UIState: UpdatableStruct, Equatable {
-        /// True until the first Firestore fetch lands — drives the skeleton.
+        /// True until the first Firestore fetch lands - drives the skeleton.
         var isLoading = true
         var greeting = "Hi, friend"
         var subGreeting = "Let's keep Mochi happy"
@@ -54,9 +53,9 @@ enum HomeBehavior {
         var streakDays = 0
         var baseline: Double = MoodEngine.Constants.anchor
         var buffer: Double = 0
-        /// baseline + buffer, clamped — what the pet's face shows.
+        /// baseline + buffer, clamped - what the pet's face shows.
         var displayedMood: Double = MoodEngine.Constants.anchor
-        /// Inside the bedtime window — the pet sleeps regardless of vitality.
+        /// Inside the bedtime window - the pet sleeps regardless of vitality.
         var isSleeping = false
         var moodTitle = "Mochi feels content"
         var moodSub = "Clear a task to make it beam"
@@ -64,10 +63,10 @@ enum HomeBehavior {
         var quickAddText = ""
         var todayDateText = ""
         var todayItems: [TodoUIItem] = []
-        /// Tasks completed today — their own section under Today.
+        /// Tasks completed today - their own section under Today.
         var doneTodayItems: [TodoUIItem] = []
         var weekPreview: [WeekPreviewItem] = []
-        /// "boost fades in ~12m" — nil when no boost is active.
+        /// "boost fades in ~12m" - nil when no boost is active.
         var boostFadeText: String?
         var leftText = "0 left"
         var showEmptyToday = false
@@ -80,7 +79,7 @@ enum HomeBehavior {
 
     enum ViewAction {
         case refresh
-        /// Timer beat — re-derives the decaying buffer, no fetching.
+        /// Timer beat - re-derives the decaying buffer, no fetching.
         case tick
         case petTapped
         case treatsTapped
@@ -88,7 +87,7 @@ enum HomeBehavior {
         case giveTreat(String)
         case quickAddChanged(String)
         case quickAddSubmitted
-        /// Plus button — opens the full editor seeded with the typed title.
+        /// Plus button - opens the full editor seeded with the typed title.
         case composeTapped
         case toggleTask(String)
         case taskTapped(String)

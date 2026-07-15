@@ -2,7 +2,7 @@
 //  MochiCard.swift
 //  MochiBuddy
 //
-//  The design system's Card — soft surface panel with a hairline border.
+//  The design system's Card - soft surface panel with a hairline border.
 //  Plus the small uppercase section label ("eyebrow") used between groups.
 //
 
@@ -46,7 +46,7 @@ struct MochiDashedDivider: View {
     }
 }
 
-/// Small uppercase section label — "FLAVOR", "ACCOUNT", "ABOUT & LEGAL".
+/// Small uppercase section label - "FLAVOR", "ACCOUNT", "ABOUT & LEGAL".
 struct MochiEyebrow: View {
     let text: String
 

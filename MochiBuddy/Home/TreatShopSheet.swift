@@ -2,9 +2,9 @@
 //  TreatShopSheet.swift
 //  MochiBuddy
 //
-//  The treat shop — a sheet, not a tab: feeding belongs next to the pet.
-//  Treats are priced by duration (the buffer caps at +30) and every treat
-//  beats the free pet. Buy = give — no inventory.
+//  The treat shop: a sheet, not a tab, because feeding belongs next to the
+//  pet. Treats are priced by duration (the buffer caps at +30) and every
+//  treat beats the free pet. Buy = give, no inventory.
 //
 
 import SwiftUI
@@ -40,7 +40,7 @@ struct TreatShopSheet: View {
                             treatCard(treat)
                         }
                     }
-                    Text("Treats lift Mochi \(Text("now").font(MochiFont.body(11, weight: .heavy)).foregroundColor(theme.ink)) — finishing tasks is the real cure.")
+                    Text("Treats lift Mochi \(Text("now").font(MochiFont.body(11, weight: .heavy)).foregroundColor(theme.ink)). Finishing tasks is the real cure.")
                         .font(MochiFont.body(11, weight: .bold))
                         .foregroundStyle(theme.muted)
                         .multilineTextAlignment(.center)
@@ -69,7 +69,7 @@ struct TreatShopSheet: View {
                             .foregroundStyle(theme.primaryText)
                             .contentTransition(.numericText())
                     }
-                    Text("A temporary lift — it fades on its own and never moves the baseline.")
+                    Text("A temporary lift. It fades on its own and never moves the baseline.")
                         .font(MochiFont.body(10.5, weight: .bold))
                         .foregroundStyle(theme.muted)
                         .padding(.bottom, 6)
@@ -87,8 +87,8 @@ struct TreatShopSheet: View {
 
     private var petRow: some View {
         HStack(spacing: 11) {
-            Text(TreatCatalog.Pet.emoji)
-                .font(.system(size: 24))
+            // DESIGN NOTE: placeholder until the content team's pet-action art lands.
+            PlaceholderArtIcon(size: 28)
             VStack(alignment: .leading, spacing: 1) {
                 Text(TreatCatalog.Pet.name)
                     .font(MochiFont.display(13, weight: .semibold))
@@ -121,8 +121,9 @@ struct TreatShopSheet: View {
     private func treatCard(_ treat: HomeBehavior.TreatUIItem) -> some View {
         MochiCard(padding: EdgeInsets(top: 13, leading: 12, bottom: 12, trailing: 12)) {
             VStack(spacing: 6) {
-                Text(treat.emoji)
-                    .font(.system(size: 34))
+                // DESIGN NOTE: placeholder until the content team's per-treat
+                // art lands (asset per TreatCatalog id: berry/latte/dango/cupcake).
+                PlaceholderArtIcon(size: 40)
                 Text(treat.name)
                     .font(MochiFont.display(13, weight: .semibold))
                     .foregroundStyle(theme.ink)

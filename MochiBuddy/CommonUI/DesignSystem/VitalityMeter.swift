@@ -2,7 +2,7 @@
 //  VitalityMeter.swift
 //  MochiBuddy
 //
-//  The pet's health bar — a soft pill track with a gradient fill running
+//  The pet's health bar - a soft pill track with a gradient fill running
 //  accent2 → primary. Optional label row ("Vitality" + "72%") above.
 //
 

@@ -2,7 +2,7 @@
 //  PaywallViewModel.swift
 //  MochiBuddy
 //
-//  9 · Membership — subscription-only gate placed after the value moment.
+//  9 · Membership - subscription-only gate placed after the value moment.
 //  Hooks first, then plans with live store pricing; 7 days free, no
 //  freemium tier.
 //

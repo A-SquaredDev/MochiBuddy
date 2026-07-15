@@ -27,7 +27,7 @@ struct FlavorPickerView: View {
                 OnbHeading(
                     eyebrow: "Make it yours",
                     title: "Choose Mochi's flavor",
-                    bodyText: "It recolours the whole app and Mochi's world. Switch anytime — they're all included.",
+                    bodyText: "It recolours the whole app and Mochi's world. Switch anytime, they're all included.",
                     align: .leading
                 )
                 .padding(.top, 8)

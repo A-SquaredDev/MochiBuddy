@@ -2,7 +2,7 @@
 //  YouViewModel.swift
 //  MochiBuddy
 //
-//  The "You" tab — preferences, Mochi's care, account & legal. Rebuilds
+//  The "You" tab - preferences, Mochi's care, account & legal. Rebuilds
 //  from the profile document on every refresh (returning from sub-screens
 //  must reflect their edits).
 //
@@ -21,7 +21,7 @@ final class YouViewModel: ObservableStateViewModel<
     private let membershipStore: MembershipStore
     private let themeStore: ThemeStore
 
-    // Domain source of truth — UIState is derived from this.
+    // Domain source of truth - UIState is derived from this.
     private var profile: UserProfile?
 
     init(
@@ -43,7 +43,7 @@ final class YouViewModel: ObservableStateViewModel<
         }
         initial.selectedFlavorId = themeStore.current.id
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
-        initial.appVersion = "Mochi \(version ?? "1.0") · Rated 4+ · Made with care 🍡"
+        initial.appVersion = "Mochi \(version ?? "1.0") · Rated 4+ · Made with care"
         super.init(initialState: initial)
     }
 
@@ -132,7 +132,7 @@ final class YouViewModel: ObservableStateViewModel<
                 ? "Bring your Reminders in"
                 : "\(fetched.importedReminderListIds.count) list\(fetched.importedReminderListIds.count == 1 ? "" : "s") syncing"
             next.vacationSub = fetched.vacationMode
-                ? "On — nudges paused"
+                ? "On · nudges paused"
                 : "Pause all nudges while you rest"
         } else {
             next.bedtimeText = Self.bedtimeText(.standard)
@@ -160,13 +160,13 @@ final class YouViewModel: ObservableStateViewModel<
         defer { state.isRestoring = false }
 
         guard let purchase = await membershipStore.restorablePurchase() else {
-            state.restoreMessage = "Nothing to restore — this Apple ID has no active Mochi+ purchase."
+            state.restoreMessage = "Nothing to restore. This Apple ID has no active Mochi+ purchase."
             return
         }
         do {
             try await membershipStore.restore(purchase)
             Haptics.success()
-            state.restoreMessage = "Welcome back — your membership is restored! 🎉"
+            state.restoreMessage = "Welcome back! Your membership is restored."
             await refresh()
         } catch {
             state.restoreMessage = "Couldn't restore purchases. Please try again."
@@ -188,7 +188,7 @@ final class YouViewModel: ObservableStateViewModel<
         case .trial(let endsAt):
             return (true, "Mochi+ · free trial ends \(Self.dateText(endsAt))")
         case .lapsed:
-            return (false, "Lapsed — renew to keep Mochi thriving")
+            return (false, "Lapsed · renew to keep Mochi thriving")
         case .notSubscribed:
             return (false, "Not subscribed yet")
         }

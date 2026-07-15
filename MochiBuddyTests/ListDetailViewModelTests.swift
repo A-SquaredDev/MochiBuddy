@@ -37,7 +37,7 @@ private func makeListDetailVM(
     return (vm, taskRepo, profileRepo)
 }
 
-private let workList = TaskList(id: "work", name: "Work", colorHex: "#FF9DC4", icon: "💼", order: 0)
+private let workList = TaskList(id: "work", name: "Work", colorHex: "#FF9DC4", icon: "briefcase.fill", order: 0)
 
 @Suite("ListDetail · scoping")
 @MainActor

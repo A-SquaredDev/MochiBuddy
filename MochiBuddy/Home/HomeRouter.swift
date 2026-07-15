@@ -18,7 +18,7 @@ final class HomeRouter {
         self.container = container
     }
 
-    /// Root of the tab — the Home screen.
+    /// Root of the tab - the Home screen.
     func start() -> AnyView {
         let viewModel = HomeViewModel(
             authRepository: container.authRepository,
@@ -32,7 +32,7 @@ final class HomeRouter {
         return AnyView(HomeView(viewModel: viewModel, router: self))
     }
 
-    /// The add/edit sheet — `draftTitle` seeds a new capture from quick-add.
+    /// The add/edit sheet - `draftTitle` seeds a new capture from quick-add.
     func taskEditor(task: TaskItem?, draftTitle: String? = nil) -> AnyView {
         let viewModel = TaskEditorViewModel(
             editingTask: task,

@@ -3,7 +3,7 @@
 //  MochiBuddy
 //
 //  Subscription state for the membership gate. Mochi is subscription-only:
-//  7-day free trial, then yearly/monthly — no freemium tier.
+//  7-day free trial, then yearly/monthly - no freemium tier.
 //
 //  NOTE: LocalMembershipStore is a device-local stand-in so the whole
 //  onboarding + returning-user flow works end to end today. The production
@@ -47,7 +47,7 @@ struct MembershipPlanOption: Equatable {
 }
 
 enum MembershipStoreError: Error {
-    /// The user dismissed the purchase sheet — not an error to surface.
+    /// The user dismissed the purchase sheet - not an error to surface.
     case cancelled
     case purchaseFailed
     case nothingToRestore
@@ -67,7 +67,7 @@ protocol MembershipStore: AnyObject {
 }
 
 extension MembershipPlanOption {
-    /// Hardcoded fallbacks — used by the local stub and when the store
+    /// Hardcoded fallbacks - used by the local stub and when the store
     /// can't be reached before the paywall renders.
     static let defaultYearly = MembershipPlanOption(
         plan: .yearly, price: 29.99, localizedPrice: "$29.99",

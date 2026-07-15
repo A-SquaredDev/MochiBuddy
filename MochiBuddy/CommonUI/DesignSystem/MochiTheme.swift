@@ -24,7 +24,7 @@ struct MochiTheme: Equatable, Identifiable {
     let primaryInk: Color   // text/icon ON primary fill
     let primaryText: Color  // primary color for text on soft/light bg
     let primarySoft: Color  // tinted fill: ghost buttons, chips, tracks
-    let accent2: Color      // lighter accent — gradient partner
+    let accent2: Color      // lighter accent - gradient partner
     let pet: Color
     let pet2: Color
     let petCheek: Color
@@ -95,7 +95,7 @@ struct MochiTheme: Equatable, Identifiable {
     }
 }
 
-/// Radii tokens — everything is soft; primary interactive elements are pills.
+/// Radii tokens - everything is soft; primary interactive elements are pills.
 enum MochiRadius {
     static let lg: CGFloat = 26   // flavor cards, big panels
     static let xl: CGFloat = 28   // outer card shell
@@ -103,7 +103,7 @@ enum MochiRadius {
     static let sm: CGFloat = 13   // small tiles
 }
 
-/// Motion tokens — `bounce` is the springy Mochi overshoot.
+/// Motion tokens - `bounce` is the springy Mochi overshoot.
 enum MochiMotion {
     static let bounce = Animation.spring(response: 0.38, dampingFraction: 0.6)
     static let soft = Animation.easeInOut(duration: 0.25)

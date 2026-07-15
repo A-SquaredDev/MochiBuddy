@@ -55,7 +55,7 @@ struct YouView: View {
                 Button("Sign out", role: .destructive) { viewModel.trigger(.confirmSignOut) }
                 Button("Stay", role: .cancel) { viewModel.trigger(.cancelSignOut) }
             },
-            message: { Text("Your tasks, coins and Mochi stay safe in the cloud — sign back in anytime.") }
+            message: { Text("Your tasks, coins and Mochi stay safe in the cloud. Sign back in anytime.") }
         )
         .onReceive(viewModel.navigationEvents) { event in
             switch event {

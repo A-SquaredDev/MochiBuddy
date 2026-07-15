@@ -28,8 +28,9 @@ struct DeleteWarnView: View {
                     VStack(spacing: 4) {
                         MochiPetView(mood: .unwell, size: 104, squishOnTap: false)
                             .overlay(alignment: .bottomTrailing) {
-                                Text("💔")
-                                    .font(.system(size: 20))
+                                Image(systemName: "heart.slash.fill")
+                                    .font(.system(size: 18))
+                                    .foregroundStyle(theme.danger)
                                     .offset(x: 4)
                             }
                         Text("We're sad to see you go")
@@ -83,7 +84,7 @@ struct DeleteWarnView: View {
     }
 }
 
-/// Destructive pill — soft tint by default, solid danger when `filled`.
+/// Destructive pill - soft tint by default, solid danger when `filled`.
 struct DangerButton: View {
     let title: String
     var isLoading = false

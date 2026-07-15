@@ -2,7 +2,7 @@
 //  AppleRemindersViewModel.swift
 //  MochiBuddy
 //
-//  7 · Apple Reminders import — optional and skippable (high-trust ask;
+//  7 · Apple Reminders import - optional and skippable (high-trust ask;
 //  also offered later in Settings). The EventKit prompt only fires after
 //  the user opts in, then they pick which lists Mochi may watch.
 //
@@ -57,7 +57,7 @@ final class AppleRemindersViewModel: ObservableStateViewModel<
         state.isWorking = true
         let granted = await remindersGateway.requestFullAccess()
         guard granted else {
-            // Denied is fine — the import stays available in Settings.
+            // Denied is fine - the import stays available in Settings.
             state.isWorking = false
             setNavigationEvent(.next)
             return

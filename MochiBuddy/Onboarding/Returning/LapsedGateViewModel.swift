@@ -2,7 +2,7 @@
 //  LapsedGateViewModel.swift
 //  MochiBuddy
 //
-//  R1 · Membership expired — Mochi's dozed off, nothing was deleted.
+//  R1 · Membership expired - Mochi's dozed off, nothing was deleted.
 //  Shows what's waiting (tasks, streak, coins) and the plans.
 //
 
@@ -86,9 +86,9 @@ final class LapsedGateViewModel: ObservableStateViewModel<
         let taskCount = (try? await taskRepository.incompleteTaskCount(userId: userId)) ?? 0
 
         state.stats = [
-            LapsedGateBehavior.Stat(icon: "📋", value: "\(taskCount)", label: "Tasks safe"),
-            LapsedGateBehavior.Stat(icon: "🔥", value: "\(profile?.streakCount ?? 0)-day", label: "Streak kept"),
-            LapsedGateBehavior.Stat(icon: "🪙", value: "\(profile?.coins ?? 0)", label: "Coins"),
+            LapsedGateBehavior.Stat(icon: "checklist", value: "\(taskCount)", label: "Tasks safe"),
+            LapsedGateBehavior.Stat(icon: "flame.fill", value: "\(profile?.streakCount ?? 0)-day", label: "Streak kept"),
+            LapsedGateBehavior.Stat(icon: "centsign.circle.fill", value: "\(profile?.coins ?? 0)", label: "Coins"),
         ]
     }
 }

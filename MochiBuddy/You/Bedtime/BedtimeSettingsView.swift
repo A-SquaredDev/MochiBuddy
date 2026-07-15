@@ -27,11 +27,12 @@ struct BedtimeSettingsView: View {
                     VStack(spacing: 14) {
                         MochiPetView(mood: .tired, size: 110, squishOnTap: false)
                             .overlay(alignment: .topTrailing) {
-                                Text("🌙")
-                                    .font(.system(size: 22))
+                                Image(systemName: "moon.fill")
+                                    .font(.system(size: 20))
+                                    .foregroundStyle(theme.primaryText)
                                     .offset(x: 8, y: -8)
                             }
-                        Text("Mochi rests while you do — no anxious pings at night, and a friendly rundown when you both wake up.")
+                        Text("Mochi rests while you do. No anxious pings at night, and a friendly rundown when you both wake up.")
                             .font(MochiFont.body(12, weight: .bold))
                             .foregroundStyle(theme.muted)
                             .multilineTextAlignment(.center)

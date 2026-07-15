@@ -2,7 +2,7 @@
 //  TaskEditorView.swift
 //  MochiBuddy
 //
-//  The Add / Edit task sheet — full field set, snooze + delete in edit
+//  The Add / Edit task sheet - full field set, snooze + delete in edit
 //  mode. Dismisses itself when the ViewModel reports done; the presenting
 //  screen refreshes on dismiss.
 //
@@ -118,8 +118,9 @@ struct TaskEditorView: View {
 
     private var titleField: some View {
         HStack(spacing: 7) {
-            Text("✏️")
-                .font(.system(size: 13))
+            Image(systemName: "pencil")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(theme.muted)
             TextField(
                 "What's next on the list?",
                 text: viewModel.collectBinding(for: \.title, action: { .titleChanged($0) })
@@ -336,7 +337,7 @@ struct TaskEditorView: View {
     }
 }
 
-/// Wrapping chip row — Layout so chips flow to new lines like the design's
+/// Wrapping chip row - Layout so chips flow to new lines like the design's
 /// flex-wrap rows.
 struct FlowLayout: Layout {
     var spacing: CGFloat = 7

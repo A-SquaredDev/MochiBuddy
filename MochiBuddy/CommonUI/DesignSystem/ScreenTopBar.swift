@@ -11,6 +11,9 @@ import SwiftUI
 struct ScreenTopBar<Right: View>: View {
     let title: String
     var subtitle: String?
+    /// Optional SF Symbol shown in a tile before the title (list screens).
+    var icon: String? = nil
+    var iconTint: Color? = nil
     var onBack: (() -> Void)?
     @ViewBuilder var right: Right
 
@@ -32,6 +35,13 @@ struct ScreenTopBar<Right: View>: View {
                 .buttonStyle(SquishButtonStyle())
                 .accessibilityLabel("Back")
             }
+            if let icon {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(iconTint ?? theme.ink)
+                    .frame(width: 34, height: 34)
+                    .background(theme.surface2, in: RoundedRectangle(cornerRadius: 11))
+            }
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
                     .font(MochiFont.display(22, weight: .semibold))
@@ -49,7 +59,20 @@ struct ScreenTopBar<Right: View>: View {
 }
 
 extension ScreenTopBar where Right == EmptyView {
-    init(title: String, subtitle: String? = nil, onBack: (() -> Void)? = nil) {
-        self.init(title: title, subtitle: subtitle, onBack: onBack, right: { EmptyView() })
+    init(
+        title: String,
+        subtitle: String? = nil,
+        icon: String? = nil,
+        iconTint: Color? = nil,
+        onBack: (() -> Void)? = nil
+    ) {
+        self.init(
+            title: title,
+            subtitle: subtitle,
+            icon: icon,
+            iconTint: iconTint,
+            onBack: onBack,
+            right: { EmptyView() }
+        )
     }
 }

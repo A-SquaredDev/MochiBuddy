@@ -2,7 +2,7 @@
 //  OnLoad.swift
 //  MochiBuddy
 //
-//  CommonUI — fires exactly once per view lifetime, unlike onAppear.
+//  CommonUI - fires exactly once per view lifetime, unlike onAppear.
 //
 
 import SwiftUI

@@ -2,7 +2,7 @@
 //  TaskRepeatTests.swift
 //  MochiBuddyTests
 //
-//  Repeat stepping — completing an occurrence spawns the next one strictly
+//  Repeat stepping - completing an occurrence spawns the next one strictly
 //  after now, skipping any occurrences that already slipped past.
 //
 //  Anchor: Dates.now is Wed 8 Jul 2026, 10:00 (Jul 10 = Friday).
@@ -101,7 +101,7 @@ struct TaskRepeatTests {
         let next = TaskRepeat.monthly.nextOccurrence(after: jan31, now: jan31, calendar: calendar)
         let expected = calendar.date(byAdding: .month, value: 1, to: jan31)!
         #expect(next == expected)
-        // 2026 is not a leap year — February clamp lands on the 28th.
+        // 2026 is not a leap year - February clamp lands on the 28th.
         #expect(calendar.component(.day, from: next) == 28)
     }
 

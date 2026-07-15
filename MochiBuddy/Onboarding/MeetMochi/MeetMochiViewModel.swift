@@ -2,7 +2,7 @@
 //  MeetMochiViewModel.swift
 //  MochiBuddy
 //
-//  2 · Meet Mochi — the emotional hook: beaming baseline, the downswing,
+//  2 · Meet Mochi - the emotional hook: beaming baseline, the downswing,
 //  then recovery. Three beats on one screen.
 //
 

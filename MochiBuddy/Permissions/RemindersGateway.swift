@@ -14,7 +14,7 @@ struct ReminderList: Equatable, Identifiable {
     let id: String
     let name: String
     let incompleteCount: Int
-    /// The EKCalendar's color, hex-encoded — nil when unavailable.
+    /// The EKCalendar's color, hex-encoded - nil when unavailable.
     var colorHex: String? = nil
 }
 
@@ -45,7 +45,7 @@ protocol RemindersGateway: AnyObject {
     /// Open reminders in the given lists. Empty when access isn't granted.
     func fetchOpenReminders(listIds: [String]) async -> [ReminderTaskItem]
     /// Writes completion back to Apple Reminders. False when the item
-    /// vanished or the save failed — callers should revert their optimistic
+    /// vanished or the save failed - callers should revert their optimistic
     /// flip.
     func setReminderCompleted(id: String, completed: Bool) async -> Bool
 }

@@ -4,7 +4,7 @@
 //
 //  Scoped shared store for the onboarding flow (created by the Router,
 //  injected into the flow's ViewModels, deallocated when the flow ends).
-//  Holds the draft choices and persists each one as it happens — the
+//  Holds the draft choices and persists each one as it happens - the
 //  anonymous session from splash means nothing is lost before signup.
 //
 

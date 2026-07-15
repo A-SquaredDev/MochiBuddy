@@ -105,7 +105,7 @@ struct OnbBackButton: View {
     }
 }
 
-/// Eyebrow · headline · body — the standard onboarding heading block.
+/// Eyebrow · headline · body - the standard onboarding heading block.
 struct OnbHeading: View {
     var eyebrow: String?
     let title: String

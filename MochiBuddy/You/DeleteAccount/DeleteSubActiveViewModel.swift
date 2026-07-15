@@ -2,7 +2,7 @@
 //  DeleteSubActiveViewModel.swift
 //  MochiBuddy
 //
-//  Delete account · 2 — the purchase belongs to the Apple ID, not our
+//  Delete account · 2 - the purchase belongs to the Apple ID, not our
 //  account record: deleting the account does NOT stop billing. Requires
 //  an explicit acknowledgment before continuing.
 //

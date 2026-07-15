@@ -56,7 +56,9 @@ struct ReminderSettingsView: View {
                         }
                     }
                     HStack(spacing: 7) {
-                        Text("🔒")
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(theme.muted)
                         Text("Checking one off in Mochi marks it done in Reminders too.")
                             .font(MochiFont.body(11, weight: .bold))
                             .foregroundStyle(theme.muted)
@@ -74,8 +76,9 @@ struct ReminderSettingsView: View {
     private var connectionCard: some View {
         MochiCard {
             HStack(spacing: 12) {
-                Text("🍎")
-                    .font(.system(size: 20))
+                Image(systemName: "apple.logo")
+                    .font(.system(size: 18))
+                    .foregroundStyle(theme.ink)
                     .frame(width: 40, height: 40)
                     .background(theme.surface2, in: RoundedRectangle(cornerRadius: 12))
                 VStack(alignment: .leading, spacing: 1) {
@@ -101,8 +104,9 @@ struct ReminderSettingsView: View {
     private var primerCard: some View {
         MochiCard(padding: EdgeInsets(top: 20, leading: 16, bottom: 18, trailing: 16)) {
             VStack(spacing: 12) {
-                Text("🍎")
-                    .font(.system(size: 34))
+                Image(systemName: "apple.logo")
+                    .font(.system(size: 30))
+                    .foregroundStyle(theme.ink)
                 Text("Already use Reminders?")
                     .font(MochiFont.display(16, weight: .semibold))
                     .foregroundStyle(theme.ink)
@@ -121,8 +125,9 @@ struct ReminderSettingsView: View {
     private var deniedCard: some View {
         MochiCard {
             HStack(spacing: 11) {
-                Text("🔒")
-                    .font(.system(size: 20))
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(theme.warn)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Reminders access is off")
                         .font(MochiFont.body(13, weight: .heavy))

@@ -80,7 +80,7 @@ struct TaskEditorNewTests {
 
     @Test("saving a new task writes the full draft")
     func saveDraft() async {
-        let lists = [TaskList(id: "work", name: "Work", colorHex: "#FF9DC4", icon: "💼", order: 0)]
+        let lists = [TaskList(id: "work", name: "Work", colorHex: "#FF9DC4", icon: "briefcase.fill", order: 0)]
         let (vm, repo) = makeEditorVM(lists: lists)
         await vm.triggerAsync(.load)
         await vm.triggerAsync(.titleChanged("  Send invoice  "))
@@ -318,10 +318,10 @@ struct TaskEditorEditTests {
         )
     }
 
-    @Test("isEditing is true before .load runs — the focus check reads it synchronously")
+    @Test("isEditing is true before .load runs - the focus check reads it synchronously")
     func isEditingSetAtInit() async {
         let (editVM, _) = makeEditorVM(editing: overdueTask)
-        #expect(editVM.uiState.isEditing == true, "must not wait for .load — the View decides keyboard focus in onLoad")
+        #expect(editVM.uiState.isEditing == true, "must not wait for .load - the View decides keyboard focus in onLoad")
         #expect(editVM.uiState.title == "Reply to Sam's email")
         #expect(editVM.uiState.canSave == true)
 
@@ -353,7 +353,7 @@ struct TaskEditorEditTests {
         #expect(vm.uiState.overdueBanner == nil)
     }
 
-    @Test("saving an edit updates in place — never creates a duplicate")
+    @Test("saving an edit updates in place - never creates a duplicate")
     func saveUpdates() async {
         let (vm, repo) = makeEditorVM(editing: overdueTask)
         await vm.triggerAsync(.load)

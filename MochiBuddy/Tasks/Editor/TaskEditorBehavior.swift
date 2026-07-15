@@ -21,7 +21,7 @@ enum TaskEditorBehavior {
         case pick
     }
 
-    /// Chip dot color — status tones resolve against the theme in the View.
+    /// Chip dot color - status tones resolve against the theme in the View.
     enum ChipDot: Equatable {
         case none
         case custom(Color)
@@ -48,7 +48,7 @@ enum TaskEditorBehavior {
         var isEditing = false
         var title = ""
         var canSave = false
-        /// "Overdue by 2 days" — edit mode only.
+        /// "Overdue by 2 days" - edit mode only.
         var overdueBanner: String?
         var dateOptions: [ChoiceChip] = []
         var selectedDateId = DateOption.today.rawValue

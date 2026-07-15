@@ -3,7 +3,7 @@
 //  MochiBuddyTests
 //
 //  Splash is the reinstall gauntlet: the Firebase keychain session survives
-//  app deletion, so a fresh install can wake up as ANY of these people —
+//  app deletion, so a fresh install can wake up as ANY of these people -
 //  brand new, mid-onboarding, subscribed, or lapsed. Every branch must land
 //  somewhere sane, and offline must never trap anyone on the splash screen.
 //
@@ -54,7 +54,7 @@ struct SplashRoutingTests {
         #expect(recorder.events == [.showMeetMochi])
     }
 
-    @Test("reinstall with a live subscription goes straight home — no onboarding replay")
+    @Test("reinstall with a live subscription goes straight home - no onboarding replay")
     func reinstallSubscribed() async {
         let membership = StubMembershipStore()
         membership.status = .active(plan: .yearly, renewsAt: nil)
@@ -131,7 +131,7 @@ struct SplashRoutingTests {
         #expect(profileRepo.ensuredAccounts.map(\.uid) == ["user1"])
     }
 
-    // MARK: Failure paths — never trap anyone on splash
+    // MARK: Failure paths - never trap anyone on splash
 
     @Test("auth completely unavailable still lands on Meet Mochi")
     func authFailureFallsBack() async {

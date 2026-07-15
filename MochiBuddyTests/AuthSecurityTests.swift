@@ -5,7 +5,7 @@
 //  Client-side security invariants: the Sign-in-with-Apple nonce is real
 //  cryptography, every Firestore call stays inside the signed-in user's
 //  subtree, and nothing points at a cleartext endpoint. (Server-side
-//  enforcement lives in firestore.rules — deployed via the Firebase
+//  enforcement lives in firestore.rules - deployed via the Firebase
 //  console; see the file at the repo root.)
 //
 
@@ -19,7 +19,7 @@ struct AppleNonceTests {
 
     private let repository = FirebaseAuthRepository()
 
-    @Test("the hashed nonce is the SHA-256 of the raw nonce — Firebase rejects anything else")
+    @Test("the hashed nonce is the SHA-256 of the raw nonce - Firebase rejects anything else")
     func hashMatches() {
         let nonce = repository.makeAppleNonce()
         let expected = SHA256.hash(data: Data(nonce.raw.utf8))
@@ -37,7 +37,7 @@ struct AppleNonceTests {
         #expect(nonce.sha256.count == 64, "SHA-256 hex is 64 chars")
     }
 
-    @Test("nonces are single-use randomness — 100 draws, zero repeats")
+    @Test("nonces are single-use randomness - 100 draws, zero repeats")
     func uniqueness() {
         var seen = Set<String>()
         for _ in 0..<100 {
@@ -50,7 +50,7 @@ struct AppleNonceTests {
 @Suite("Security · endpoints")
 struct EndpointSecurityTests {
 
-    @Test("every outbound link is https or mailto — no cleartext, no lookalikes")
+    @Test("every outbound link is https or mailto - no cleartext, no lookalikes")
     func linksAreSecure() {
         let links: [URL] = [
             MochiLinks.privacyPolicy,

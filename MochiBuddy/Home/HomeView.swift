@@ -2,7 +2,7 @@
 //  HomeView.swift
 //  MochiBuddy
 //
-//  Home — pet + mood react to task completion and petting. Mood shows a
+//  Home - pet + mood react to task completion and petting. Mood shows a
 //  face + qualitative label with the two-layer meter, never a raw number.
 //
 
@@ -159,7 +159,7 @@ struct HomeView: View {
                     MochiButton(title: "Pet Mochi", variant: .ghost, size: .md) {
                         viewModel.trigger(.petTapped)
                     }
-                    MochiButton(title: "Treats 🍡", variant: .primary, size: .md) {
+                    MochiButton(title: "Treats", variant: .primary, size: .md) {
                         viewModel.trigger(.treatsTapped)
                     }
                 }
@@ -172,8 +172,9 @@ struct HomeView: View {
 
     private var quickAdd: some View {
         HStack(spacing: 7) {
-            Text("✏️")
-                .font(.system(size: 13))
+            Image(systemName: "pencil")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(theme.muted)
             TextField("What's next on the list?", text: viewModel.collectBinding(for: \.quickAddText, action: { .quickAddChanged($0) }))
                 .font(MochiFont.body(12.5, weight: .bold))
                 .foregroundStyle(theme.ink)
@@ -256,9 +257,13 @@ struct HomeView: View {
                             .font(MochiFont.display(14, weight: .semibold))
                             .foregroundStyle(theme.ink)
                         Spacer()
-                        Text("\(viewModel.doneTodayItems.count) 🎉")
-                            .font(MochiFont.body(11, weight: .heavy))
-                            .foregroundStyle(theme.muted)
+                        HStack(spacing: 4) {
+                            Text("\(viewModel.doneTodayItems.count)")
+                                .font(MochiFont.body(11, weight: .heavy))
+                            Image(systemName: "party.popper.fill")
+                                .font(.system(size: 10, weight: .bold))
+                        }
+                        .foregroundStyle(theme.muted)
                     }
                     .padding(.horizontal, 2)
                     MochiTimeline(items: viewModel.doneTodayItems, dotColor: timelineDot) { item in

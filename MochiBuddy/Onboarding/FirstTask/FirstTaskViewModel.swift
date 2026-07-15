@@ -2,7 +2,7 @@
 //  FirstTaskViewModel.swift
 //  MochiBuddy
 //
-//  3 · Add your first task — the activation moment. Skippable, but this is
+//  3 · Add your first task - the activation moment. Skippable, but this is
 //  where the loop clicks with the user's own data.
 //
 
@@ -16,7 +16,7 @@ final class FirstTaskViewModel: ObservableStateViewModel<
 
     private let onboardingStore: OnboardingStore
 
-    // Domain source of truth — UIState is derived from it.
+    // Domain source of truth - UIState is derived from it.
     private var draft = TaskDraft(title: "")
 
     init(onboardingStore: OnboardingStore) {

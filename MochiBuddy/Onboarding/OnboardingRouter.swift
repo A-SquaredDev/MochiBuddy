@@ -3,7 +3,7 @@
 //  MochiBuddy
 //
 //  One router for the whole onboarding flow (a tightly-coupled multi-step
-//  wizard — the flow-coordinator scoping from the routing doc). Creates
+//  wizard - the flow-coordinator scoping from the routing doc). Creates
 //  each screen's ViewModel with its dependencies and drives NavController.
 //
 
@@ -47,7 +47,7 @@ final class OnboardingRouter: OnboardingRouting {
         )
     }
 
-    /// Root of the flow — splash.
+    /// Root of the flow - splash.
     func start() -> AnyView {
         let viewModel = SplashViewModel(
             authRepository: container.authRepository,
@@ -188,7 +188,7 @@ final class OnboardingRouter: OnboardingRouting {
         navController.popBackStack()
     }
 
-    /// "Not you? Switch account" — drop the session and run first-run again.
+    /// "Not you? Switch account" - drop the session and run first-run again.
     func restartOnboarding() {
         try? container.authRepository.signOut()
         Task { @MainActor in

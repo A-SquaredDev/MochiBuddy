@@ -2,7 +2,7 @@
 //  RestoreFoundViewModel.swift
 //  MochiBuddy
 //
-//  R2 · Restore membership — an active purchase was found on this
+//  R2 · Restore membership - an active purchase was found on this
 //  Apple ID; restoring is free and instant.
 //
 

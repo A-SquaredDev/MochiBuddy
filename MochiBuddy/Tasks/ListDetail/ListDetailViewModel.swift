@@ -2,7 +2,7 @@
 //  ListDetailViewModel.swift
 //  MochiBuddy
 //
-//  One list's tasks — open up top, completed below. Check-offs route
+//  One list's tasks - open up top, completed below. Check-offs route
 //  through TaskCompletionStore, same as Home and the Tasks tab.
 //
 
@@ -20,7 +20,7 @@ final class ListDetailViewModel: StateViewModel<
     private let completionStore: TaskCompletionStore
     private let remindersGateway: RemindersGateway
 
-    // Domain source of truth — UIState is derived from these.
+    // Domain source of truth - UIState is derived from these.
     private var open: [TaskItem] = []
     private var done: [TaskItem] = []
     private var reminders: [ReminderTaskItem] = []
@@ -45,7 +45,7 @@ final class ListDetailViewModel: StateViewModel<
         switch source {
         case .inbox:
             initial.title = "Inbox"
-            initial.icon = "📥"
+            initial.icon = "tray.fill"
             initial.accent = Color(hexString: TaskListDefaults.colorChoices[0])
             initial.newTaskListId = nil
         case .mochi(let list):
@@ -55,7 +55,7 @@ final class ListDetailViewModel: StateViewModel<
             initial.newTaskListId = list.id
         case .reminders(_, let name, let colorHex):
             initial.title = name
-            initial.icon = "☑️"
+            initial.icon = "checklist"
             initial.accent = Color(hexString: colorHex ?? TaskListDefaults.colorChoices[0])
             // New tasks can't be written into Apple Reminders; completed
             // reminders stay in the Reminders app, not here.
@@ -73,7 +73,7 @@ final class ListDetailViewModel: StateViewModel<
             await toggleTask(id: id)
 
         case .taskTapped(let id):
-            // Reminder rows have no editor — they're managed in Apple Reminders.
+            // Reminder rows have no editor - they're managed in Apple Reminders.
             if case .reminders = source { return }
             if let task = (open + done).first(where: { $0.id == id }) {
                 state.editingTask = TasksBehavior.EditingTask(task: task)
@@ -162,7 +162,7 @@ final class ListDetailViewModel: StateViewModel<
         rebuild()
     }
 
-    /// No coins, no streak, no editor — completion just writes back to
+    /// No coins, no streak, no editor - completion just writes back to
     /// EventKit, reverting the optimistic flip if the save fails.
     private func toggleReminder(id: String) async {
         guard let index = reminders.firstIndex(where: { $0.id == id }) else { return }
@@ -233,7 +233,7 @@ final class ListDetailViewModel: StateViewModel<
 
     private func item(for task: TaskItem, now: Date) -> TasksBehavior.TodoUIItem {
         let display = TodoItemDisplay.row(for: task, now: now)
-        // No list indicator here — every row belongs to this screen's list.
+        // No list indicator here - every row belongs to this screen's list.
         return TasksBehavior.TodoUIItem(
             id: task.id, title: task.title,
             meta: display.meta, state: display.state, chip: display.chip

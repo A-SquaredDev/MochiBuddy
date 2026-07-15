@@ -2,7 +2,7 @@
 //  BedtimeSettingsViewModel.swift
 //  MochiBuddy
 //
-//  Settings twin of the onboarding bedtime step — loads the saved window
+//  Settings twin of the onboarding bedtime step - loads the saved window
 //  and persists every change immediately (no explicit save button).
 //
 
@@ -16,7 +16,7 @@ final class BedtimeSettingsViewModel: StateViewModel<
     private let authRepository: AuthRepository
     private let profileRepository: UserProfileRepository
 
-    // Domain source of truth — wall-clock minutes, not instants.
+    // Domain source of truth - wall-clock minutes, not instants.
     private var window: BedtimeWindow = .standard
 
     init(authRepository: AuthRepository, profileRepository: UserProfileRepository) {

@@ -5,7 +5,7 @@
 //  Account deletion is the one flow that must never half-succeed: the
 //  billing warning must gate on a real entitlement, deletion must be
 //  impossible without fresh proof of identity, and the Firestore subtree
-//  must be erased STRICTLY BEFORE the Auth user disappears — security
+//  must be erased STRICTLY BEFORE the Auth user disappears - security
 //  rules lock an orphaned subtree forever.
 //
 
@@ -26,7 +26,7 @@ struct DeleteWarnTests {
         taskRepo.incomplete = (0..<10).map { makeTask(id: "t\($0)") }
         taskRepo.completed = (0..<4).map { makeTask(id: "c\($0)", completed: true, completedAt: .now) }
         let listRepo = StubListRepository()
-        listRepo.lists = (0..<3).map { TaskList(id: "l\($0)", name: "L\($0)", colorHex: "#C9A6FF", icon: "🏷️", order: $0) }
+        listRepo.lists = (0..<3).map { TaskList(id: "l\($0)", name: "L\($0)", colorHex: "#C9A6FF", icon: "tag.fill", order: $0) }
         let profileRepo = StubProfileRepository()
         profileRepo.profile = makeProfile(coins: 128, streak: 4)
         let vm = DeleteWarnViewModel(
@@ -39,14 +39,14 @@ struct DeleteWarnTests {
         return (vm, taskRepo)
     }
 
-    @Test("the warning shows real counts — what the user actually loses")
+    @Test("the warning shows real counts - what the user actually loses")
     func realCounts() async {
         let (vm, _) = makeVM()
         await vm.triggerAsync(.load)
         let byId = Dictionary(uniqueKeysWithValues: vm.uiState.items.map { ($0.id, $0.subtitle) })
         #expect(byId["tasks"] == "14 tasks across 4 lists") // 3 user lists + Inbox
         #expect(byId["coins"] == "128 ¢ balance")
-        #expect(byId["streak"] == "4 days — reset to zero")
+        #expect(byId["streak"] == "4 days, reset to zero")
     }
 
     @Test("continue with an ACTIVE subscription detours through the billing warning")
@@ -173,7 +173,7 @@ struct DeleteConfirmTests {
         #expect(vm.uiState.isVerified == false)
     }
 
-    @Test("guest (anonymous) accounts skip reauth — Apple 5.1.1(v) covers them too")
+    @Test("guest (anonymous) accounts skip reauth - Apple 5.1.1(v) covers them too")
     func anonymousIsPreVerified() async {
         let auth = StubAuthRepository()
         auth.currentAccount = AuthAccount(uid: "anon1", isAnonymous: true, displayName: nil, email: nil, providerId: nil)
@@ -187,7 +187,7 @@ struct DeleteConfirmTests {
         #expect(eraser.erasedUserIds == ["anon1"])
     }
 
-    @Test("delete without verification is a hard no-op — nothing is touched")
+    @Test("delete without verification is a hard no-op - nothing is touched")
     func unverifiedDeleteRefused() async {
         let (vm, auth, eraser, _) = makeVM()
         await vm.triggerAsync(.load)
@@ -248,7 +248,7 @@ struct DeleteConfirmTests {
         #expect(recorder.events == [.deleted])
     }
 
-    @Test("if the data erase fails, the Auth user SURVIVES — no orphaned data, retry stays possible")
+    @Test("if the data erase fails, the Auth user SURVIVES - no orphaned data, retry stays possible")
     func eraseFailureAbortsAuthDelete() async {
         let auth = StubAuthRepository()
         let (vm, _, eraser, _) = makeVM(auth: auth)

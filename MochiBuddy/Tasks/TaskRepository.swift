@@ -23,7 +23,7 @@ struct CompletedTaskStat: Equatable {
 }
 
 protocol TaskRepository: AnyObject {
-    /// Returns the new task's id (available immediately — offline persistence
+    /// Returns the new task's id (available immediately - offline persistence
     /// applies the write to the local cache before the server ack).
     @discardableResult
     func addTask(_ draft: TaskDraft, userId: String) async throws -> String
@@ -87,9 +87,9 @@ final class FirestoreTaskRepository: TaskRepository {
     }
 
     func completedTasks(limit: Int, userId: String) async throws -> [TaskItem] {
-        // Range + order on the same field — no composite index needed
+        // Range + order on the same field - no composite index needed
         // (completedAt only exists on completed tasks). Epoch, not
-        // .distantPast — year 1 is outside Timestamp's valid range.
+        // .distantPast - year 1 is outside Timestamp's valid range.
         let snapshot = try await tasks(userId)
             .whereField("completedAt", isGreaterThan: Timestamp(date: Date(timeIntervalSince1970: 0)))
             .order(by: "completedAt", descending: true)
@@ -99,7 +99,7 @@ final class FirestoreTaskRepository: TaskRepository {
     }
 
     func completedTasks(since: Date, userId: String) async throws -> [TaskItem] {
-        // Range + order on the same field — no composite index needed.
+        // Range + order on the same field - no composite index needed.
         let snapshot = try await tasks(userId)
             .whereField("completedAt", isGreaterThanOrEqualTo: Timestamp(date: since))
             .order(by: "completedAt", descending: true)
@@ -135,7 +135,7 @@ final class FirestoreTaskRepository: TaskRepository {
     }
 
     func incompleteTasks(userId: String) async throws -> [TaskItem] {
-        // Single equality filter — no composite index needed; today/overdue
+        // Single equality filter - no composite index needed; today/overdue
         // grouping happens client-side (task counts stay small).
         let snapshot = try await tasks(userId)
             .whereField("completed", isEqualTo: false)
@@ -148,7 +148,7 @@ final class FirestoreTaskRepository: TaskRepository {
             "completed": completed,
             "updatedAt": FieldValue.serverTimestamp(),
         ]
-        // Client time, not serverTimestamp — the mood engine and stats read
+        // Client time, not serverTimestamp - the mood engine and stats read
         // it from the local cache immediately.
         fields["completedAt"] = completed ? Timestamp(date: .now) : FieldValue.delete()
         tasks(userId).document(taskId).setData(fields, merge: true, completion: nil)
@@ -196,7 +196,7 @@ final class FirestoreTaskRepository: TaskRepository {
     }
 
     func completedTaskStats(since: Date, userId: String) async throws -> [CompletedTaskStat] {
-        // Range on completedAt alone (no composite index needed) — the field
+        // Range on completedAt alone (no composite index needed) - the field
         // only exists on completed tasks.
         let snapshot = try await tasks(userId)
             .whereField("completedAt", isGreaterThanOrEqualTo: Timestamp(date: since))

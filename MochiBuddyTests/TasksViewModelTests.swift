@@ -3,7 +3,7 @@
 //  MochiBuddyTests
 //
 //  The four task surfaces: Today's pinned overdue, Upcoming's day groups,
-//  the Lists overview counts, and Done's celebration — plus toggling
+//  the Lists overview counts, and Done's celebration - plus toggling
 //  between them.
 //
 
@@ -345,7 +345,7 @@ struct TasksDoneAndListsTests {
         #expect(groups[0].items[0].chip == "Done")
     }
 
-    @Test("the celebration counts only today's completions — honest coins")
+    @Test("the celebration counts only today's completions - honest coins")
     func celebrationHonestCopy() async {
         let today1 = makeTask(id: "a", completed: true, completedAt: .now)
         let today2 = makeTask(id: "b", completed: true, completedAt: .now)
@@ -398,7 +398,7 @@ struct TasksDoneAndListsTests {
         #expect(vm.uiState.groups[1].items[0].state == .done)
     }
 
-    @Test("the upcoming footnote explains the buckets — and only shows there")
+    @Test("the upcoming footnote explains the buckets - and only shows there")
     func upcomingFootnote() async {
         let (vm, _, _) = makeTasksVM(incomplete: [makeTask(dueAt: daysFromNow(2))])
         await vm.triggerAsync(.refresh)
@@ -412,7 +412,7 @@ struct TasksDoneAndListsTests {
 
     @Test("tapping a list row navigates to its detail screen")
     func listRowNavigation() async {
-        let work = TaskList(id: "work", name: "Work", colorHex: "#FF9DC4", icon: "💼", order: 0)
+        let work = TaskList(id: "work", name: "Work", colorHex: "#FF9DC4", icon: "briefcase.fill", order: 0)
         let (vm, _, _) = makeTasksVM(lists: [work])
         let recorder = EventRecorder(vm)
         await vm.triggerAsync(.refresh)
@@ -436,7 +436,7 @@ struct TasksDoneAndListsTests {
 
     @Test("task rows carry their list's name and color")
     func rowListIndicator() async {
-        let work = TaskList(id: "work", name: "Work", colorHex: "#FF9DC4", icon: "💼", order: 0)
+        let work = TaskList(id: "work", name: "Work", colorHex: "#FF9DC4", icon: "briefcase.fill", order: 0)
         let inList = makeTask(id: "t1", dueAt: startOfToday, listId: "work")
         let inboxTask = makeTask(id: "t2", dueAt: startOfToday)
         let (vm, _, _) = makeTasksVM(incomplete: [inList, inboxTask], lists: [work])
@@ -452,8 +452,8 @@ struct TasksDoneAndListsTests {
     @Test("Lists counts open tasks per list, with the implicit Inbox first")
     func listCounts() async {
         let lists = [
-            TaskList(id: "work", name: "Work", colorHex: "#FF9DC4", icon: "💼", order: 0),
-            TaskList(id: "health", name: "Health", colorHex: "#9BE6B4", icon: "💪", order: 1),
+            TaskList(id: "work", name: "Work", colorHex: "#FF9DC4", icon: "briefcase.fill", order: 0),
+            TaskList(id: "health", name: "Health", colorHex: "#9BE6B4", icon: "heart.fill", order: 1),
         ]
         let tasks = [
             makeTask(listId: nil),

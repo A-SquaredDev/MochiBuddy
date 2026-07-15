@@ -3,7 +3,7 @@
 //  MochiBuddy
 //
 //  Destroys the user's Firestore subtree for account deletion. Unlike the
-//  everyday repositories these writes ARE awaited — deletion must reach the
+//  everyday repositories these writes ARE awaited - deletion must reach the
 //  server before the Auth user disappears (rules lock the orphaned data),
 //  and the flow already requires being online for the auth delete.
 //

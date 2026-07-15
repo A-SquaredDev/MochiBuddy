@@ -2,7 +2,7 @@
 //  TodoItemDisplay.swift
 //  MochiBuddy
 //
-//  The one place task fields become row copy (meta/state/chip) — shared by
+//  The one place task fields become row copy (meta/state/chip) - shared by
 //  Home, the Tasks tab, and ListDetail so the three surfaces never drift.
 //  Field-based (not TaskItem-based) so Apple-Reminders-backed rows can use
 //  the same rules.
@@ -61,7 +61,7 @@ enum TodoItemDisplay {
             } else {
                 state = .normal
                 // Within the next week a weekday is unambiguous; beyond it,
-                // show the real date — otherwise completing a recurring task
+                // show the real date - otherwise completing a recurring task
                 // ahead of time ("Fri" → next "Fri") reads as a no-op.
                 let offset = calendar.dateComponents(
                     [.day],
@@ -88,13 +88,13 @@ enum TodoItemDisplay {
     }
 
     /// Resolves a task's list into its row indicator. Inbox (nil listId)
-    /// gets none — default rows stay calm.
+    /// gets none - default rows stay calm.
     static func listTag(for listId: String?, in lists: [TaskList]) -> (name: String, color: Color)? {
         guard let listId, let list = lists.first(where: { $0.id == listId }) else { return nil }
         return (list.name, Color(hexString: list.colorHex))
     }
 
-    // Same boundary rule as MoodEngine.overdueBoundary — date-only tasks
+    // Same boundary rule as MoodEngine.overdueBoundary - date-only tasks
     // become overdue at the following midnight.
     private static func hoursOverdue(dueAt: Date?, hasTime: Bool, now: Date) -> Double? {
         guard let dueAt else { return nil }

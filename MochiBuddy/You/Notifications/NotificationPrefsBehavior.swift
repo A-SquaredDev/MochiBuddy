@@ -21,7 +21,7 @@ enum NotificationPrefsBehavior {
         var moodDips = false
         var bedtimeSilence = true
         var bedtimeSilenceSub = ""
-        /// Notifications denied at the OS level — show the Settings hint.
+        /// Notifications denied at the OS level - show the Settings hint.
         var systemDenied = false
     }
 

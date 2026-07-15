@@ -2,7 +2,7 @@
 //  HomeViewModel.swift
 //  MochiBuddy
 //
-//  Home — the core loop on one screen: Mochi's mood tracks the task list,
+//  Home - the core loop on one screen: Mochi's mood tracks the task list,
 //  completing tasks earns coins, pets/treats buy temporary comfort. The
 //  baseline comes from MoodEngine; the buffer decays via a 30s tick.
 //
@@ -23,7 +23,7 @@ final class HomeViewModel: StateViewModel<
     private let rewardsStore: RewardsStore
     private let completionStore: TaskCompletionStore
 
-    // Domain source of truth — UIState is derived from these.
+    // Domain source of truth - UIState is derived from these.
     /// Incomplete tasks only; completions move to `completedToday`.
     private var tasks: [TaskItem] = []
     private var completedToday: [TaskItem] = []
@@ -36,7 +36,7 @@ final class HomeViewModel: StateViewModel<
     private var hasStartedTimer = false
     /// After submit clears the field, a focused TextField can echo one last
     /// `.quickAddChanged` with the submitted title (autocorrect committing on
-    /// return) and resurrect the text — swallow exactly that one echo.
+    /// return) and resurrect the text - swallow exactly that one echo.
     private var lastSubmittedQuickAddTitle: String?
 
     init(
@@ -127,7 +127,7 @@ final class HomeViewModel: StateViewModel<
     private func startTimerIfNeeded() {
         guard !hasStartedTimer else { return }
         hasStartedTimer = true
-        // The buffer decays in real time — re-derive twice a minute.
+        // The buffer decays in real time - re-derive twice a minute.
         Timer.publish(every: 30, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in self?.trigger(.tick) }
@@ -180,7 +180,7 @@ final class HomeViewModel: StateViewModel<
         lastSubmittedQuickAddTitle = uiState.quickAddText
         state.quickAddText = ""
 
-        // Date-only, due today — shows up in the list without stressing Mochi.
+        // Date-only, due today - shows up in the list without stressing Mochi.
         let draft = TaskDraft(title: title, dueAt: Calendar.current.startOfDay(for: .now))
         Haptics.impact(.medium)
         let id = (try? await taskRepository.addTask(draft, userId: userId)) ?? UUID().uuidString
@@ -196,7 +196,7 @@ final class HomeViewModel: StateViewModel<
         guard let userId else { return }
 
         // Completing moves the task into today's done list; undoing moves
-        // it back — the two arrays stay disjoint.
+        // it back - the two arrays stay disjoint.
         let task: TaskItem
         let nowCompleted: Bool
         if let index = tasks.firstIndex(where: { $0.id == id }) {
@@ -278,7 +278,6 @@ final class HomeViewModel: StateViewModel<
             HomeBehavior.TreatUIItem(
                 id: treat.id,
                 name: treat.name,
-                emoji: treat.emoji,
                 liftText: "+\(Int(treat.lift))",
                 durationText: "lasts \(treat.durationText)",
                 costText: "Give · \(treat.cost) ¢",
@@ -297,7 +296,7 @@ final class HomeViewModel: StateViewModel<
                 if hours > 0 { return 0 }
                 return calendar.isDate(task.dueAt ?? now, inSameDayAs: now) ? 1 : nil
             }
-            return 2 // undated — keep visible so the first task isn't orphaned
+            return 2 // undated - keep visible so the first task isn't orphaned
         }
         return tasks
             .compactMap { task in bucket(task).map { (task, $0) } }
@@ -365,7 +364,7 @@ final class HomeViewModel: StateViewModel<
             return ("Mochi is sleeping", "Bedtime · see you in the morning")
         }
         switch value {
-        case 80...: return ("Mochi is beaming", "You're on a roll ✨")
+        case 80...: return ("Mochi is beaming", "You're on a roll")
         case 50..<80: return ("Mochi feels content", "Clear a task to make it beam")
         case 25..<50: return ("Mochi's getting sleepy", "A quick win would help")
         default: return ("Mochi feels low", "Let's clear something overdue")

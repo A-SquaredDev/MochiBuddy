@@ -2,7 +2,7 @@
 //  MochiSkeleton.swift
 //  MochiBuddy
 //
-//  Loading skeletons — soft placeholder "bones" with a flavor-tinted
+//  Loading skeletons - soft placeholder "bones" with a flavor-tinted
 //  shimmer sweep, plus a snoozing Mochi that cycles playful status lines.
 //  Shown while the first Firestore fetch is in flight so screens never
 //  pop from empty to full.
@@ -25,7 +25,7 @@ struct SkeletonBone: View {
     }
 }
 
-/// Placeholder mirroring TodoItemRow's geometry — checkbox, two text
+/// Placeholder mirroring TodoItemRow's geometry - checkbox, two text
 /// lines, trailing chip. Vary the widths so a stack reads organic.
 struct SkeletonTodoRow: View {
     var titleWidth: CGFloat = 150
@@ -85,7 +85,7 @@ struct MochiLoadingPhrase: View {
 }
 
 /// Sweeps a soft highlight across the modified view, masked to its own
-/// shape — apply once to a skeleton layout's root. Honors Reduce Motion
+/// shape - apply once to a skeleton layout's root. Honors Reduce Motion
 /// by leaving the bones still.
 struct MochiShimmer: ViewModifier {
     @Environment(\.mochiTheme) private var theme

@@ -3,7 +3,7 @@
 //  MochiBuddy
 //
 //  Abstracts users/{uid}/lists. Writes are fire-and-forget like the other
-//  Firestore repositories — offline persistence applies them instantly.
+//  Firestore repositories - offline persistence applies them instantly.
 //
 
 import Foundation
@@ -11,13 +11,13 @@ import FirebaseFirestore
 
 protocol ListRepository: AnyObject {
     func fetchLists(userId: String) async throws -> [TaskList]
-    /// Returns the created list so callers can update optimistically —
+    /// Returns the created list so callers can update optimistically -
     /// a re-fetch can race the un-acked fire-and-forget write.
     @discardableResult
     func createList(name: String, colorHex: String, icon: String, order: Int, userId: String) async throws -> TaskList
     func renameList(id: String, name: String, userId: String) async throws
     func deleteList(id: String, userId: String) async throws
-    /// Persists a full reorder — ids in their new display order.
+    /// Persists a full reorder - ids in their new display order.
     func saveOrder(ids: [String], userId: String) async throws
 }
 
@@ -37,11 +37,14 @@ final class FirestoreListRepository: ListRepository {
         let snapshot = try await lists(userId).order(by: "order").getDocuments()
         return snapshot.documents.map { document in
             let data = document.data()
+            // Lists created before the SF Symbol migration stored an emoji
+            // icon; anything non-ASCII falls back to the default symbol.
+            let storedIcon = data["icon"] as? String ?? TaskListDefaults.icon
             return TaskList(
                 id: document.documentID,
                 name: data["name"] as? String ?? "",
                 colorHex: data["color"] as? String ?? TaskListDefaults.colorChoices[0],
-                icon: data["icon"] as? String ?? TaskListDefaults.icon,
+                icon: storedIcon.allSatisfy(\.isASCII) ? storedIcon : TaskListDefaults.icon,
                 order: data["order"] as? Int ?? 0
             )
         }

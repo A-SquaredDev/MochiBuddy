@@ -23,15 +23,16 @@ struct BedtimeView: View {
             Halo(size: 190) {
                 MochiPetView(mood: .tired, size: 140)
                     .overlay(alignment: .topTrailing) {
-                        Text("🌙")
-                            .font(.system(size: 26))
+                        Image(systemName: "moon.fill")
+                            .font(.system(size: 24))
+                            .foregroundStyle(theme.primaryText)
                             .offset(x: 8, y: -10)
                     }
             }
             OnbHeading(
                 eyebrow: "Quiet hours",
                 title: "When should Mochi sleep?",
-                bodyText: "Mochi rests while you do — no anxious pings at 2am, and a friendly rundown of the day when you both wake up."
+                bodyText: "Mochi rests while you do. No anxious pings at 2am, and a friendly rundown of the day when you both wake up."
             )
             HStack(spacing: 10) {
                 TimePill(

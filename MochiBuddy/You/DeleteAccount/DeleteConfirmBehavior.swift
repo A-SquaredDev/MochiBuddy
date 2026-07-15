@@ -35,7 +35,7 @@ enum DeleteConfirmBehavior {
     }
 
     enum NavigationEvent {
-        /// Everything is gone — leave to the onboarding flow.
+        /// Everything is gone - leave to the onboarding flow.
         case deleted
         case close
     }

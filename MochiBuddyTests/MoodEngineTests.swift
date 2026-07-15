@@ -2,7 +2,7 @@
 //  MoodEngineTests.swift
 //  MochiBuddyTests
 //
-//  The mood baseline is the product's heart — these tests pin the design
+//  The mood baseline is the product's heart - these tests pin the design
 //  doc's guiding principles and its worked examples so retuning constants
 //  is a deliberate act, not an accident.
 //
@@ -41,7 +41,7 @@ struct MoodEngineBaselineTests {
         #expect(baseline([]) == MoodEngine.Constants.anchor)
     }
 
-    @Test("on-time and undated tasks contribute zero stress — 20 calm tasks = a calm Mochi")
+    @Test("on-time and undated tasks contribute zero stress - 20 calm tasks = a calm Mochi")
     func volumeIsNotStress() {
         var tasks: [TaskItem] = []
         for i in 0..<10 {
@@ -58,7 +58,7 @@ struct MoodEngineBaselineTests {
         // The engine takes incomplete tasks; completed ones with stale due
         // dates must still contribute zero if a caller passes them anyway.
         let task = makeTask(dueAt: Dates.hours(-24), hasTime: true, completed: true)
-        // hoursOverdue is boundary math only — the caller filters completed.
+        // hoursOverdue is boundary math only - the caller filters completed.
         // Verify the documented call pattern (filtering) yields the anchor.
         #expect(baseline([task].filter { !$0.completed }) == MoodEngine.Constants.anchor)
     }
@@ -149,14 +149,14 @@ struct MoodEngineBaselineTests {
         #expect(productive >= 80 || productive > 70, "3 completions should read happy-ish, got \(productive)")
     }
 
-    @Test("momentum saturates — 30 completions can't exceed 100")
+    @Test("momentum saturates - 30 completions can't exceed 100")
     func momentumClamped() {
         let value = baseline([], completions: 30)
         #expect(value <= 100)
         #expect(value > 95)
     }
 
-    @Test("momentum is fully gated while badly behind — you can't fake happiness")
+    @Test("momentum is fully gated while badly behind - you can't fake happiness")
     func momentumGatedUnderStress() {
         let tasks = (0..<3).map { _ in overdue(24) } // stress > GATE_K
         let idle = baseline(tasks, completions: 0)

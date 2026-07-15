@@ -53,8 +53,9 @@ struct StatsView: View {
     private var streakCard: some View {
         MochiCard(padding: EdgeInsets(top: 16, leading: 15, bottom: 16, trailing: 15)) {
             VStack(spacing: 2) {
-                Text("🔥")
-                    .font(.system(size: 40))
+                Image(systemName: "flame.fill")
+                    .font(.system(size: 34))
+                    .foregroundStyle(theme.primaryText)
                 Text(viewModel.streakText)
                     .font(MochiFont.display(30, weight: .semibold))
                     .foregroundStyle(theme.ink)
@@ -89,7 +90,7 @@ struct StatsView: View {
 
     // MARK: - Charts
 
-    /// Single-series magnitude — one hue, no legend, weekly axis ticks.
+    /// Single-series magnitude - one hue, no legend, weekly axis ticks.
     private var trendCard: some View {
         MochiCard(padding: EdgeInsets(top: 14, leading: 15, bottom: 12, trailing: 15)) {
             VStack(alignment: .leading, spacing: 8) {
@@ -129,7 +130,7 @@ struct StatsView: View {
         }
     }
 
-    /// Magnitude comparison — bars stay one hue; identity lives in the
+    /// Magnitude comparison - bars stay one hue; identity lives in the
     /// labeled rows (list dot + name), never in the fill alone.
     private var listBreakdownCard: some View {
         MochiCard(padding: EdgeInsets(top: 14, leading: 15, bottom: 14, trailing: 15)) {

@@ -82,7 +82,7 @@ struct HomeLoadingTests {
 @MainActor
 struct HomeTodayScopeTests {
 
-    @Test("overdue first, then today's, then undated — future tasks excluded")
+    @Test("overdue first, then today's, then undated - future tasks excluded")
     func ordering() async {
         let calendar = Calendar.current
         let now = Date.now
@@ -99,7 +99,7 @@ struct HomeTodayScopeTests {
         #expect(vm.uiState.showEmptyToday == false)
     }
 
-    @Test("every scoped task is listed — the count and the rows always agree")
+    @Test("every scoped task is listed - the count and the rows always agree")
     func noCap() async {
         let tasks = (0..<6).map { makeTask(id: "t\($0)", dueAt: Calendar.current.startOfDay(for: .now)) }
         let (vm, _, _, _) = makeHomeVM(incomplete: tasks)
@@ -138,7 +138,7 @@ struct HomeTodayScopeTests {
 
     @Test("rows carry their list's name and color; inbox rows carry none")
     func listIndicator() async {
-        let groceries = TaskList(id: "l1", name: "Groceries", colorHex: "#8FD3F4", icon: "🛒", order: 0)
+        let groceries = TaskList(id: "l1", name: "Groceries", colorHex: "#8FD3F4", icon: "cart.fill", order: 0)
         let inList = makeTask(id: "t1", dueAt: Calendar.current.startOfDay(for: .now), listId: "l1")
         let inboxTask = makeTask(id: "t2", dueAt: Calendar.current.startOfDay(for: .now))
         let (vm, _, _, _) = makeHomeVM(incomplete: [inList, inboxTask], lists: [groceries])
@@ -232,7 +232,7 @@ struct HomeActionTests {
         await vm.triggerAsync(.quickAddChanged("Buuy milk"))
         await vm.triggerAsync(.quickAddSubmitted)
         // A focused TextField can push its buffer back repeatedly (autocorrect
-        // commit, focus resign, sheet presentation) — every echo of the exact
+        // commit, focus resign, sheet presentation) - every echo of the exact
         // submitted title must be ignored…
         await vm.triggerAsync(.quickAddChanged("Buuy milk"))
         await vm.triggerAsync(.quickAddChanged("Buuy milk"))
@@ -260,7 +260,7 @@ struct HomeActionTests {
         #expect(editing.task == nil)
         #expect(editing.draftTitle == "Plan the trip")
         #expect(vm.uiState.quickAddText.isEmpty)
-        #expect(taskRepo.addedDrafts.isEmpty, "compose opens the editor — it never instant-adds")
+        #expect(taskRepo.addedDrafts.isEmpty, "compose opens the editor - it never instant-adds")
         // The echo guard covers this path too.
         await vm.triggerAsync(.quickAddChanged("  Plan the trip  "))
         #expect(vm.uiState.quickAddText.isEmpty)
