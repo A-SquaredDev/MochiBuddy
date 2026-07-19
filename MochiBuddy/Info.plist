@@ -2,13 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>UIAppFonts</key>
-	<array>
-		<string>Fredoka-Variable.ttf</string>
-		<string>Nunito-Variable.ttf</string>
-	</array>
-	<key>NSRemindersFullAccessUsageDescription</key>
-	<string>Mochi can watch the Apple Reminders lists you choose, so your whole to-do world lives in one cozy place. Checking one off in Mochi marks it done in Reminders too.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -19,6 +12,11 @@
 				<string>com.googleusercontent.apps.132372584072-sgnacnumg2h1abe0959i4arb3rmstspm</string>
 			</array>
 		</dict>
+	</array>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Fredoka-Variable.ttf</string>
+		<string>Nunito-Variable.ttf</string>
 	</array>
 </dict>
 </plist>

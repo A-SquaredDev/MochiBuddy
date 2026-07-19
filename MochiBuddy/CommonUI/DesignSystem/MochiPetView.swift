@@ -44,6 +44,9 @@ struct MochiPetView: View {
     var size: CGFloat = 118
     var squishOnTap = true
     var bobbing = false
+    /// Off for static exports (IconExportTests) - the twinkle animation's
+    /// first frame renders sparkles washed out.
+    var showsSparkles = true
     /// Bump this to squish from outside (e.g. a "Pet Mochi" button).
     var externalSquishTrigger = 0
     /// Fires on tap regardless of squishOnTap - hosts hook petting here.
@@ -58,6 +61,7 @@ struct MochiPetView: View {
         size: CGFloat = 118,
         squishOnTap: Bool = true,
         bobbing: Bool = false,
+        showsSparkles: Bool = true,
         externalSquishTrigger: Int = 0,
         onTap: (() -> Void)? = nil
     ) {
@@ -66,6 +70,7 @@ struct MochiPetView: View {
             size: size,
             squishOnTap: squishOnTap,
             bobbing: bobbing,
+            showsSparkles: showsSparkles,
             externalSquishTrigger: externalSquishTrigger,
             onTap: onTap
         )
@@ -76,6 +81,7 @@ struct MochiPetView: View {
         size: CGFloat = 118,
         squishOnTap: Bool = true,
         bobbing: Bool = false,
+        showsSparkles: Bool = true,
         externalSquishTrigger: Int = 0,
         onTap: (() -> Void)? = nil
     ) {
@@ -83,6 +89,7 @@ struct MochiPetView: View {
         self.size = size
         self.squishOnTap = squishOnTap
         self.bobbing = bobbing
+        self.showsSparkles = showsSparkles
         self.externalSquishTrigger = externalSquishTrigger
         self.onTap = onTap
     }
@@ -93,7 +100,7 @@ struct MochiPetView: View {
     var body: some View {
         ZStack {
             canvasBody
-            if mood == .thriving {
+            if mood == .thriving, showsSparkles {
                 SparkleView(color: theme.primary, delay: 0)
                     .frame(width: 20 * scale, height: 20 * scale)
                     .position(x: 40 * scale, y: 70 * scale)

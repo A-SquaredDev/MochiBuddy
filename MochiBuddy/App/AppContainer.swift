@@ -6,14 +6,42 @@
 //  (no singleton access anywhere below this).
 //
 
-import Foundation
 import FirebaseFirestore
+import Foundation
+import UIKit
 
 @MainActor
 final class AppContainer {
 
     let session = AppSession()
-    let themeStore = ThemeStore()
+    // Home-screen icon follows the flavor. setAlternateIconName is flaky
+    // around app activation: the system cancels it outright until the app
+    // is active (NSCocoaErrorDomain 3072) and its alert-token machinery
+    // returns transient EAGAIN (NSPOSIXErrorDomain 35) for a while right
+    // after foregrounding, so wait for activation and retry patiently.
+    // No alternateIconName-equality guard: a half-failed set can leave
+    // LaunchServices recording a name SpringBoard never displayed, and the
+    // guard would then skip forever. Same-name sets are a system no-op
+    // (no alert), so always calling is safe.
+    let themeStore = ThemeStore(syncAppIcon: { iconName in
+        Task { @MainActor in
+            for _ in 0..<50 where UIApplication.shared.applicationState != .active {
+                try? await Task.sleep(for: .milliseconds(100))
+            }
+            guard UIApplication.shared.supportsAlternateIcons else { return }
+            for attempt in 1...6 {
+                do {
+                    try await UIApplication.shared.setAlternateIconName(iconName)
+                    return
+                } catch where attempt < 6 {
+                    try? await Task.sleep(for: .seconds(1))
+                } catch {
+                    // A stale icon beats a crash; log the why and move on.
+                    NSLog("Icon sync to '%@' failed: %@", iconName ?? "primary", String(describing: error))
+                }
+            }
+        }
+    })
 
     let authRepository: AuthRepository
     let profileRepository: UserProfileRepository

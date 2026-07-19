@@ -27,6 +27,15 @@ xcrun simctl launch <UDID> com.aaronmckain.MochiBuddy -mochiLocalMembership -moc
 - A system "Apple Account Verification" alert may cover the app on launch —
   AX press does NOT reach it; dismiss with a coordinate click (cliclick) on
   "Not Now" using the Simulator window bounds.
+- **Alternate app icons flake in the simulator**: roughly one alternate-icon
+  set succeeds per boot — after that, `setAlternateIconName` fails with
+  NSPOSIXErrorDomain 35 (EAGAIN) from LSIconAlertManager (icon-change alert
+  token leaks; the alert never presents in the sim). Resets to the primary
+  icon (nil) usually still work. `simctl shutdown` + `boot` clears it, and
+  the app's launch realign (ThemeStore init) fixes a stale icon on next
+  launch. Failures log as "Icon sync to '…' failed" (NSLog from
+  AppContainer). Device behavior is expected to be fine — the alert
+  actually presents there.
 
 ## Driving the UI (AppleScript AX)
 
