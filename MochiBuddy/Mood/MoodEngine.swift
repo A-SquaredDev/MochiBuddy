@@ -25,7 +25,8 @@ enum MoodEngine {
         static let momentumSaturation: Double = 2.5
         /// Momentum is suppressed while stress is high.
         static let gate: Double = 20
-        static let bufferCap: Double = 30
+        /// Forwarded from the shared constant the widget also clamps with.
+        static let bufferCap = MochiComfort.bufferCap
     }
 
     /// Baseline mood 0–100. Pets/treats never touch this - see ComfortBuffer.

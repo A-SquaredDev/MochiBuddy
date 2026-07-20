@@ -12,6 +12,7 @@
 		6E21C6F62FFDE4450041F45F /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 6E21C6F52FFDE4450041F45F /* GoogleSignIn */; };
 		6E21C6F82FFDE4450041F45F /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 6E21C6F72FFDE4450041F45F /* GoogleSignInSwift */; };
 		7B00AC012FFE000000000003 /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = 7B00AC012FFE000000000002 /* RevenueCat */; };
+		7C0100000000000000000011 /* MochiWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7C0100000000000000000010 /* MochiWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -22,11 +23,33 @@
 			remoteGlobalIDString = 6E21C5612FF4DB140041F45F;
 			remoteInfo = MochiBuddy;
 		};
+		7C0100000000000000000024 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 6E21C55A2FF4DB140041F45F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7C0100000000000000000020;
+			remoteInfo = MochiWidgetExtension;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		7C0100000000000000000012 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				7C0100000000000000000011 /* MochiWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		6E21C5622FF4DB140041F45F /* MochiBuddy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MochiBuddy.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7B00AE0100000000000000A3 /* MochiBuddyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MochiBuddyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		7C0100000000000000000010 /* MochiWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MochiWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -36,6 +59,13 @@
 				Info.plist,
 			);
 			target = 6E21C5612FF4DB140041F45F /* MochiBuddy */;
+		};
+		7C0100000000000000000003 /* Exceptions for "MochiWidget" folder in "MochiWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 7C0100000000000000000020 /* MochiWidgetExtension */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -51,6 +81,19 @@
 		7B00AE0100000000000000A2 /* MochiBuddyTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = MochiBuddyTests;
+			sourceTree = "<group>";
+		};
+		7C0100000000000000000001 /* MochiShared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = MochiShared;
+			sourceTree = "<group>";
+		};
+		7C0100000000000000000002 /* MochiWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				7C0100000000000000000003 /* Exceptions for "MochiWidget" folder in "MochiWidgetExtension" target */,
+			);
+			path = MochiWidget;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -75,6 +118,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7C0100000000000000000022 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -82,6 +132,8 @@
 			isa = PBXGroup;
 			children = (
 				6E21C5642FF4DB140041F45F /* MochiBuddy */,
+				7C0100000000000000000001 /* MochiShared */,
+				7C0100000000000000000002 /* MochiWidget */,
 				7B00AE0100000000000000A2 /* MochiBuddyTests */,
 				6E21C5632FF4DB140041F45F /* Products */,
 			);
@@ -92,6 +144,7 @@
 			children = (
 				6E21C5622FF4DB140041F45F /* MochiBuddy.app */,
 				7B00AE0100000000000000A3 /* MochiBuddyTests.xctest */,
+				7C0100000000000000000010 /* MochiWidgetExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -106,13 +159,16 @@
 				6E21C55E2FF4DB140041F45F /* Sources */,
 				6E21C55F2FF4DB140041F45F /* Frameworks */,
 				6E21C5602FF4DB140041F45F /* Resources */,
+				7C0100000000000000000012 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				7C0100000000000000000025 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				6E21C5642FF4DB140041F45F /* MochiBuddy */,
+				7C0100000000000000000001 /* MochiShared */,
 			);
 			name = MochiBuddy;
 			packageProductDependencies = (
@@ -148,6 +204,29 @@
 			productReference = 7B00AE0100000000000000A3 /* MochiBuddyTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		7C0100000000000000000020 /* MochiWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7C0100000000000000000032 /* Build configuration list for PBXNativeTarget "MochiWidgetExtension" */;
+			buildPhases = (
+				7C0100000000000000000021 /* Sources */,
+				7C0100000000000000000022 /* Frameworks */,
+				7C0100000000000000000023 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				7C0100000000000000000001 /* MochiShared */,
+				7C0100000000000000000002 /* MochiWidget */,
+			);
+			name = MochiWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = MochiWidgetExtension;
+			productReference = 7C0100000000000000000010 /* MochiWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -164,6 +243,9 @@
 					7B00AE0100000000000000A1 = {
 						CreatedOnToolsVersion = 26.1;
 						TestTargetID = 6E21C5612FF4DB140041F45F;
+					};
+					7C0100000000000000000020 = {
+						CreatedOnToolsVersion = 26.1;
 					};
 				};
 			};
@@ -188,12 +270,20 @@
 			targets = (
 				6E21C5612FF4DB140041F45F /* MochiBuddy */,
 				7B00AE0100000000000000A1 /* MochiBuddyTests */,
+				7C0100000000000000000020 /* MochiWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		6E21C5602FF4DB140041F45F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7C0100000000000000000023 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -217,6 +307,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7C0100000000000000000021 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -224,6 +321,11 @@
 			isa = PBXTargetDependency;
 			target = 6E21C5612FF4DB140041F45F /* MochiBuddy */;
 			targetProxy = 7B00AE0100000000000000A6 /* PBXContainerItemProxy */;
+		};
+		7C0100000000000000000025 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7C0100000000000000000020 /* MochiWidgetExtension */;
+			targetProxy = 7C0100000000000000000024 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -463,6 +565,58 @@
 			};
 			name = Release;
 		};
+		7C0100000000000000000030 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = MochiWidget/MochiWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8LPRNJ8H69;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = MochiWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Mochi;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.aaronmckain.MochiBuddy.MochiWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		7C0100000000000000000031 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = MochiWidget/MochiWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8LPRNJ8H69;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = MochiWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Mochi;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.aaronmckain.MochiBuddy.MochiWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -489,6 +643,15 @@
 			buildConfigurations = (
 				7B00AE0100000000000000A9 /* Debug */,
 				7B00AE0100000000000000AA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7C0100000000000000000032 /* Build configuration list for PBXNativeTarget "MochiWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7C0100000000000000000030 /* Debug */,
+				7C0100000000000000000031 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

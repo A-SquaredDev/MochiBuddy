@@ -107,9 +107,27 @@
 | Winback & instrumentation (v0.4) | ✅ / partial | Lapsed = promises only, indefinitely, zero comeback copy (planner-tested). Telemetry is a protocol with an os_log impl, mood-state tagged, titles never logged; Firebase Analytics backend waits on roadmap #7 |
 | Dev tool: scheduler inspector (v0.4) | ✅ Implemented, sim-verified | `You/DevScheduler/` behind `#if DEBUG`: forecast curve + pending queue chart, quiet-hour shading, slot meter, taper/shh state, live invariant check, time travel, force re-lay. Found a real bug on first open (stale rundowns for a lapsed user; fixed via `MembershipSession.onChange` re-lay) |
 | Vacation mode (v0.5) | ✅ Implemented + tested, sim-verified | `VacationSchedule.effectiveEnd` (open-ended auto-expires at the 30-day cap; `vacationStartedAt` persisted), `You/Vacation/VacationReentryService.swift` (bucket of one-off tasks overdue at the effective end, grace buffer lift to the content anchor over 24h, streak freeze via lastActive bump, 14-day open-ended check-in), Home banner + End now + resting pose pinned + triage sheet (per-row and bulk complete / spread-reschedule / dismiss / Later). Planner also mutes mood pings through the 24h post-vacation grace window |
-| Widgets (v0.6) | ⬜ Not started | Needs WidgetKit extension target, shared framework, App Group. The forecast the timeline reuses already exists (`MoodForecast`) |
+| Widgets (v0.6) | ✅ Implemented + tested | `MochiWidgetExtension` target + `MochiShared/` sources compiled by both targets (in place of a framework); `MochiWidgetState` contract in the App Group (`MochiShared/WidgetState.swift`), mirrored by the app after every re-lay (`WidgetStateMirror`); timeline = stored baseline curve + live shared comfort buffer; small/medium + all three lock families; Pet + Complete intents; state variants active/lapsed/vacation |
 
 **Known deltas from the spec, all deliberate:**
+- **Widget poses are code-drawn, not asset exports:** the shared Canvas pet view renders to
+  a static image (`ImageRenderer`) marked `fullColor` for iOS 26 tinting. Same effect as
+  the planned static assets with zero widget-only art; swaps for real exports when the
+  commissioned poses land (roadmap #6). The doc's 6-mood set maps onto the current 4
+  visual moods + sleeping until then.
+- **Complete-from-widget queues in the App Group** (optimistically updating the snapshot)
+  and the app persists it through the normal completion store on next open, coins
+  included. Running Firestore inside the widget-intent process was rejected for the
+  extension memory ceiling; consequence: the widget-completion celebration lands in-app
+  at drain time rather than as a push, and the stored `moodForecast` field is the
+  baseline curve (values, not bands) so the widget can add the live buffer itself.
+- **The comfort buffer moved to the App Group suite** (with one-time migration), exactly
+  as the data-model section planned; still device-local, never synced.
+- **Large home widget and Watch remain out**, per the spec's own fast-follow scoping. The
+  shared "framework" is a shared source folder compiled by both targets; a real framework
+  target is a later refactor if a third consumer appears.
+- **On-device use requires registering `group.com.aaronmckain.MochiBuddy`** in the Apple
+  Developer portal (simulator ignores this); automatic signing handles the rest.
 - The re-entry **bucket is computed at end time and held in UserDefaults** for the triage
   sheet rather than written as a `came_due_on_vacation` task flag; after re-entry the pile
   stresses the baseline again (the drift-to-true-mood behavior), so a persistent flag had

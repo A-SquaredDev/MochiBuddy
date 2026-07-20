@@ -9,6 +9,12 @@
 
 import Foundation
 
+/// The buffer's shared tuning - lives here (not MoodEngine) because the
+/// widget extension clamps with it too and never links the engine.
+enum MochiComfort {
+    static let bufferCap: Double = 30
+}
+
 /// One pet or treat: a lift that fades linearly to zero over its duration.
 struct BufferBoost: Codable, Equatable {
     let lift: Double
@@ -50,7 +56,7 @@ final class UserDefaultsComfortBufferStore: ComfortBufferStore {
 
     func currentValue(now: Date) -> Double {
         let total = load().reduce(0) { $0 + $1.value(at: now) }
-        return min(MoodEngine.Constants.bufferCap, total)
+        return min(MochiComfort.bufferCap, total)
     }
 
     func latestExpiry(now: Date) -> Date? {
@@ -62,6 +68,20 @@ final class UserDefaultsComfortBufferStore: ComfortBufferStore {
 
     func activeBoosts(now: Date) -> [BufferBoost] {
         load().filter { $0.value(at: now) > 0 }
+    }
+
+    /// One-time move of boosts from the app's standard defaults into the
+    /// App Group, so the widget sees the same buffer (design doc: the
+    /// buffer lives in App Group shared storage; still device-local).
+    static func migrateToAppGroup(
+        from old: UserDefaults = .standard,
+        to group: UserDefaults
+    ) {
+        guard group.data(forKey: key) == nil,
+              let legacy = old.data(forKey: key)
+        else { return }
+        group.set(legacy, forKey: key)
+        old.removeObject(forKey: key)
     }
 
     private func load() -> [BufferBoost] {

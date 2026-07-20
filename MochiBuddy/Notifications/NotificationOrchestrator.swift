@@ -57,6 +57,11 @@ final class NotificationOrchestrator {
 
     private var pendingRelay: Task<Void, Never>?
 
+    /// Fired after every lay with the context it planned from - the
+    /// widget mirror hangs here so the App Group snapshot and the pending
+    /// queue always come from the same world.
+    var onRelaid: ((RelayContext) -> Void)?
+
     init(
         authRepository: AuthRepository,
         profileRepository: UserProfileRepository,
@@ -198,6 +203,7 @@ final class NotificationOrchestrator {
             removed: diff.removeIds.count,
             band: band
         ))
+        onRelaid?(context)
     }
 
     // MARK: - The shh valve

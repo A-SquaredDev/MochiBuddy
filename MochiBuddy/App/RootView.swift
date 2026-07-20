@@ -22,11 +22,13 @@ struct RootView: View {
 
     /// Entering home: refresh the entitlement snapshot (dev launches skip
     /// the flow's refresh), take provisional delivery as the permission
-    /// floor for primer-skippers, then lay the schedule.
+    /// floor for primer-skippers, land any widget completions, then lay
+    /// the schedule.
     private func enteredHome() {
         Task { @MainActor in
             container.membershipSession.status = await container.membershipStore.currentStatus()
             await container.notificationPermissionService.requestProvisionalIfUndetermined()
+            await container.widgetCompletionDrain.drain()
             container.notificationOrchestrator.requestRelay(.appForeground)
         }
     }
@@ -72,8 +74,12 @@ struct RootView: View {
         .onChange(of: scenePhase) { _, phase in
             // The one guaranteed re-lay moment: predictions can only be
             // wrong in the direction where the app is open to fix them.
+            // Widget completions land first so the lay sees them done.
             if phase == .active, container.session.phase == .home {
-                container.notificationOrchestrator.requestRelay(.appForeground)
+                Task { @MainActor in
+                    await container.widgetCompletionDrain.drain()
+                    container.notificationOrchestrator.requestRelay(.appForeground)
+                }
             }
         }
         .onChange(of: container.session.phase) { _, phase in

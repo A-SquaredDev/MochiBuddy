@@ -60,6 +60,8 @@ final class AppContainer {
     let notificationScheduler: NotificationScheduling
     let notificationOrchestrator: NotificationOrchestrator
     let vacationReentryService: VacationReentryService
+    let widgetStateMirror: WidgetStateMirror
+    let widgetCompletionDrain: WidgetCompletionDrain
     let notificationActionHandler: NotificationActionHandler
     /// Strong ref - UNUserNotificationCenter keeps its delegate weak.
     private let notificationDelegate = MochiNotificationDelegate()
@@ -78,7 +80,11 @@ final class AppContainer {
             : RevenueCatMembershipStore()
         notificationPermissionService = UNNotificationPermissionService()
         remindersGateway = EventKitRemindersGateway()
-        comfortBufferStore = UserDefaultsComfortBufferStore()
+        // The buffer lives in the App Group so the widget reads (and pets)
+        // the same one - still device-local, never synced.
+        let groupDefaults = MochiAppGroup.defaults
+        UserDefaultsComfortBufferStore.migrateToAppGroup(to: groupDefaults)
+        comfortBufferStore = UserDefaultsComfortBufferStore(defaults: groupDefaults)
         rewardsStore = RewardsStore(profileRepository: profileRepository)
         taskCompletionStore = TaskCompletionStore(
             taskRepository: taskRepository,
@@ -126,6 +132,18 @@ final class AppContainer {
         // vs the full set) the moment it's learned.
         membershipSession.onChange = { [weak notificationOrchestrator] in
             notificationOrchestrator?.requestRelay(.entitlementChange)
+        }
+
+        widgetStateMirror = WidgetStateMirror(themeStore: themeStore)
+        widgetCompletionDrain = WidgetCompletionDrain(
+            authRepository: authRepository,
+            taskRepository: taskRepository,
+            profileRepository: profileRepository,
+            completionStore: taskCompletionStore
+        )
+        // Every lay refreshes the widget from the exact world it planned.
+        notificationOrchestrator.onRelaid = { [weak widgetStateMirror] context in
+            widgetStateMirror?.mirror(context: context)
         }
 
         // -mochiStartAtHome skips the flow for UI work on the tab surfaces
