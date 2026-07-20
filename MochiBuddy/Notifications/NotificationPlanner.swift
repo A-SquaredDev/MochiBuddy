@@ -34,33 +34,38 @@ struct NotificationPlanInput {
 
 enum NotificationPlanner {
 
-    /// All Remote Config candidates, like MoodEngine.Constants.
+    struct CadenceRule: Equatable {
+        var count: Int
+        var spacing: TimeInterval
+    }
+
+    /// Remote-tunable via RemoteTuning, set once at launch.
     enum Constants {
-        /// iOS's pending-notification ceiling.
+        /// iOS's pending-notification ceiling - a platform fact, not a knob.
         static let slotCap = 64
         /// Hard global ceiling on mood pings per day, every dial setting.
-        static let moodPingsPerDayCeiling = 4
+        static var moodPingsPerDayCeiling = 4
         /// Floor-state taper: day 1 = 4 … day 4+ = 1, indefinitely.
-        static let floorTaperBudgets = [4, 3, 2, 1]
+        static var floorTaperBudgets = [4, 3, 2, 1]
         /// The dormant-user safety net repeats on this interval.
-        static let backstopInterval: TimeInterval = 7 * 24 * 3600
-
-        /// Per-band daily count + spacing between consecutive pings.
-        /// Content is silence; the happy side is carried by real
+        static var backstopInterval: TimeInterval = 7 * 24 * 3600
+        /// Per-band daily count + spacing. Bands absent here are silence:
+        /// content stays quiet, the happy side is carried by real
         /// celebrations, never by predictions.
+        static var cadenceRules: [MoodBand: CadenceRule] = [
+            .verySad: CadenceRule(count: 4, spacing: 2 * 3600),
+            .anxious: CadenceRule(count: 3, spacing: 3 * 3600),
+            .uneasy: CadenceRule(count: 1, spacing: 4 * 3600),
+        ]
+
         static func cadence(for band: MoodBand, level: NudgeLevel) -> (count: Int, spacing: TimeInterval) {
-            let base: (Int, TimeInterval) = switch band {
-            case .verySad: (4, 2 * 3600)
-            case .anxious: (3, 3 * 3600)
-            case .uneasy: (1, 4 * 3600)
-            case .content, .happy, .ecstatic: (0, 4 * 3600)
-            }
+            let rule = cadenceRules[band] ?? CadenceRule(count: 0, spacing: 4 * 3600)
             // "Rarely" caps every band at one gentle ping a day - quieting
             // Mochi must never require the system-level off switch.
             if level == .rarely {
-                return (min(base.0, 1), base.1)
+                return (min(rule.count, 1), rule.spacing)
             }
-            return base
+            return (rule.count, rule.spacing)
         }
     }
 

@@ -24,7 +24,17 @@ struct MochiBuddyApp: App {
 
         RevenueCatConfig.configure()
 
-        _container = State(initialValue: AppContainer())
+        let container = AppContainer()
+        _container = State(initialValue: container)
+
+        // Activate last session's fetched tuning before anything computes,
+        // then re-lay in case a lay raced the (near-instant) activation.
+        // The background fetch inside lands next launch - values never
+        // change mid-session, so mood(t) stays deterministic.
+        Task { @MainActor in
+            await RemoteTuning.bootstrap()
+            container.notificationOrchestrator.requestRelay(.remoteConfigFetch)
+        }
     }
 
     var body: some Scene {

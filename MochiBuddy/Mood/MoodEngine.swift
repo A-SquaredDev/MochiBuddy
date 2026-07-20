@@ -12,20 +12,23 @@ import Foundation
 
 enum MoodEngine {
 
-    /// Tuning constants from the design doc (Remote Config candidates).
+    /// Tuning constants from the design doc - set once at launch by
+    /// RemoteTuning (activate-on-next-launch), read-only afterwards so
+    /// mood(t) stays deterministic for the whole session.
     enum Constants {
         /// Content anchor - the mood with nothing due and nothing done.
-        static let anchor: Double = 58
+        static var anchor: Double = 58
         /// Lateness saturates after this many hours overdue.
-        static let latenessCapHours: Double = 48
+        static var latenessCapHours: Double = 48
         /// Instant sting the moment a task goes overdue.
-        static let base: Double = 0.4
-        static let stressSaturation: Double = 4
-        static let momentumMax: Double = 42
-        static let momentumSaturation: Double = 2.5
+        static var base: Double = 0.4
+        static var stressSaturation: Double = 4
+        static var momentumMax: Double = 42
+        static var momentumSaturation: Double = 2.5
         /// Momentum is suppressed while stress is high.
-        static let gate: Double = 20
+        static var gate: Double = 20
         /// Forwarded from the shared constant the widget also clamps with.
+        /// NOT remote-tunable: the widget evaluates it without Firebase.
         static let bufferCap = MochiComfort.bufferCap
     }
 

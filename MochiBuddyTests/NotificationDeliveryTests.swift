@@ -507,7 +507,12 @@ struct NotificationOrchestratorTests {
         orchestrator.requestRelay(.taskChange)
         orchestrator.requestRelay(.taskChange)
         orchestrator.requestRelay(.taskChange)
-        try await Task.sleep(for: .milliseconds(700))
+        // Poll generously (the parallel suite can starve timers), then
+        // settle - the assertion is the COUNT: one lay, not three.
+        for _ in 0..<50 where telemetry.events.isEmpty {
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        try await Task.sleep(for: .milliseconds(500))
         #expect(telemetry.events.count == 1)
     }
 }

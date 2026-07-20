@@ -11,6 +11,8 @@
 		6E21C5A12FFC5E750041F45F /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 6E21C5A02FFC5E750041F45F /* FirebaseFirestore */; };
 		6E21C6F62FFDE4450041F45F /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 6E21C6F52FFDE4450041F45F /* GoogleSignIn */; };
 		6E21C6F82FFDE4450041F45F /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 6E21C6F72FFDE4450041F45F /* GoogleSignInSwift */; };
+		6EBA7A8B300DC41800460056 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 6EBA7A8A300DC41800460056 /* FirebaseAnalytics */; };
+		6EBA7A8D300DC41800460056 /* FirebaseRemoteConfig in Frameworks */ = {isa = PBXBuildFile; productRef = 6EBA7A8C300DC41800460056 /* FirebaseRemoteConfig */; };
 		7B00AC012FFE000000000003 /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = 7B00AC012FFE000000000002 /* RevenueCat */; };
 		7C0100000000000000000011 /* MochiWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7C0100000000000000000010 /* MochiWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
@@ -105,6 +107,8 @@
 			files = (
 				6E21C59F2FFC5E750041F45F /* FirebaseAuth in Frameworks */,
 				6E21C5A12FFC5E750041F45F /* FirebaseFirestore in Frameworks */,
+				6EBA7A8B300DC41800460056 /* FirebaseAnalytics in Frameworks */,
+				6EBA7A8D300DC41800460056 /* FirebaseRemoteConfig in Frameworks */,
 				6E21C6F62FFDE4450041F45F /* GoogleSignIn in Frameworks */,
 				6E21C6F82FFDE4450041F45F /* GoogleSignInSwift in Frameworks */,
 				7B00AC012FFE000000000003 /* RevenueCat in Frameworks */,
@@ -177,6 +181,8 @@
 				6E21C6F52FFDE4450041F45F /* GoogleSignIn */,
 				6E21C6F72FFDE4450041F45F /* GoogleSignInSwift */,
 				7B00AC012FFE000000000002 /* RevenueCat */,
+				6EBA7A8A300DC41800460056 /* FirebaseAnalytics */,
+				6EBA7A8C300DC41800460056 /* FirebaseRemoteConfig */,
 			);
 			productName = MochiBuddy;
 			productReference = 6E21C5622FF4DB140041F45F /* MochiBuddy.app */;
@@ -705,6 +711,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 6E21C6F42FFDE4450041F45F /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
 			productName = GoogleSignInSwift;
+		};
+		6EBA7A8A300DC41800460056 /* FirebaseAnalytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6E21C59D2FFC5E750041F45F /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalytics;
+		};
+		6EBA7A8C300DC41800460056 /* FirebaseRemoteConfig */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6E21C59D2FFC5E750041F45F /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseRemoteConfig;
 		};
 		7B00AC012FFE000000000002 /* RevenueCat */ = {
 			isa = XCSwiftPackageProductDependency;

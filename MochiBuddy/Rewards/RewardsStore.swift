@@ -13,7 +13,9 @@ import Foundation
 @MainActor
 final class RewardsStore {
 
-    static let coinsPerTask = 10
+    /// Flat per task by design (priority-scaling invites mislabeling).
+    /// Remote-tunable, set once at launch.
+    static var coinsPerTask = 10
 
     struct CompletionOutcome {
         let coinsDelta: Int

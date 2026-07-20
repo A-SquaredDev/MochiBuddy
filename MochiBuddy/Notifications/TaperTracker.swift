@@ -34,7 +34,8 @@ struct TaperState: Codable, Equatable {
 enum TaperTracker {
 
     /// A recovery only counts once a good band has held this long.
-    static let recoveryHold: TimeInterval = 24 * 3600
+    /// Remote-tunable, set once at launch.
+    static var recoveryHold: TimeInterval = 24 * 3600
 
     /// Fold one observation of the current band into the state. Called on
     /// every re-lay - deterministic, so it's fully unit-testable.

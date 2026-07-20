@@ -24,6 +24,7 @@ enum RelayTrigger: String {
     case prefsChange
     case entitlementChange
     case notificationAction
+    case remoteConfigFetch
 }
 
 @MainActor
@@ -31,11 +32,12 @@ final class NotificationOrchestrator {
 
     enum Constants {
         /// Planning horizon. Dormant users are exactly predictable, so one
-        /// generous window serves everyone in v1.
-        static let horizonDays = 7
+        /// generous window serves everyone in v1. Remote-tunable.
+        static var horizonDays = 7
         /// Mutation-storm debounce for requestRelay.
         static let debounce: Duration = .milliseconds(300)
-        static let shhDuration: TimeInterval = 24 * 3600
+        /// Remote-tunable, set once at launch.
+        static var shhDuration: TimeInterval = 24 * 3600
     }
 
     private enum Key {

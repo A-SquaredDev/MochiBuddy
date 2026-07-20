@@ -117,8 +117,8 @@ enum NotificationCopy {
     }
 
     /// Yesterday needs at least this many completions to earn the
-    /// "crushed it" beat (Remote Config candidate).
-    static let crushedYesterdayThreshold = 5
+    /// "crushed it" beat. Remote-tunable, set once at launch.
+    static var crushedYesterdayThreshold = 5
 
     /// The morning briefing: tone flexes to the load, length never does.
     /// A notably productive yesterday takes over the title - the no-cost

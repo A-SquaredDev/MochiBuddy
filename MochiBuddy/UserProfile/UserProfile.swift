@@ -27,20 +27,20 @@ struct BedtimeWindow: Equatable {
     }
 }
 
-/// Vacation-mode tuning (design doc: Vacation mode → Constants; all
-/// Remote Config candidates).
+/// Vacation-mode tuning (design doc: Vacation mode → Constants).
+/// Remote-tunable via RemoteTuning, set once at launch.
 enum VacationConstants {
     /// Fixed-mode date-picker default trip length.
-    static let defaultDays = 7
+    static var defaultDays = 7
     /// Re-entry wake target - the content anchor.
-    static let graceWake = MoodEngine.Constants.anchor
+    static var graceWake: Double = 58
     /// Grace-buffer decay window on re-entry.
-    static let graceDecay: TimeInterval = 24 * 3600
+    static var graceDecay: TimeInterval = 24 * 3600
     /// Open-ended in-app "still away?" threshold.
-    static let checkinDays = 14
+    static var checkinDays = 14
     /// Open-ended hard auto-expiry cap - a forgotten toggle can't silently
     /// kill the app's value forever.
-    static let maxDays = 30
+    static var maxDays = 30
 }
 
 /// Whether vacation is in force at an instant - the ONE definition of

@@ -86,13 +86,9 @@
 
 ## Implementation status
 
-> 🛠 **As of July 19 2026.** Everything the changelog resolved through v0.5 is now built,
-> in the app target, and covered by the automated suite: **350 tests, 0 failures**
-> (`MochiBuddyTests`, Swift Testing, app-hosted). v0.6 (Widgets) is designed but not yet
-> started; it needs a new WidgetKit target + App Group capability. Constants marked
-> "Remote Config" throughout this doc currently live in code as `Constants` enums
-> (`MoodEngine`, `NotificationPlanner`, `VacationConstants`); actual Remote Config wiring
-> is deliberately deferred.
+> 🛠 **As of July 19 2026.** Everything the changelog resolved through v0.6 is now built
+> and covered by the automated suite: **367 tests, 0 failures** (`MochiBuddyTests`,
+> Swift Testing, app-hosted).
 
 | Spec section | Status | Where it lives (code) |
 |---|---|---|
@@ -108,6 +104,30 @@
 | Dev tool: scheduler inspector (v0.4) | ✅ Implemented, sim-verified | `You/DevScheduler/` behind `#if DEBUG`: forecast curve + pending queue chart, quiet-hour shading, slot meter, taper/shh state, live invariant check, time travel, force re-lay. Found a real bug on first open (stale rundowns for a lapsed user; fixed via `MembershipSession.onChange` re-lay) |
 | Vacation mode (v0.5) | ✅ Implemented + tested, sim-verified | `VacationSchedule.effectiveEnd` (open-ended auto-expires at the 30-day cap; `vacationStartedAt` persisted), `You/Vacation/VacationReentryService.swift` (bucket of one-off tasks overdue at the effective end, grace buffer lift to the content anchor over 24h, streak freeze via lastActive bump, 14-day open-ended check-in), Home banner + End now + resting pose pinned + triage sheet (per-row and bulk complete / spread-reschedule / dismiss / Later). Planner also mutes mood pings through the 24h post-vacation grace window |
 | Widgets (v0.6) | ✅ Implemented + tested | `MochiWidgetExtension` target + `MochiShared/` sources compiled by both targets (in place of a framework); `MochiWidgetState` contract in the App Group (`MochiShared/WidgetState.swift`), mirrored by the app after every re-lay (`WidgetStateMirror`); timeline = stored baseline curve + live shared comfort buffer; small/medium + all three lock families; Pet + Complete intents; state variants active/lapsed/vacation |
+| Remote Config | ✅ Wired + published | `Tuning/RemoteTuning.swift`: `TuningSource` protocol over Firebase, pure `ResolvedTuning.resolve` with range clamping (a console typo degrades to the shipped default, never a broken invariant), applied once at launch (activate-on-next-launch, so mood(t) stays deterministic per session; the background fetch lands next launch), followed by one re-lay; skipped entirely under tests. All 24 parameters are published in the console and pinned by tests (`consoleKeysMatch`, `everyKeyDecodes`) against the canonical list in `RemoteTuning.numberKeys`/`jsonKeys` |
+
+### Remote Config parameters (published July 19 2026)
+
+The console holds exactly these keys, all currently set to the shipped defaults (so
+behavior is unchanged until a deliberate tuning pass). The canonical list lives in
+`RemoteTuning.numberKeys`/`jsonKeys` and a test fails if either side drifts.
+
+- **Mood engine (Number):** `mood_anchor` 58 · `mood_lateness_cap_hours` 48 ·
+  `mood_base_sting` 0.4 · `mood_stress_saturation` 4 · `mood_momentum_max` 42 ·
+  `mood_momentum_saturation` 2.5 · `mood_momentum_gate` 20
+- **Notifications:** `notif_mood_pings_daily_ceiling` 4 · `notif_floor_taper`
+  `[4,3,2,1]` (JSON) · `notif_cadence_very_sad` / `_anxious` / `_uneasy`
+  `{"count":N,"spacingHours":H}` (JSON) · `notif_backstop_days` 7 ·
+  `notif_horizon_days` 7 · `notif_shh_hours` 24 · `notif_recovery_hold_hours` 24 ·
+  `notif_crushed_yesterday_threshold` 5
+- **Vacation:** `vacation_default_days` 7 · `vacation_grace_wake` 58 ·
+  `vacation_grace_decay_hours` 24 · `vacation_checkin_days` 14 · `vacation_max_days` 30
+- **Rewards:** `coins_per_task` 10 · `streak_milestones`
+  `{"fixed":[7,30],"thenEvery":50}` (JSON)
+
+**Deliberately not remote-tunable:** the buffer cap and treat/pet values (the widget
+evaluates them without Firebase) and the 64-slot pending-notification cap (an iOS
+platform fact).
 
 **Known deltas from the spec, all deliberate:**
 - **Widget poses are code-drawn, not asset exports:** the shared Canvas pet view renders to

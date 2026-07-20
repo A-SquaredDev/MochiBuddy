@@ -11,8 +11,13 @@
 import Foundation
 
 enum StreakMilestones {
+    /// Remote-tunable, set once at launch.
+    static var fixed = [7, 30]
+    static var thenEvery = 50
+
     static func isMilestone(_ days: Int) -> Bool {
-        if days == 7 || days == 30 { return true }
-        return days > 30 && (days - 30) % 50 == 0
+        if fixed.contains(days) { return true }
+        guard let last = fixed.max(), days > last, thenEvery > 0 else { return false }
+        return (days - last) % thenEvery == 0
     }
 }
