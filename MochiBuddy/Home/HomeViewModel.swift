@@ -25,6 +25,7 @@ final class HomeViewModel: StateViewModel<
     private let membershipSession: MembershipSession
     private let recurrenceRoller: RecurrenceRoller
     private let relay: NotificationRelaying
+    private let reentryService: VacationReentryService
 
     // Domain source of truth - UIState is derived from these.
     /// Incomplete tasks only; completions move to `completedToday`.
@@ -34,6 +35,10 @@ final class HomeViewModel: StateViewModel<
     private var completionsLast24h = 0
     private var vacationMode = false
     private var vacationResumeAt: Date?
+    private var vacationStartedAt: Date?
+    private var lastProfile: UserProfile?
+    /// The came-due-while-away pile awaiting triage, in bucket order.
+    private var triageTaskIds: [String] = []
     private var bedtime: BedtimeWindow = .standard
     private var coins = 0
     private var streak = 0
@@ -53,7 +58,8 @@ final class HomeViewModel: StateViewModel<
         completionStore: TaskCompletionStore,
         membershipSession: MembershipSession,
         recurrenceRoller: RecurrenceRoller,
-        relay: NotificationRelaying
+        relay: NotificationRelaying,
+        reentryService: VacationReentryService
     ) {
         self.authRepository = authRepository
         self.profileRepository = profileRepository
@@ -65,6 +71,7 @@ final class HomeViewModel: StateViewModel<
         self.membershipSession = membershipSession
         self.recurrenceRoller = recurrenceRoller
         self.relay = relay
+        self.reentryService = reentryService
         super.init(initialState: HomeBehavior.UIState())
     }
 
@@ -135,7 +142,99 @@ final class HomeViewModel: StateViewModel<
             state.editingTask = nil
             await refresh()
             relay.requestRelay(.taskChange)
+
+        case .endVacationTapped, .vacationWelcomeBack:
+            guard let userId = authRepository.currentAccount?.uid else { return }
+            Haptics.impact(.light)
+            state.showVacationCheckIn = false
+            await reentryService.endNow(userId: userId)
+            await refresh()
+
+        case .vacationKeepResting:
+            reentryService.snoozeCheckIn()
+            state.showVacationCheckIn = false
+
+        case .triageComplete(let id):
+            await triageComplete([id])
+        case .triageCompleteAll:
+            await triageComplete(triageTaskIds)
+        case .triageReschedule(let id):
+            await triageReschedule([id])
+        case .triageRescheduleAll:
+            await triageReschedule(triageTaskIds)
+        case .triageDismiss(let id):
+            await triageDismiss([id])
+        case .triageDismissAll:
+            await triageDismiss(triageTaskIds)
+        case .triageLater:
+            // Skipping is fine - the grace buffer is already holding Mochi
+            // at content while the pile reasserts honestly over 24h.
+            reentryService.clearPendingTriage()
+            triageTaskIds = []
+            state.showTriage = false
+            rebuildDerivedState()
         }
+    }
+
+    // MARK: - Re-entry triage
+
+    private func triageComplete(_ ids: [String]) async {
+        guard let userId else { return }
+        for id in ids {
+            guard let index = tasks.firstIndex(where: { $0.id == id }) else { continue }
+            var moved = tasks.remove(at: index)
+            moved.completed = true
+            moved.completedAt = .now
+            completedToday.insert(moved, at: 0)
+            completionsLast24h += 1
+            let outcome = await completionStore.setCompleted(
+                moved, completed: true, currentCoins: coins, userId: userId
+            )
+            coins += outcome.coinsDelta
+            if let newStreak = outcome.streak {
+                streak = newStreak
+            }
+        }
+        Haptics.success()
+        state.petSquishTrigger += 1
+        finishTriage(resolved: ids)
+    }
+
+    private func triageReschedule(_ ids: [String]) async {
+        guard let userId else { return }
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+        for (offset, id) in ids.enumerated() {
+            guard let index = tasks.firstIndex(where: { $0.id == id }) else { continue }
+            // Spread across the coming days - triage must defuse the pile,
+            // not rebuild it on tomorrow's doorstep.
+            let day = calendar.date(byAdding: .day, value: 1 + (offset % 5), to: today) ?? today
+            tasks[index].dueAt = day
+            tasks[index].hasTime = false
+            try? await taskRepository.updateTask(tasks[index], userId: userId)
+        }
+        Haptics.success()
+        finishTriage(resolved: ids)
+        relay.requestRelay(.taskChange)
+    }
+
+    private func triageDismiss(_ ids: [String]) async {
+        guard let userId else { return }
+        for id in ids {
+            tasks.removeAll { $0.id == id }
+            try? await taskRepository.deleteTask(id: id, userId: userId)
+        }
+        finishTriage(resolved: ids)
+        relay.requestRelay(.taskChange)
+    }
+
+    private func finishTriage(resolved: [String]) {
+        triageTaskIds.removeAll { resolved.contains($0) }
+        if triageTaskIds.isEmpty {
+            reentryService.clearPendingTriage()
+            state.showTriage = false
+        }
+        rebuildDerivedState()
     }
 
     private var userId: String? { authRepository.currentAccount?.uid }
@@ -161,13 +260,23 @@ final class HomeViewModel: StateViewModel<
             state.greeting = "Hi, \(first ?? "friend")"
         }
 
-        if let profile = try? await profileRepository.fetchProfile(userId: userId) {
+        var profile = try? await profileRepository.fetchProfile(userId: userId)
+        // A vacation that ended while away (date passed / cap hit) gets
+        // its re-entry here, on the first open - then reload the profile
+        // the service just cleared.
+        if let current = profile,
+           await reentryService.processIfEnded(profile: current, userId: userId) {
+            profile = try? await profileRepository.fetchProfile(userId: userId)
+        }
+        if let profile {
             coins = profile.coins
             streak = profile.streakCount
             vacationMode = profile.vacationMode
             vacationResumeAt = profile.vacationResumeAt
+            vacationStartedAt = profile.vacationStartedAt
             bedtime = profile.bedtime
         }
+        lastProfile = profile
         tasks = (try? await taskRepository.incompleteTasks(userId: userId)) ?? []
         // One-live-occurrence invariant: re-stamp recurring tasks whose next
         // occurrence has come due. Frozen while on vacation (recurrence
@@ -182,6 +291,17 @@ final class HomeViewModel: StateViewModel<
         lists = (try? await listRepository.fetchLists(userId: userId)) ?? []
         let dayAgo = Date.now.addingTimeInterval(-24 * 3600)
         completionsLast24h = (try? await taskRepository.completedTaskStats(since: dayAgo, userId: userId).count) ?? 0
+
+        // A pending triage pile (left by re-entry, wherever it happened)
+        // surfaces here; ids whose tasks are gone silently drop out.
+        let pendingIds = reentryService.pendingTriageIds()
+        triageTaskIds = pendingIds.filter { id in tasks.contains { $0.id == id } }
+        if !pendingIds.isEmpty, triageTaskIds.isEmpty {
+            reentryService.clearPendingTriage()
+        }
+        if !triageTaskIds.isEmpty {
+            state.showTriage = true
+        }
 
         rebuildDerivedState()
     }
@@ -285,15 +405,30 @@ final class HomeViewModel: StateViewModel<
         let buffer = bufferStore.currentValue(now: now)
         let displayed = min(100, max(0, baseline + buffer))
         // Lapsed wins over vacation and bedtime: Mochi is asleep, dormant
-        // and peaceful - never sad as conversion pressure.
+        // and peaceful - never sad as conversion pressure. Vacation pins
+        // the resting pose so buffer decay can't make Mochi look anxious
+        // mid-trip.
         let lapsed = membershipSession.isLapsed
-        let sleeping = lapsed || (!onVacation && bedtime.contains(now))
+        let sleeping = lapsed || onVacation || bedtime.contains(now)
 
         let scoped = todayScope(now: now)
 
         var next = uiState
         next.isLapsed = lapsed
         next.showBillingBanner = membershipSession.hasBillingIssue
+        next.isOnVacation = onVacation && !lapsed
+        next.vacationBanner = next.isOnVacation ? vacationBannerText() : nil
+        next.showVacationCheckIn = next.isOnVacation
+            && (lastProfile.map { reentryService.checkInDue(profile: $0, now: now) } ?? false)
+        next.triageItems = triageTaskIds.compactMap { id in
+            tasks.first { $0.id == id }.map { task in
+                HomeBehavior.TriageItem(
+                    id: task.id,
+                    title: task.title,
+                    meta: TodoItemDisplay.row(for: task, now: now).meta
+                )
+            }
+        }
         next.coins = coins
         next.streakDays = streak
         next.baseline = baseline
@@ -396,7 +531,21 @@ final class HomeViewModel: StateViewModel<
 
     /// Vacation with auto-expiry applied - the same rule the forecast uses.
     private func vacationActive(now: Date) -> Bool {
-        VacationSchedule.isActive(mode: vacationMode, resumeAt: vacationResumeAt, at: now)
+        VacationSchedule.isActive(
+            mode: vacationMode, startedAt: vacationStartedAt,
+            resumeAt: vacationResumeAt, at: now
+        )
+    }
+
+    private func vacationBannerText() -> String {
+        guard vacationResumeAt != nil,
+              let end = VacationSchedule.effectiveEnd(
+                  startedAt: vacationStartedAt, resumeAt: vacationResumeAt
+              )
+        else {
+            return "On vacation · back whenever you're ready"
+        }
+        return "On vacation · back \(end.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)))"
     }
 
     private func moodCopy(_ value: Double, sleeping: Bool, lapsed: Bool, vacation: Bool) -> (String, String) {

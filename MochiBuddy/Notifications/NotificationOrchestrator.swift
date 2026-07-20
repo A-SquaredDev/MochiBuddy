@@ -126,6 +126,7 @@ final class NotificationOrchestrator {
                 boosts: bufferStore.activeBoosts(now: now),
                 vacationMode: profile?.vacationMode ?? false,
                 vacationResumeAt: profile?.vacationResumeAt,
+                vacationStartedAt: profile?.vacationStartedAt,
                 entitlementExpiry: entitlementExpiry(),
                 capturedAt: now
             ),

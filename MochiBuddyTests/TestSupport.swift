@@ -89,6 +89,7 @@ func makeProfile(
     lastActiveDate: Date? = nil,
     vacationMode: Bool = false,
     vacationResumeAt: Date? = nil,
+    vacationStartedAt: Date? = nil,
     // An empty window so mood assertions don't flip when the suite runs at night.
     bedtime: BedtimeWindow = BedtimeWindow(startMinutes: 0, endMinutes: 0),
     notificationPrefs: NotificationPrefs = .standard,
@@ -102,6 +103,7 @@ func makeProfile(
         onboardingComplete: true, notificationsEnabled: nil,
         notificationPrefs: notificationPrefs, soundEnabled: false,
         vacationMode: vacationMode, vacationResumeAt: vacationResumeAt,
+        vacationStartedAt: vacationStartedAt,
         importedReminderListIds: importedReminderListIds
     )
 }
@@ -243,7 +245,16 @@ final class StubProfileRepository: UserProfileRepository {
     func saveNotificationChoice(_ enabled: Bool, userId: String) async throws {}
     func saveNotificationPrefs(_ prefs: NotificationPrefs, userId: String) async throws {}
     func saveSoundEnabled(_ enabled: Bool, userId: String) async throws {}
-    func saveVacation(mode: Bool, resumeAt: Date?, userId: String) async throws {}
+    private(set) var savedVacations: [(mode: Bool, resumeAt: Date?, startedAt: Date?)] = []
+    func saveVacation(mode: Bool, resumeAt: Date?, startedAt: Date?, userId: String) async throws {
+        savedVacations.append((mode, resumeAt, startedAt))
+        if var profile {
+            profile.vacationMode = mode
+            profile.vacationResumeAt = resumeAt
+            profile.vacationStartedAt = startedAt
+            self.profile = profile
+        }
+    }
     func saveImportedReminderLists(_ ids: [String], userId: String) async throws {}
     func saveAccountLink(provider: String, displayName: String?, userId: String) async throws {
         accountLinks.append((provider, displayName, userId))

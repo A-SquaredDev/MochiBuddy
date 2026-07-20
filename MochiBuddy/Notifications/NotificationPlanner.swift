@@ -154,7 +154,7 @@ enum NotificationPlanner {
                     && (perDayTotal[day] ?? 0) < Constants.moodPingsPerDayCeiling
                     && !(input.prefs.bedtimeSilence && input.bedtime.contains(candidate, calendar: calendar))
                     && (input.shhUntil.map { candidate >= $0 } ?? true)
-                    && !vacationCovers(candidate, input: input)
+                    && !moodPingSuppressed(at: candidate, input: input)
 
                 if allowed {
                     pings.append(PlannedNotification(
@@ -266,7 +266,7 @@ enum NotificationPlanner {
     private static func planBackstop(_ input: NotificationPlanInput) -> [PlannedNotification] {
         guard input.prefs.moodDips else { return [] }
         let fireAt = input.snapshot.capturedAt.addingTimeInterval(Constants.backstopInterval)
-        guard !vacationCovers(fireAt, input: input) else { return [] }
+        guard !moodPingSuppressed(at: fireAt, input: input) else { return [] }
         return [PlannedNotification(
             id: NotificationID.backstop, kind: .backstop, fireAt: fireAt, repeats: true
         )]
@@ -298,8 +298,23 @@ enum NotificationPlanner {
     private static func vacationCovers(_ t: Date, input: NotificationPlanInput) -> Bool {
         VacationSchedule.isActive(
             mode: input.snapshot.vacationMode,
+            startedAt: input.snapshot.vacationStartedAt,
             resumeAt: input.snapshot.vacationResumeAt,
             at: t
         )
+    }
+
+    /// Mood pings also stay quiet through the grace window right after a
+    /// vacation ends - the wake must be gentle, and the grace buffer that
+    /// softens it only exists once the app opens (which re-lays anyway).
+    private static func moodPingSuppressed(at t: Date, input: NotificationPlanInput) -> Bool {
+        if vacationCovers(t, input: input) { return true }
+        guard input.snapshot.vacationMode,
+              let end = VacationSchedule.effectiveEnd(
+                  startedAt: input.snapshot.vacationStartedAt,
+                  resumeAt: input.snapshot.vacationResumeAt
+              )
+        else { return false }
+        return t < end.addingTimeInterval(VacationConstants.graceDecay)
     }
 }

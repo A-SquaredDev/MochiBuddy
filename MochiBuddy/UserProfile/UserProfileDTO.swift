@@ -30,6 +30,7 @@ struct UserProfileDTO {
     let soundEnabled: Bool?
     let vacationMode: Bool?
     let vacationResumeAt: Date?
+    let vacationStartedAt: Date?
     let importedReminderListIds: [String]?
 
     init(id: String, data: [String: Any]) {
@@ -53,6 +54,7 @@ struct UserProfileDTO {
         soundEnabled = data["soundEnabled"] as? Bool
         vacationMode = data["vacationMode"] as? Bool
         vacationResumeAt = (data["vacationResumeAt"] as? Timestamp)?.dateValue()
+        vacationStartedAt = (data["vacationStartedAt"] as? Timestamp)?.dateValue()
         importedReminderListIds = data["importedReminderListIds"] as? [String]
     }
 }
@@ -82,6 +84,7 @@ enum UserProfileMapper {
             soundEnabled: dto.soundEnabled ?? false,
             vacationMode: dto.vacationMode ?? false,
             vacationResumeAt: dto.vacationResumeAt,
+            vacationStartedAt: dto.vacationStartedAt,
             importedReminderListIds: dto.importedReminderListIds ?? []
         )
     }

@@ -18,7 +18,7 @@ protocol UserProfileRepository: AnyObject {
     func saveNotificationChoice(_ enabled: Bool, userId: String) async throws
     func saveNotificationPrefs(_ prefs: NotificationPrefs, userId: String) async throws
     func saveSoundEnabled(_ enabled: Bool, userId: String) async throws
-    func saveVacation(mode: Bool, resumeAt: Date?, userId: String) async throws
+    func saveVacation(mode: Bool, resumeAt: Date?, startedAt: Date?, userId: String) async throws
     func saveImportedReminderLists(_ ids: [String], userId: String) async throws
     func saveAccountLink(provider: String, displayName: String?, userId: String) async throws
     func saveMembershipMirror(isSubscribed: Bool, trialEndsAt: Date?, userId: String) async throws
@@ -95,9 +95,10 @@ final class FirestoreUserProfileRepository: UserProfileRepository {
         try await merge(["soundEnabled": enabled], userId: userId)
     }
 
-    func saveVacation(mode: Bool, resumeAt: Date?, userId: String) async throws {
+    func saveVacation(mode: Bool, resumeAt: Date?, startedAt: Date?, userId: String) async throws {
         var fields: [String: Any] = ["vacationMode": mode]
         fields["vacationResumeAt"] = resumeAt.map(Timestamp.init(date:)) ?? FieldValue.delete()
+        fields["vacationStartedAt"] = startedAt.map(Timestamp.init(date:)) ?? FieldValue.delete()
         try await merge(fields, userId: userId)
     }
 

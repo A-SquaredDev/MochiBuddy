@@ -1,7 +1,7 @@
 # Mochi — Design Doc
 
 *Working title. A companion-driven reminders & todo app.*
-*Status: living draft — v0.5*
+*Status: living draft — v0.6 · implementation current through v0.5 (see Implementation status)*
 
 ---
 
@@ -81,6 +81,53 @@
 - Added **Remaining agenda / roadmap** to track open discussion items.
 
 **v0.2** — prior living draft (mood algorithm spec, economy, legal, onboarding, tech).
+
+---
+
+## Implementation status
+
+> 🛠 **As of July 19 2026.** Everything the changelog resolved through v0.5 is now built,
+> in the app target, and covered by the automated suite: **350 tests, 0 failures**
+> (`MochiBuddyTests`, Swift Testing, app-hosted). v0.6 (Widgets) is designed but not yet
+> started; it needs a new WidgetKit target + App Group capability. Constants marked
+> "Remote Config" throughout this doc currently live in code as `Constants` enums
+> (`MoodEngine`, `NotificationPlanner`, `VacationConstants`); actual Remote Config wiring
+> is deliberately deferred.
+
+| Spec section | Status | Where it lives (code) |
+|---|---|---|
+| Mood algorithm | ✅ Shipped pre-v0.3 | `Mood/MoodEngine.swift` |
+| Recurring tasks × mood engine (v0.3) | ✅ Implemented + tested | `Tasks/RecurrenceRoller.swift`; roll-forward re-stamps `dueAt`, silent miss log = `missedCount`/`lastMissedAt` on the task doc |
+| Entitlement & subscription states (v0.3) | ✅ Implemented + tested | `Membership/MembershipSession.swift` (`billingGrace` case incl.), lapsed quiet-checklist degradation across Home/Tasks/You, "Not now" pass-through on the lapsed gate, `-mochiStartLapsed` dev arg |
+| Multi-device guardrails (v0.3) | ✅ Verified | Coin writes were already `FieldValue.increment`; comfort buffer is device-local UserDefaults |
+| Mood pings: technical requirements (v0.4) | ✅ Implemented + tested | `Mood/MoodForecast.swift` (one engine parameterized by time; simulates due-crossings, recurrence rolls, vacation auto-expiry incl. the 30-day cap; horizon capped at entitlement expiry). The consistency invariant is an automated test: every planned ping's baked band == `mood(fireTime)` recomputed |
+| Notification scheduling (v0.4) | ✅ Implemented + tested | `Notifications/NotificationPlanner.swift` (cadence table, floor taper 4/3/2/1, quiet-hours drop-not-shift, suppression composition, 64-slot budget promises-first + backstop), `NotificationPlanDiff` (scoped re-lay, promises never nuked), `NotificationOrchestrator` (debounced re-lay on the full trigger list), `UNNotificationScheduler` (thin adapter) |
+| Copy & voice, actions, richness (v0.4) | ✅ Implemented + tested | `NotificationCopy` (three voices, acute/chronic floor pools, rotation deck, emoji celebrations-only), `TaperTracker` (genuine-recovery reset, blips never reset), reminder Complete + snooze menu, mood-ping Pet + shh-24h (`NotificationActionHandler`), interruption levels + thread coalescing, task-name privacy toggle |
+| Cadence & celebration constants (v0.4) | ✅ Implemented + tested | Streak milestones 7 / 30 / then every 50 (`StreakMilestones`), "crushed yesterday" folded into the rundown title (threshold 5), morning-rundown ranking (`RundownRanker`) evaluated at fire time |
+| Winback & instrumentation (v0.4) | ✅ / partial | Lapsed = promises only, indefinitely, zero comeback copy (planner-tested). Telemetry is a protocol with an os_log impl, mood-state tagged, titles never logged; Firebase Analytics backend waits on roadmap #7 |
+| Dev tool: scheduler inspector (v0.4) | ✅ Implemented, sim-verified | `You/DevScheduler/` behind `#if DEBUG`: forecast curve + pending queue chart, quiet-hour shading, slot meter, taper/shh state, live invariant check, time travel, force re-lay. Found a real bug on first open (stale rundowns for a lapsed user; fixed via `MembershipSession.onChange` re-lay) |
+| Vacation mode (v0.5) | ✅ Implemented + tested, sim-verified | `VacationSchedule.effectiveEnd` (open-ended auto-expires at the 30-day cap; `vacationStartedAt` persisted), `You/Vacation/VacationReentryService.swift` (bucket of one-off tasks overdue at the effective end, grace buffer lift to the content anchor over 24h, streak freeze via lastActive bump, 14-day open-ended check-in), Home banner + End now + resting pose pinned + triage sheet (per-row and bulk complete / spread-reschedule / dismiss / Later). Planner also mutes mood pings through the 24h post-vacation grace window |
+| Widgets (v0.6) | ⬜ Not started | Needs WidgetKit extension target, shared framework, App Group. The forecast the timeline reuses already exists (`MoodForecast`) |
+
+**Known deltas from the spec, all deliberate:**
+- The re-entry **bucket is computed at end time and held in UserDefaults** for the triage
+  sheet rather than written as a `came_due_on_vacation` task flag; after re-entry the pile
+  stresses the baseline again (the drift-to-true-mood behavior), so a persistent flag had
+  no consumer. Revisit if multi-device triage ever matters.
+- Vacation **entry UI is the existing toggle screen** (start recorded, picker defaults 7
+  days, primer copy) rather than the full segmented-control bottom sheet; the empty-bucket
+  "Welcome back" celebration beat is skipped silently for now.
+- The **resting pose renders as the sleeping pose** until the commissioned art lands
+  (roadmap #6), with its own distinct VoiceOver label so the two calm states never conflate.
+- Re-lay triggers wired: foreground, every completion, editor saves, pet/treat, vacation,
+  bedtime, prefs, entitlement change, notification actions. **Still unwired:**
+  `EKEventStoreChanged` and timezone change.
+- Streak-milestone **notifications** wait on the widget (v0.6, complete-from-widget is
+  their trigger); the detection hook (`ToggleOutcome.milestoneStreak`) is in place with no
+  in-app celebration surface yet.
+- Snooze targets: tonight = 19:00 (or an hour out if already evening), tomorrow = 09:00.
+- Trial expiry mid-session is caught at flow entry / You-tab refresh, not by a live
+  listener; consistent with "trial expiry is not an auth event."
 
 ---
 

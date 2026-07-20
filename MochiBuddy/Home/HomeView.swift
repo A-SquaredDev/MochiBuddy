@@ -29,6 +29,12 @@ struct HomeView: View {
                     if viewModel.showBillingBanner {
                         billingBanner
                     }
+                    if let banner = viewModel.vacationBanner {
+                        vacationBanner(banner)
+                    }
+                    if viewModel.showVacationCheckIn {
+                        vacationCheckIn
+                    }
                     petStage
                     if !viewModel.isLapsed {
                         quickAdd
@@ -51,6 +57,9 @@ struct HomeView: View {
             item: viewModel.collectBinding(for: \.editingTask, action: { _ in .editorDismissed })
         ) { editing in
             router.taskEditor(task: editing.task, draftTitle: editing.draftTitle)
+        }
+        .sheet(isPresented: viewModel.collectBinding(for: \.showTriage, action: .triageLater)) {
+            triageSheet
         }
     }
 
@@ -164,14 +173,140 @@ struct HomeView: View {
         .buttonStyle(SquishButtonStyle())
     }
 
+    // MARK: - Vacation
+
+    private func vacationBanner(_ text: String) -> some View {
+        HStack(spacing: 9) {
+            Image(systemName: "beach.umbrella.fill")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(theme.primaryText)
+            Text(text)
+                .font(MochiFont.body(12, weight: .heavy))
+                .foregroundStyle(theme.ink)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Button("End now") {
+                viewModel.trigger(.endVacationTapped)
+            }
+            .font(MochiFont.body(11.5, weight: .heavy))
+            .foregroundStyle(theme.primaryText)
+        }
+        .padding(EdgeInsets(top: 10, leading: 12, bottom: 10, trailing: 12))
+        .background(theme.surface, in: RoundedRectangle(cornerRadius: MochiRadius.md))
+        .overlay(RoundedRectangle(cornerRadius: MochiRadius.md).stroke(theme.line, lineWidth: 1.5))
+    }
+
+    /// Open-ended, two weeks in: never a push, purely opportunistic here.
+    private var vacationCheckIn: some View {
+        MochiCard(padding: EdgeInsets(top: 12, leading: 15, bottom: 12, trailing: 15)) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Still away? Mochi is happy to keep resting.")
+                    .font(MochiFont.body(12, weight: .heavy))
+                    .foregroundStyle(theme.ink)
+                HStack(spacing: 8) {
+                    MochiButton(title: "Keep resting", variant: .ghost, size: .md) {
+                        viewModel.trigger(.vacationKeepResting)
+                    }
+                    MochiButton(title: "Welcome me back", variant: .primary, size: .md) {
+                        viewModel.trigger(.vacationWelcomeBack)
+                    }
+                }
+            }
+        }
+    }
+
+    private var triageSheet: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 12) {
+                VStack(spacing: 4) {
+                    MochiPetView(mood: .content, size: 96)
+                    Text("Welcome back!")
+                        .font(MochiFont.display(17, weight: .semibold))
+                        .foregroundStyle(theme.ink)
+                    Text("Here's what came due while you were away. Let's sort it fast.")
+                        .font(MochiFont.body(12, weight: .bold))
+                        .foregroundStyle(theme.muted)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.top, 18)
+
+                MochiCard(padding: EdgeInsets(top: 6, leading: 15, bottom: 6, trailing: 15)) {
+                    VStack(spacing: 0) {
+                        ForEach(viewModel.triageItems) { item in
+                            HStack(spacing: 8) {
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(item.title)
+                                        .font(MochiFont.body(12.5, weight: .heavy))
+                                        .foregroundStyle(theme.ink)
+                                        .lineLimit(1)
+                                    Text(item.meta)
+                                        .font(MochiFont.body(10.5, weight: .bold))
+                                        .foregroundStyle(theme.muted)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                triageAction("checkmark.circle.fill", "Complete \(item.title)") {
+                                    viewModel.trigger(.triageComplete(item.id))
+                                }
+                                triageAction("calendar.badge.clock", "Reschedule \(item.title)") {
+                                    viewModel.trigger(.triageReschedule(item.id))
+                                }
+                                triageAction("xmark.circle", "Dismiss \(item.title)") {
+                                    viewModel.trigger(.triageDismiss(item.id))
+                                }
+                            }
+                            .padding(.vertical, 10)
+                            if item.id != viewModel.triageItems.last?.id {
+                                MochiDashedDivider()
+                            }
+                        }
+                    }
+                }
+
+                VStack(spacing: 8) {
+                    MochiButton(title: "Reschedule all to this week", variant: .primary) {
+                        viewModel.trigger(.triageRescheduleAll)
+                    }
+                    HStack(spacing: 8) {
+                        MochiButton(title: "Complete all", variant: .ghost, size: .md) {
+                            viewModel.trigger(.triageCompleteAll)
+                        }
+                        MochiButton(title: "Dismiss all", variant: .ghost, size: .md) {
+                            viewModel.trigger(.triageDismissAll)
+                        }
+                    }
+                    MochiTextLink(title: "Later") {
+                        viewModel.trigger(.triageLater)
+                    }
+                }
+            }
+            .padding(EdgeInsets(top: 8, leading: 18, bottom: 24, trailing: 18))
+        }
+        .background(theme.bg)
+        .presentationDetents([.medium, .large])
+    }
+
+    private func triageAction(
+        _ symbol: String, _ label: String, action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(theme.primaryText)
+                .frame(width: 30, height: 30)
+        }
+        .buttonStyle(SquishButtonStyle())
+        .accessibilityLabel(label)
+    }
+
     // MARK: - Pet stage
 
     private var petStage: some View {
         MochiCard(padding: EdgeInsets(top: 14, leading: 15, bottom: 16, trailing: 15)) {
             VStack(spacing: 0) {
-                // Lapsed hides the mood chrome entirely - the engine is
-                // paused, and a meter over a napping pet would be a lie.
-                if !viewModel.isLapsed {
+                // Lapsed and vacation hide the mood chrome entirely - the
+                // engine is paused/pinned, and a meter over a napping or
+                // resting pet would be a lie.
+                if !viewModel.isLapsed, !viewModel.isOnVacation {
                     MoodMeter(baseline: viewModel.baseline, buffer: viewModel.buffer)
                     if let fadeText = viewModel.boostFadeText {
                         Text(fadeText)
@@ -190,7 +325,11 @@ struct HomeView: View {
                         onTap: viewModel.isLapsed ? nil : { viewModel.trigger(.petTapped) }
                     )
                     .accessibilityLabel(
-                        viewModel.isLapsed ? "Mochi is napping. Membership paused." : "Mochi"
+                        viewModel.isLapsed
+                            ? "Mochi is napping. Membership paused."
+                            : viewModel.isOnVacation
+                                ? "Mochi is resting. Vacation mode on."
+                                : "Mochi"
                     )
                     Text(viewModel.moodTitle)
                         .font(MochiFont.display(14, weight: .semibold))

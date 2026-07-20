@@ -27,15 +27,40 @@ struct BedtimeWindow: Equatable {
     }
 }
 
+/// Vacation-mode tuning (design doc: Vacation mode → Constants; all
+/// Remote Config candidates).
+enum VacationConstants {
+    /// Fixed-mode date-picker default trip length.
+    static let defaultDays = 7
+    /// Re-entry wake target - the content anchor.
+    static let graceWake = MoodEngine.Constants.anchor
+    /// Grace-buffer decay window on re-entry.
+    static let graceDecay: TimeInterval = 24 * 3600
+    /// Open-ended in-app "still away?" threshold.
+    static let checkinDays = 14
+    /// Open-ended hard auto-expiry cap - a forgotten toggle can't silently
+    /// kill the app's value forever.
+    static let maxDays = 30
+}
+
 /// Whether vacation is in force at an instant - the ONE definition of
 /// auto-expiry, shared by the live mood engine and the forecast so a
 /// scheduled ping can never disagree with mood(now) about it.
 enum VacationSchedule {
-    static func isActive(mode: Bool, resumeAt: Date?, at now: Date) -> Bool {
+
+    /// When this vacation ends: the chosen date, or the hard cap for
+    /// open-ended. Nil only when no start was recorded (legacy open-ended
+    /// entries keep their old un-capped behavior).
+    static func effectiveEnd(startedAt: Date?, resumeAt: Date?) -> Date? {
+        if let resumeAt { return resumeAt }
+        guard let startedAt else { return nil }
+        return startedAt.addingTimeInterval(TimeInterval(VacationConstants.maxDays) * 24 * 3600)
+    }
+
+    static func isActive(mode: Bool, startedAt: Date?, resumeAt: Date?, at now: Date) -> Bool {
         guard mode else { return false }
-        // Open-ended (no end date) stays on until turned off.
-        guard let resumeAt else { return true }
-        return now < resumeAt
+        guard let end = effectiveEnd(startedAt: startedAt, resumeAt: resumeAt) else { return true }
+        return now < end
     }
 }
 
@@ -81,10 +106,16 @@ struct UserProfile: Equatable {
     var vacationMode: Bool
     /// When set, vacation mode auto-resumes at this instant.
     var vacationResumeAt: Date?
+    /// When the current vacation began - drives the open-ended auto-expiry
+    /// cap, the long-run check-in, and the re-entry bucket window.
+    var vacationStartedAt: Date?
     var importedReminderListIds: [String]
 
     /// Vacation with auto-expiry applied - use this, not the raw flag.
     func vacationActive(at now: Date) -> Bool {
-        VacationSchedule.isActive(mode: vacationMode, resumeAt: vacationResumeAt, at: now)
+        VacationSchedule.isActive(
+            mode: vacationMode, startedAt: vacationStartedAt,
+            resumeAt: vacationResumeAt, at: now
+        )
     }
 }

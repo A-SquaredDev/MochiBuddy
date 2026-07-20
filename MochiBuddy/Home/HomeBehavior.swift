@@ -44,6 +44,13 @@ enum HomeBehavior {
         let count: Int
     }
 
+    /// One "came due while you were away" row in the re-entry triage sheet.
+    struct TriageItem: Equatable, Identifiable {
+        let id: String
+        let title: String
+        let meta: String
+    }
+
     struct UIState: UpdatableStruct, Equatable {
         /// True until the first Firestore fetch lands - drives the skeleton.
         var isLoading = true
@@ -52,6 +59,15 @@ enum HomeBehavior {
         var isLapsed = false
         /// billing_grace: fully entitled, plus a soft payment nudge.
         var showBillingBanner = false
+        /// Vacation active: resting pose pinned, mood chrome hidden.
+        var isOnVacation = false
+        /// "back Sat, Jul 25" / "back whenever you're ready" - nil hides it.
+        var vacationBanner: String?
+        /// Open-ended trip, two weeks in: the gentle "still away?" card.
+        var showVacationCheckIn = false
+        /// Re-entry triage: the came-due-while-away pile, and the sheet.
+        var triageItems: [TriageItem] = []
+        var showTriage = false
         var greeting = "Hi, friend"
         var subGreeting = "Let's keep Mochi happy"
         var coins = 0
@@ -97,5 +113,17 @@ enum HomeBehavior {
         case toggleTask(String)
         case taskTapped(String)
         case editorDismissed
+        // Vacation surfaces.
+        case endVacationTapped
+        case vacationKeepResting
+        case vacationWelcomeBack
+        // Re-entry triage.
+        case triageComplete(String)
+        case triageReschedule(String)
+        case triageDismiss(String)
+        case triageCompleteAll
+        case triageRescheduleAll
+        case triageDismissAll
+        case triageLater
     }
 }

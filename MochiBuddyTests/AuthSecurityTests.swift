@@ -118,7 +118,14 @@ struct DataScopingTests {
             ),
             membershipSession: MembershipSession(),
             recurrenceRoller: RecurrenceRoller(taskRepository: taskRepo),
-            relay: StubRelay()
+            relay: StubRelay(),
+            reentryService: VacationReentryService(
+                profileRepository: profileRepo,
+                taskRepository: taskRepo,
+                bufferStore: StubComfortBufferStore(),
+                relay: StubRelay(),
+                defaults: UserDefaults(suiteName: "reentry-\(UUID())")!
+            )
         )
         await vm.triggerAsync(.refresh)
         await vm.triggerAsync(.quickAddChanged("task"))

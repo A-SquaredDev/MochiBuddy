@@ -59,6 +59,7 @@ final class AppContainer {
     let recurrenceRoller: RecurrenceRoller
     let notificationScheduler: NotificationScheduling
     let notificationOrchestrator: NotificationOrchestrator
+    let vacationReentryService: VacationReentryService
     let notificationActionHandler: NotificationActionHandler
     /// Strong ref - UNUserNotificationCenter keeps its delegate weak.
     private let notificationDelegate = MochiNotificationDelegate()
@@ -97,6 +98,12 @@ final class AppContainer {
             membershipSession: membershipSession,
             scheduler: notificationScheduler,
             telemetry: telemetry
+        )
+        vacationReentryService = VacationReentryService(
+            profileRepository: profileRepository,
+            taskRepository: taskRepository,
+            bufferStore: comfortBufferStore,
+            relay: notificationOrchestrator
         )
         notificationActionHandler = NotificationActionHandler(
             authRepository: authRepository,

@@ -29,8 +29,10 @@ struct MoodSnapshot {
     /// Active pets/treats - the exact store type, so decay math is shared.
     var boosts: [BufferBoost] = []
     var vacationMode = false
-    /// When vacation auto-expires; nil while on = open-ended (stays quiet).
+    /// When vacation auto-expires; nil = open-ended (capped from startedAt).
     var vacationResumeAt: Date? = nil
+    /// When the vacation began - drives the open-ended auto-expiry cap.
+    var vacationStartedAt: Date? = nil
     /// Locally-known entitlement expiry - the hard forecast horizon.
     var entitlementExpiry: Date? = nil
     var capturedAt: Date
@@ -227,6 +229,7 @@ enum MoodForecast {
         // The one shared auto-expiry rule - never a forecast-local copy.
         VacationSchedule.isActive(
             mode: snapshot.vacationMode,
+            startedAt: snapshot.vacationStartedAt,
             resumeAt: snapshot.vacationResumeAt,
             at: t
         )

@@ -17,7 +17,8 @@ private func makeHomeVM(
     completedStats: [CompletedTaskStat] = [],
     lists: [TaskList] = [],
     profile: UserProfile = makeProfile(coins: 100, streak: 4),
-    membership explicitMembership: MembershipSession? = nil
+    membership explicitMembership: MembershipSession? = nil,
+    reentry explicitReentry: VacationReentryService? = nil
 ) -> (HomeViewModel, StubTaskRepository, StubProfileRepository, StubComfortBufferStore) {
     let membership = explicitMembership ?? MembershipSession()
     let auth = StubAuthRepository()
@@ -44,7 +45,14 @@ private func makeHomeVM(
         ),
         membershipSession: membership,
         recurrenceRoller: RecurrenceRoller(taskRepository: taskRepo),
-        relay: StubRelay()
+        relay: StubRelay(),
+        reentryService: explicitReentry ?? VacationReentryService(
+            profileRepository: profileRepo,
+            taskRepository: taskRepo,
+            bufferStore: buffer,
+            relay: StubRelay(),
+            defaults: UserDefaults(suiteName: "reentry-\(UUID())")!
+        )
     )
     return (vm, taskRepo, profileRepo, buffer)
 }
@@ -81,7 +89,14 @@ struct HomeLoadingTests {
             ),
             membershipSession: MembershipSession(),
             recurrenceRoller: RecurrenceRoller(taskRepository: taskRepo),
-            relay: StubRelay()
+            relay: StubRelay(),
+            reentryService: VacationReentryService(
+                profileRepository: profileRepo,
+                taskRepository: taskRepo,
+                bufferStore: StubComfortBufferStore(),
+                relay: StubRelay(),
+                defaults: UserDefaults(suiteName: "reentry-\(UUID())")!
+            )
         )
         await vm.triggerAsync(.refresh)
         #expect(vm.uiState.isLoading == false)
@@ -208,12 +223,14 @@ struct HomeTodayScopeTests {
         #expect(vm.uiState.moodTitle == "Mochi is sleeping")
     }
 
-    @Test("vacation copy outranks bedtime")
+    @Test("vacation pins the resting pose and its copy outranks bedtime")
     func vacationOutranksBedtime() async {
         let allDay = BedtimeWindow(startMinutes: 0, endMinutes: 24 * 60)
         let (vm, _, _, _) = makeHomeVM(profile: makeProfile(vacationMode: true, bedtime: allDay))
         await vm.triggerAsync(.refresh)
-        #expect(vm.uiState.isSleeping == false)
+        // v0.5: the resting pose is pinned for the whole trip (rendered
+        // with the sleeping pose until the holiday art lands).
+        #expect(vm.uiState.isSleeping == true)
         #expect(vm.uiState.moodTitle == "Mochi is resting")
     }
 }

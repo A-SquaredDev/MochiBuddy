@@ -21,12 +21,14 @@ private func makeSnapshot(
     boosts: [BufferBoost] = [],
     vacationMode: Bool = false,
     vacationResumeAt: Date? = nil,
+    vacationStartedAt: Date? = nil,
     entitlementExpiry: Date? = nil,
     capturedAt: Date = Dates.now
 ) -> MoodSnapshot {
     MoodSnapshot(
         tasks: tasks, completionTimes: completionTimes, boosts: boosts,
         vacationMode: vacationMode, vacationResumeAt: vacationResumeAt,
+        vacationStartedAt: vacationStartedAt,
         entitlementExpiry: entitlementExpiry, capturedAt: capturedAt
     )
 }
@@ -65,22 +67,36 @@ struct MoodBandTests {
 @Suite("VacationSchedule")
 struct VacationScheduleTests {
 
-    @Test("off is off, open-ended stays on, fixed-date expires at the instant")
+    @Test("off is off, fixed-date expires at the instant")
     func expiryRule() {
-        #expect(!VacationSchedule.isActive(mode: false, resumeAt: nil, at: Dates.now))
-        #expect(VacationSchedule.isActive(mode: true, resumeAt: nil, at: Dates.now))
-        #expect(VacationSchedule.isActive(mode: true, resumeAt: Dates.hours(1), at: Dates.now))
-        #expect(!VacationSchedule.isActive(mode: true, resumeAt: Dates.now, at: Dates.now))
-        #expect(!VacationSchedule.isActive(mode: true, resumeAt: Dates.hours(-1), at: Dates.now))
+        #expect(!VacationSchedule.isActive(mode: false, startedAt: nil, resumeAt: nil, at: Dates.now))
+        #expect(VacationSchedule.isActive(mode: true, startedAt: Dates.now, resumeAt: Dates.hours(1), at: Dates.now))
+        #expect(!VacationSchedule.isActive(mode: true, startedAt: Dates.now, resumeAt: Dates.now, at: Dates.now))
+        #expect(!VacationSchedule.isActive(mode: true, startedAt: nil, resumeAt: Dates.hours(-1), at: Dates.now))
     }
 
-    @Test("the profile helper applies the same rule")
+    @Test("open-ended auto-expires at the 30-day cap - a forgotten toggle never lasts forever")
+    func openEndedCap() {
+        let started = Dates.now
+        #expect(VacationSchedule.isActive(mode: true, startedAt: started, resumeAt: nil, at: Dates.days(29)))
+        #expect(!VacationSchedule.isActive(mode: true, startedAt: started, resumeAt: nil, at: Dates.days(30)))
+        #expect(VacationSchedule.effectiveEnd(startedAt: started, resumeAt: nil) == Dates.days(30))
+        // A chosen end date always wins over the cap.
+        #expect(VacationSchedule.effectiveEnd(startedAt: started, resumeAt: Dates.days(3)) == Dates.days(3))
+        // Legacy entries without a recorded start keep the old behavior.
+        #expect(VacationSchedule.isActive(mode: true, startedAt: nil, resumeAt: nil, at: Dates.days(90)))
+    }
+
+    @Test("the profile helper applies the same rule, cap included")
     func profileHelper() {
         var profile = makeProfile(vacationMode: true)
         profile.vacationResumeAt = Dates.hours(-1)
         #expect(!profile.vacationActive(at: Dates.now), "expired vacation must read as over")
         profile.vacationResumeAt = Dates.hours(1)
         #expect(profile.vacationActive(at: Dates.now))
+        profile.vacationResumeAt = nil
+        profile.vacationStartedAt = Dates.days(-31)
+        #expect(!profile.vacationActive(at: Dates.now), "capped open-ended reads as over")
     }
 }
 
@@ -322,15 +338,36 @@ struct MoodForecastHorizonTests {
         }
     }
 
-    @Test("open-ended vacation forecasts flat forever - no crossings to schedule against")
+    @Test("open-ended vacation forecasts flat inside the cap - no crossings to schedule against")
     func openEndedVacationIsFlat() {
         let snapshot = makeSnapshot(
             tasks: [makeTask(dueAt: Dates.hours(-10), hasTime: true, priority: .high)],
-            vacationMode: true
+            vacationMode: true,
+            vacationStartedAt: Dates.now
         )
         let curve = MoodForecast.curve(until: Dates.days(7), snapshot: snapshot)
         #expect(curve.allSatisfy { $0.value == anchor })
         #expect(MoodForecast.bandCrossings(until: Dates.days(7), snapshot: snapshot).isEmpty)
+    }
+
+    @Test("the 30-day auto-expiry cap is a deterministic app-closed event - the forecast bakes it in")
+    func openEndedVacationCapIsSimulated() {
+        // Started 29 days ago: the cap lands tomorrow, and the overdue
+        // task's stress resumes right there.
+        let snapshot = makeSnapshot(
+            tasks: [makeTask(dueAt: Dates.hours(-10), hasTime: true, priority: .high)],
+            vacationMode: true,
+            vacationStartedAt: Dates.days(-29)
+        )
+        let capEnd = Dates.days(1)
+        #expect(MoodForecast.displayed(at: Dates.hours(20), snapshot: snapshot) == anchor)
+
+        let crossings = MoodForecast.bandCrossings(until: Dates.days(3), snapshot: snapshot)
+        #expect(crossings.count == 1)
+        #expect(crossings.first?.to == .uneasy)
+        if let date = crossings.first?.date {
+            #expect(abs(date.timeIntervalSince(capEnd)) <= 120)
+        }
     }
 
     @Test("the horizon is hard-capped at entitlement expiry - nothing is forecast into lapsed")

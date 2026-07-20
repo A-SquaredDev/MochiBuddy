@@ -30,7 +30,8 @@ final class HomeRouter {
             completionStore: container.taskCompletionStore,
             membershipSession: container.membershipSession,
             recurrenceRoller: container.recurrenceRoller,
-            relay: container.notificationOrchestrator
+            relay: container.notificationOrchestrator,
+            reentryService: container.vacationReentryService
         )
         return AnyView(HomeView(viewModel: viewModel, router: self))
     }

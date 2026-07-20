@@ -20,6 +20,7 @@ private func makeInput(
     completionTimes: [Date] = [],
     vacationMode: Bool = false,
     vacationResumeAt: Date? = nil,
+    vacationStartedAt: Date? = nil,
     entitlementExpiry: Date? = nil,
     bedtime: BedtimeWindow = .standard,
     taskReminders: Bool = true,
@@ -40,6 +41,7 @@ private func makeInput(
         snapshot: MoodSnapshot(
             tasks: tasks, completionTimes: completionTimes, boosts: [],
             vacationMode: vacationMode, vacationResumeAt: vacationResumeAt,
+            vacationStartedAt: vacationStartedAt,
             entitlementExpiry: entitlementExpiry, capturedAt: Dates.now
         ),
         bedtime: bedtime,
@@ -150,6 +152,27 @@ struct PlannerSuppressionTests {
         for item in plan {
             #expect(item.fireAt >= resumeAt, "\(item.id) fires during vacation")
         }
+    }
+
+    @Test("mood pings stay quiet through the 24h grace window after a vacation ends - promises don't")
+    func graceWindowAfterVacation() {
+        let resumeAt = Dates.days(1)
+        let plan = NotificationPlanner.plan(makeInput(
+            tasks: floorTasks() + [
+                makeTask(id: "t1", dueAt: resumeAt.addingTimeInterval(2 * 3600), hasTime: true),
+            ],
+            vacationMode: true,
+            vacationResumeAt: resumeAt,
+            vacationStartedAt: Dates.days(-2),
+            moodDips: true
+        ))
+
+        let graceEnd = resumeAt.addingTimeInterval(VacationConstants.graceDecay)
+        let pings = moodPings(plan)
+        #expect(!pings.isEmpty, "pings resume after the grace window inside the horizon")
+        #expect(pings.allSatisfy { $0.fireAt >= graceEnd },
+                "no sad ping lands during the gentle wake")
+        #expect(plan.contains { $0.id == "due-t1" }, "the post-vacation promise is untouched by grace")
     }
 
     @Test("open-ended vacation plans nothing at all")

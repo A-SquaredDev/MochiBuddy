@@ -115,7 +115,8 @@ final class YouRouter: YouRouting {
         let viewModel = VacationViewModel(
             authRepository: container.authRepository,
             profileRepository: container.profileRepository,
-            relay: container.notificationOrchestrator
+            relay: container.notificationOrchestrator,
+            reentryService: container.vacationReentryService
         )
         navController.navigate(
             route: AdHocRoute(key: "you.vacation"),
