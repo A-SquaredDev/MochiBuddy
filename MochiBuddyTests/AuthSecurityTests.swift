@@ -113,8 +113,12 @@ struct DataScopingTests {
             rewardsStore: RewardsStore(profileRepository: profileRepo),
             completionStore: TaskCompletionStore(
                 taskRepository: taskRepo,
-                rewardsStore: RewardsStore(profileRepository: profileRepo)
-            )
+                rewardsStore: RewardsStore(profileRepository: profileRepo),
+                membershipSession: MembershipSession()
+            ),
+            membershipSession: MembershipSession(),
+            recurrenceRoller: RecurrenceRoller(taskRepository: taskRepo),
+            relay: StubRelay()
         )
         await vm.triggerAsync(.refresh)
         await vm.triggerAsync(.quickAddChanged("task"))
@@ -132,7 +136,9 @@ struct DataScopingTests {
             profileRepository: StubProfileRepository(),
             listRepository: StubListRepository(),
             membershipStore: StubMembershipStore(),
-            themeStore: ThemeStore(defaults: UserDefaults(suiteName: "mochi-tests-\(UUID())")!)
+            membershipSession: MembershipSession(),
+            themeStore: ThemeStore(defaults: UserDefaults(suiteName: "mochi-tests-\(UUID())")!),
+            relay: StubRelay()
         )
         let recorder = EventRecorder(vm)
         await vm.triggerAsync(.signOutTapped)

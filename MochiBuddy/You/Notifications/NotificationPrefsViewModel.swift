@@ -17,6 +17,7 @@ final class NotificationPrefsViewModel: StateViewModel<
     private let authRepository: AuthRepository
     private let profileRepository: UserProfileRepository
     private let permissionService: NotificationPermissionService
+    private let relay: NotificationRelaying
 
     // Domain source of truth - UIState is derived from this.
     private var prefs: NotificationPrefs = .standard
@@ -25,11 +26,13 @@ final class NotificationPrefsViewModel: StateViewModel<
     init(
         authRepository: AuthRepository,
         profileRepository: UserProfileRepository,
-        permissionService: NotificationPermissionService
+        permissionService: NotificationPermissionService,
+        relay: NotificationRelaying
     ) {
         self.authRepository = authRepository
         self.profileRepository = profileRepository
         self.permissionService = permissionService
+        self.relay = relay
         var initial = NotificationPrefsBehavior.UIState()
         initial.levelOptions = [
             .init(id: NudgeLevel.rarely.rawValue, label: "Rarely"),
@@ -69,6 +72,10 @@ final class NotificationPrefsViewModel: StateViewModel<
         case .setBedtimeSilence(let isOn):
             prefs.bedtimeSilence = isOn
             await applyChange()
+
+        case .setHideTaskNames(let isOn):
+            prefs.hideTaskNames = isOn
+            await applyChange()
         }
     }
 
@@ -78,6 +85,7 @@ final class NotificationPrefsViewModel: StateViewModel<
         rebuildState(systemDenied: uiState.systemDenied)
         guard let userId else { return }
         try? await profileRepository.saveNotificationPrefs(prefs, userId: userId)
+        relay.requestRelay(.prefsChange)
     }
 
     private func rebuildState(systemDenied: Bool) {
@@ -89,6 +97,7 @@ final class NotificationPrefsViewModel: StateViewModel<
                 .updating(\.moodDips, to: prefs.moodDips)
                 .updating(\.bedtimeSilence, to: prefs.bedtimeSilence)
                 .updating(\.bedtimeSilenceSub, to: "No pings \(Self.window(bedtime))")
+                .updating(\.hideTaskNames, to: prefs.hideTaskNames)
                 .updating(\.systemDenied, to: systemDenied)
         )
     }

@@ -96,6 +96,7 @@ enum UserProfileMapper {
         prefs.morningRundown = data["morningRundown"] as? Bool ?? prefs.morningRundown
         prefs.moodDips = data["moodDips"] as? Bool ?? prefs.moodDips
         prefs.bedtimeSilence = data["bedtimeSilence"] as? Bool ?? prefs.bedtimeSilence
+        prefs.hideTaskNames = data["hideTaskNames"] as? Bool ?? prefs.hideTaskNames
         return prefs
     }
 }

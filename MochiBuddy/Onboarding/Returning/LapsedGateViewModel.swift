@@ -75,6 +75,11 @@ final class LapsedGateViewModel: ObservableStateViewModel<
                 state.restoreMessage = "No previous Mochi membership was found on this Apple ID."
             }
 
+        case .continueWithoutTapped:
+            // The lapsed surface is a degradation, not a wall: tasks stay
+            // viewable and completable, Mochi naps until they're back.
+            setNavigationEvent(.enterApp)
+
         case .dismissRestoreMessage:
             state.restoreMessage = nil
         }

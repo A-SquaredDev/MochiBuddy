@@ -47,6 +47,11 @@ enum HomeBehavior {
     struct UIState: UpdatableStruct, Equatable {
         /// True until the first Firestore fetch lands - drives the skeleton.
         var isLoading = true
+        /// Lapsed entitlement: the quiet-checklist mode. Mochi naps, coins
+        /// and quick-add hide, a Wake Mochi CTA replaces pet/treats.
+        var isLapsed = false
+        /// billing_grace: fully entitled, plus a soft payment nudge.
+        var showBillingBanner = false
         var greeting = "Hi, friend"
         var subGreeting = "Let's keep Mochi happy"
         var coins = 0

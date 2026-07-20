@@ -76,6 +76,17 @@ struct SplashRoutingTests {
         #expect(recorder.events == [.enterApp])
     }
 
+    @Test("billing grace routes home like any paying member")
+    func billingGraceEntersApp() async {
+        let membership = StubMembershipStore()
+        membership.status = .billingGrace(plan: .monthly, renewsAt: nil)
+        let (vm, _, _, _) = makeSplashVM(profile: completedProfile(), membership: membership)
+        let recorder = EventRecorder(vm)
+        await vm.triggerAsync(.load)
+        await recorder.drain()
+        #expect(recorder.events == [.enterApp])
+    }
+
     @Test("reinstall with a lapsed membership lands on Welcome Back with the right identity")
     func reinstallLapsed() async {
         let membership = StubMembershipStore()

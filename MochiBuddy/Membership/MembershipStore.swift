@@ -29,6 +29,10 @@ enum MembershipStatus: Equatable {
     case notSubscribed
     case trial(endsAt: Date)
     case active(plan: MembershipPlan, renewsAt: Date?)
+    /// A charge failed and Apple is retrying (~16 days). Still entitled -
+    /// treat as active with an "update payment method" nudge, never a
+    /// lockout. Misreading this locks out paying customers.
+    case billingGrace(plan: MembershipPlan, renewsAt: Date?)
     case lapsed
 }
 

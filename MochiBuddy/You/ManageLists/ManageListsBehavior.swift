@@ -25,6 +25,8 @@ enum ManageListsBehavior {
         var selectedColorId = ""
         var draftName = ""
         var canCreate = false
+        /// Lapsed: no new lists - the whole New-list section hides.
+        var canAddLists = true
         /// List pending deletion - drives the confirm alert.
         var deleteCandidateName: String?
         var showDeleteConfirm = false

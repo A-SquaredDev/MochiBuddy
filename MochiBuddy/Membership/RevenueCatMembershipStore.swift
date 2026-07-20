@@ -104,6 +104,15 @@ final class RevenueCatMembershipStore: MembershipStore {
         if entitlement.periodType == .trial {
             return .trial(endsAt: entitlement.expirationDate ?? .now)
         }
+        // Active but a charge failed and Apple is retrying: RevenueCat keeps
+        // reporting entitled, and so do we. The distinct case only exists to
+        // surface the "update payment method" nudge.
+        if entitlement.billingIssueDetectedAt != nil {
+            return .billingGrace(
+                plan: plan(fromProductId: entitlement.productIdentifier),
+                renewsAt: entitlement.expirationDate
+            )
+        }
         return .active(
             plan: plan(fromProductId: entitlement.productIdentifier),
             renewsAt: entitlement.expirationDate

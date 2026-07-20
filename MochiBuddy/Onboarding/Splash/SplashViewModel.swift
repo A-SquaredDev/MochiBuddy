@@ -55,7 +55,7 @@ final class SplashViewModel: ObservableStateViewModel<
             }
 
             switch await membershipStore.currentStatus() {
-            case .active, .trial:
+            case .active, .trial, .billingGrace:
                 setNavigationEvent(.enterApp)
             case .lapsed, .notSubscribed:
                 setNavigationEvent(.showWelcomeBack(summary(account: account, profile: profile)))

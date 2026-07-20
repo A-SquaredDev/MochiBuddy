@@ -27,9 +27,18 @@ final class HomeRouter {
             listRepository: container.listRepository,
             bufferStore: container.comfortBufferStore,
             rewardsStore: container.rewardsStore,
-            completionStore: container.taskCompletionStore
+            completionStore: container.taskCompletionStore,
+            membershipSession: container.membershipSession,
+            recurrenceRoller: container.recurrenceRoller,
+            relay: container.notificationOrchestrator
         )
         return AnyView(HomeView(viewModel: viewModel, router: self))
+    }
+
+    /// Lapsed "Wake Mochi" CTA - back through the flow, which recognises
+    /// the returning account and lands on the reactivate gate.
+    func wakeMochi() {
+        container.session.phase = .flow
     }
 
     /// The add/edit sheet - `draftTitle` seeds a new capture from quick-add.

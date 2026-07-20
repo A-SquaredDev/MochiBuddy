@@ -28,6 +28,8 @@ protocol ComfortBufferStore: AnyObject {
     func currentValue(now: Date) -> Double
     /// When the last active boost fully fades - nil when nothing is active.
     func latestExpiry(now: Date) -> Date?
+    /// The live boosts themselves - the forecast simulates their decay.
+    func activeBoosts(now: Date) -> [BufferBoost]
 }
 
 final class UserDefaultsComfortBufferStore: ComfortBufferStore {
@@ -56,6 +58,10 @@ final class UserDefaultsComfortBufferStore: ComfortBufferStore {
             .filter { $0.value(at: now) > 0 }
             .map { $0.startedAt.addingTimeInterval($0.duration) }
             .max()
+    }
+
+    func activeBoosts(now: Date) -> [BufferBoost] {
+        load().filter { $0.value(at: now) > 0 }
     }
 
     private func load() -> [BufferBoost] {

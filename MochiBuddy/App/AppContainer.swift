@@ -9,6 +9,7 @@
 import FirebaseFirestore
 import Foundation
 import UIKit
+import UserNotifications
 
 @MainActor
 final class AppContainer {
@@ -49,11 +50,18 @@ final class AppContainer {
     let listRepository: ListRepository
     let accountEraser: AccountEraser
     let membershipStore: MembershipStore
+    let membershipSession = MembershipSession()
     let notificationPermissionService: NotificationPermissionService
     let remindersGateway: RemindersGateway
     let comfortBufferStore: ComfortBufferStore
     let rewardsStore: RewardsStore
     let taskCompletionStore: TaskCompletionStore
+    let recurrenceRoller: RecurrenceRoller
+    let notificationScheduler: NotificationScheduling
+    let notificationOrchestrator: NotificationOrchestrator
+    let notificationActionHandler: NotificationActionHandler
+    /// Strong ref - UNUserNotificationCenter keeps its delegate weak.
+    private let notificationDelegate = MochiNotificationDelegate()
 
     init() {
         let firestore = Firestore.firestore()
@@ -71,12 +79,56 @@ final class AppContainer {
         remindersGateway = EventKitRemindersGateway()
         comfortBufferStore = UserDefaultsComfortBufferStore()
         rewardsStore = RewardsStore(profileRepository: profileRepository)
-        taskCompletionStore = TaskCompletionStore(taskRepository: taskRepository, rewardsStore: rewardsStore)
+        taskCompletionStore = TaskCompletionStore(
+            taskRepository: taskRepository,
+            rewardsStore: rewardsStore,
+            membershipSession: membershipSession
+        )
+        recurrenceRoller = RecurrenceRoller(taskRepository: taskRepository)
+
+        let telemetry = OSLogNotificationTelemetry()
+        notificationScheduler = UNNotificationScheduler()
+        notificationOrchestrator = NotificationOrchestrator(
+            authRepository: authRepository,
+            profileRepository: profileRepository,
+            taskRepository: taskRepository,
+            recurrenceRoller: recurrenceRoller,
+            bufferStore: comfortBufferStore,
+            membershipSession: membershipSession,
+            scheduler: notificationScheduler,
+            telemetry: telemetry
+        )
+        notificationActionHandler = NotificationActionHandler(
+            authRepository: authRepository,
+            taskRepository: taskRepository,
+            profileRepository: profileRepository,
+            completionStore: taskCompletionStore,
+            bufferStore: comfortBufferStore,
+            orchestrator: notificationOrchestrator,
+            telemetry: telemetry
+        )
+        notificationDelegate.actionHandler = notificationActionHandler
+        UNUserNotificationCenter.current().delegate = notificationDelegate
+        NotificationCategories.register()
+
+        // Every check-off (from any surface) re-lays the schedule.
+        taskCompletionStore.onMutation = { [weak notificationOrchestrator] in
+            notificationOrchestrator?.requestRelay(.taskChange)
+        }
+        // A lapse or reactivation reshapes the whole plan (promises-only
+        // vs the full set) the moment it's learned.
+        membershipSession.onChange = { [weak notificationOrchestrator] in
+            notificationOrchestrator?.requestRelay(.entitlementChange)
+        }
 
         // -mochiStartAtHome skips the flow for UI work on the tab surfaces
         // (pair with "-mochiStartTab you|tasks" to land on a specific tab).
         if ProcessInfo.processInfo.arguments.contains("-mochiStartAtHome") {
             session.phase = .home
+        }
+        // -mochiStartLapsed previews the degraded quiet-checklist mode.
+        if ProcessInfo.processInfo.arguments.contains("-mochiStartLapsed") {
+            membershipSession.status = .lapsed
         }
     }
 }

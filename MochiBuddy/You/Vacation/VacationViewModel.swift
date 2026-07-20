@@ -15,14 +15,20 @@ final class VacationViewModel: StateViewModel<
 
     private let authRepository: AuthRepository
     private let profileRepository: UserProfileRepository
+    private let relay: NotificationRelaying
 
     // Domain source of truth.
     private var isOn = false
     private var resumeAt: Date?
 
-    init(authRepository: AuthRepository, profileRepository: UserProfileRepository) {
+    init(
+        authRepository: AuthRepository,
+        profileRepository: UserProfileRepository,
+        relay: NotificationRelaying
+    ) {
         self.authRepository = authRepository
         self.profileRepository = profileRepository
+        self.relay = relay
         super.init(initialState: VacationBehavior.UIState())
     }
 
@@ -67,6 +73,8 @@ final class VacationViewModel: StateViewModel<
     private func persist() async {
         guard let userId else { return }
         try? await profileRepository.saveVacation(mode: isOn, resumeAt: resumeAt, userId: userId)
+        // Entering clears the queue (truly silent); leaving re-lays it.
+        relay.requestRelay(.vacationChange)
     }
 
     private func rebuildState() {

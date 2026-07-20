@@ -25,6 +25,11 @@ protocol YouRouting: BackRouting {
     func exitDeleteFlow()
     /// Signed out or account deleted - back to the onboarding flow.
     func exitToOnboarding()
+    /// Lapsed "Wake Mochi" - back through the flow to the reactivate gate.
+    func wakeMochi()
+    #if DEBUG
+    func navigateToDevScheduler()
+    #endif
 }
 
 @MainActor
@@ -45,15 +50,35 @@ final class YouRouter: YouRouting {
             profileRepository: container.profileRepository,
             listRepository: container.listRepository,
             membershipStore: container.membershipStore,
-            themeStore: container.themeStore
+            membershipSession: container.membershipSession,
+            themeStore: container.themeStore,
+            relay: container.notificationOrchestrator
         )
         return AnyView(YouView(viewModel: viewModel, router: self))
     }
 
+    func wakeMochi() {
+        container.session.phase = .flow
+    }
+
+    #if DEBUG
+    func navigateToDevScheduler() {
+        let viewModel = DevSchedulerViewModel(
+            orchestrator: container.notificationOrchestrator,
+            scheduler: container.notificationScheduler
+        )
+        navController.navigate(
+            route: AdHocRoute(key: "you.devScheduler"),
+            view: AnyView(DevSchedulerView(viewModel: viewModel, router: self))
+        )
+    }
+    #endif
+
     func navigateToBedtime() {
         let viewModel = BedtimeSettingsViewModel(
             authRepository: container.authRepository,
-            profileRepository: container.profileRepository
+            profileRepository: container.profileRepository,
+            relay: container.notificationOrchestrator
         )
         navController.navigate(
             route: AdHocRoute(key: "you.bedtime"),
@@ -65,7 +90,8 @@ final class YouRouter: YouRouting {
         let viewModel = NotificationPrefsViewModel(
             authRepository: container.authRepository,
             profileRepository: container.profileRepository,
-            permissionService: container.notificationPermissionService
+            permissionService: container.notificationPermissionService,
+            relay: container.notificationOrchestrator
         )
         navController.navigate(
             route: AdHocRoute(key: "you.notifications"),
@@ -88,7 +114,8 @@ final class YouRouter: YouRouting {
     func navigateToVacation() {
         let viewModel = VacationViewModel(
             authRepository: container.authRepository,
-            profileRepository: container.profileRepository
+            profileRepository: container.profileRepository,
+            relay: container.notificationOrchestrator
         )
         navController.navigate(
             route: AdHocRoute(key: "you.vacation"),
@@ -99,7 +126,8 @@ final class YouRouter: YouRouting {
     func navigateToManageLists() {
         let viewModel = ManageListsViewModel(
             authRepository: container.authRepository,
-            listRepository: container.listRepository
+            listRepository: container.listRepository,
+            membershipSession: container.membershipSession
         )
         navController.navigate(
             route: AdHocRoute(key: "you.lists"),

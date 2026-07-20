@@ -43,9 +43,13 @@ private func makeTasksVM(
         profileRepository: profileRepo,
         completionStore: TaskCompletionStore(
             taskRepository: taskRepo,
-            rewardsStore: RewardsStore(profileRepository: profileRepo)
+            rewardsStore: RewardsStore(profileRepository: profileRepo),
+            membershipSession: MembershipSession()
         ),
         remindersGateway: reminders,
+        membershipSession: MembershipSession(),
+        recurrenceRoller: RecurrenceRoller(taskRepository: taskRepo),
+        relay: StubRelay(),
         defaults: defaults
     )
     return (vm, taskRepo, profileRepo)

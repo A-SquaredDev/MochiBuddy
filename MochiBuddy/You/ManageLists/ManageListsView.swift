@@ -44,15 +44,17 @@ struct ManageListsView: View {
                 viewModel.trigger(.moveList(from: from, to: to))
             }
 
-            Group {
-                MochiEyebrow(text: "New list")
-                    .padding(.top, 4)
-                    .padding(.bottom, 8)
-                colorPicker
-                    .padding(.bottom, 8)
-                nameInput
+            if viewModel.canAddLists {
+                Group {
+                    MochiEyebrow(text: "New list")
+                        .padding(.top, 4)
+                        .padding(.bottom, 8)
+                    colorPicker
+                        .padding(.bottom, 8)
+                    nameInput
+                }
+                .listRowStyling()
             }
-            .listRowStyling()
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)

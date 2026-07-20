@@ -66,6 +66,9 @@ struct LapsedGateView: View {
             MochiTextLink(title: "Restore a previous purchase", strong: true) {
                 viewModel.trigger(.restoreTapped)
             }
+            MochiTextLink(title: "Not now · just show my tasks") {
+                viewModel.trigger(.continueWithoutTapped)
+            }
         }
         .alert(
             "Membership",

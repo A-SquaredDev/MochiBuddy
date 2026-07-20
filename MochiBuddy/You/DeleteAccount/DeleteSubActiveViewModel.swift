@@ -25,7 +25,14 @@ final class DeleteSubActiveViewModel: ObservableStateViewModel<
     override func triggerAsync(_ action: DeleteSubActiveBehavior.ViewAction) async {
         switch action {
         case .load:
-            guard case .active(let plan, _) = await membershipStore.currentStatus() else { return }
+            // billing_grace is still a live subscription - deleting the
+            // account won't stop Apple's billing retries either.
+            let plan: MembershipPlan
+            switch await membershipStore.currentStatus() {
+            case .active(let activePlan, _): plan = activePlan
+            case .billingGrace(let gracePlan, _): plan = gracePlan
+            case .trial, .lapsed, .notSubscribed: return
+            }
             let option = await membershipStore.planOptions().first { $0.plan == plan }
             if let option {
                 state.priceLine = "\(option.localizedPrice)/\(plan == .yearly ? "yr" : "mo")"

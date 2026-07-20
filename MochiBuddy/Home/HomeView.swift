@@ -16,6 +16,7 @@ struct HomeView: View {
     let router: HomeRouter
 
     @Environment(\.mochiTheme) private var theme
+    @Environment(\.openURL) private var openURL
     @FocusState private var quickAddFocused: Bool
 
     var body: some View {
@@ -25,8 +26,13 @@ struct HomeView: View {
                     loadingSkeleton
                 } else {
                     header
+                    if viewModel.showBillingBanner {
+                        billingBanner
+                    }
                     petStage
-                    quickAdd
+                    if !viewModel.isLapsed {
+                        quickAdd
+                    }
                     todaySection
                     doneTodaySection
                     weekSection
@@ -114,15 +120,48 @@ struct HomeView: View {
                     .foregroundStyle(theme.muted)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            Button {
-                viewModel.trigger(.treatsTapped)
-            } label: {
-                CoinPill(coins: viewModel.coins)
+            // Lapsed: the balance is frozen and retained, not spent or
+            // shown - the pill returns intact on resubscribe.
+            if !viewModel.isLapsed {
+                Button {
+                    viewModel.trigger(.treatsTapped)
+                } label: {
+                    CoinPill(coins: viewModel.coins)
+                }
+                .buttonStyle(SquishButtonStyle())
+                .accessibilityHint("Opens the treat shop")
             }
-            .buttonStyle(SquishButtonStyle())
-            .accessibilityHint("Opens the treat shop")
             StreakBadge(days: viewModel.streakDays)
         }
+    }
+
+    /// billing_grace: fully entitled, gentle nudge - never a lockout.
+    private var billingBanner: some View {
+        Button {
+            openURL(MochiLinks.manageSubscriptions)
+        } label: {
+            HStack(spacing: 9) {
+                Image(systemName: "creditcard")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(theme.primaryText)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Your payment method needs a refresh")
+                        .font(MochiFont.body(12, weight: .heavy))
+                        .foregroundStyle(theme.ink)
+                    Text("Mochi's not going anywhere. Tap to update it.")
+                        .font(MochiFont.body(11, weight: .bold))
+                        .foregroundStyle(theme.muted)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(theme.muted)
+            }
+            .padding(EdgeInsets(top: 10, leading: 12, bottom: 10, trailing: 12))
+            .background(theme.surface, in: RoundedRectangle(cornerRadius: MochiRadius.md))
+            .overlay(RoundedRectangle(cornerRadius: MochiRadius.md).stroke(theme.line, lineWidth: 1.5))
+        }
+        .buttonStyle(SquishButtonStyle())
     }
 
     // MARK: - Pet stage
@@ -130,21 +169,28 @@ struct HomeView: View {
     private var petStage: some View {
         MochiCard(padding: EdgeInsets(top: 14, leading: 15, bottom: 16, trailing: 15)) {
             VStack(spacing: 0) {
-                MoodMeter(baseline: viewModel.baseline, buffer: viewModel.buffer)
-                if let fadeText = viewModel.boostFadeText {
-                    Text(fadeText)
-                        .font(MochiFont.body(9.5, weight: .bold))
-                        .foregroundStyle(theme.muted)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                        .padding(.top, 2)
-                        .transition(.opacity)
+                // Lapsed hides the mood chrome entirely - the engine is
+                // paused, and a meter over a napping pet would be a lie.
+                if !viewModel.isLapsed {
+                    MoodMeter(baseline: viewModel.baseline, buffer: viewModel.buffer)
+                    if let fadeText = viewModel.boostFadeText {
+                        Text(fadeText)
+                            .font(MochiFont.body(9.5, weight: .bold))
+                            .foregroundStyle(theme.muted)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                            .padding(.top, 2)
+                            .transition(.opacity)
+                    }
                 }
                 VStack(spacing: 2) {
                     MochiPetView(
                         mood: viewModel.isSleeping ? .sleeping : MochiMood(vitality: viewModel.displayedMood),
                         size: 128,
                         externalSquishTrigger: viewModel.petSquishTrigger,
-                        onTap: { viewModel.trigger(.petTapped) }
+                        onTap: viewModel.isLapsed ? nil : { viewModel.trigger(.petTapped) }
+                    )
+                    .accessibilityLabel(
+                        viewModel.isLapsed ? "Mochi is napping. Membership paused." : "Mochi"
                     )
                     Text(viewModel.moodTitle)
                         .font(MochiFont.display(14, weight: .semibold))
@@ -155,15 +201,22 @@ struct HomeView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.top, 6)
-                HStack(spacing: 8) {
-                    MochiButton(title: "Pet Mochi", variant: .ghost, size: .md) {
-                        viewModel.trigger(.petTapped)
+                if viewModel.isLapsed {
+                    MochiButton(title: "Wake Mochi", variant: .primary, size: .md) {
+                        router.wakeMochi()
                     }
-                    MochiButton(title: "Treats", variant: .primary, size: .md) {
-                        viewModel.trigger(.treatsTapped)
+                    .padding(.top, 10)
+                } else {
+                    HStack(spacing: 8) {
+                        MochiButton(title: "Pet Mochi", variant: .ghost, size: .md) {
+                            viewModel.trigger(.petTapped)
+                        }
+                        MochiButton(title: "Treats", variant: .primary, size: .md) {
+                            viewModel.trigger(.treatsTapped)
+                        }
                     }
+                    .padding(.top, 10)
                 }
-                .padding(.top, 10)
             }
         }
     }

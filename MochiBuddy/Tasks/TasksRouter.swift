@@ -42,7 +42,10 @@ final class TasksRouter: TasksRouting {
             listRepository: container.listRepository,
             profileRepository: container.profileRepository,
             completionStore: container.taskCompletionStore,
-            remindersGateway: container.remindersGateway
+            remindersGateway: container.remindersGateway,
+            membershipSession: container.membershipSession,
+            recurrenceRoller: container.recurrenceRoller,
+            relay: container.notificationOrchestrator
         )
         return AnyView(TasksView(viewModel: viewModel, router: self))
     }
@@ -66,7 +69,10 @@ final class TasksRouter: TasksRouting {
             taskRepository: container.taskRepository,
             profileRepository: container.profileRepository,
             completionStore: container.taskCompletionStore,
-            remindersGateway: container.remindersGateway
+            remindersGateway: container.remindersGateway,
+            membershipSession: container.membershipSession,
+            recurrenceRoller: container.recurrenceRoller,
+            relay: container.notificationOrchestrator
         )
         navController.navigate(
             route: AdHocRoute(key: "tasks.listDetail"),
@@ -77,7 +83,8 @@ final class TasksRouter: TasksRouting {
     func navigateToManageLists() {
         let viewModel = ManageListsViewModel(
             authRepository: container.authRepository,
-            listRepository: container.listRepository
+            listRepository: container.listRepository,
+            membershipSession: container.membershipSession
         )
         navController.navigate(
             route: AdHocRoute(key: "tasks.lists"),

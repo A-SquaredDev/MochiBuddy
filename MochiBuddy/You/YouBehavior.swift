@@ -19,6 +19,11 @@ enum YouBehavior {
         var avatarLetter = "M"
         /// Shows the Mochi+ badge on the identity row.
         var isMember = false
+        /// Lapsed: flavors lock, Mochi-care rows hide, a Wake Mochi card
+        /// appears. Account & legal stay fully functional (non-negotiable).
+        var isLapsed = false
+        /// billing_grace: entitled, plus the payment-method nudge line.
+        var hasBillingIssue = false
         var coins = 0
         var flavors: [FlavorSwatch] = []
         var selectedFlavorId = ""
@@ -55,9 +60,17 @@ enum YouBehavior {
         case vacationTapped
         case manageListsTapped
         case deleteAccountTapped
+        case wakeMochiTapped
+        #if DEBUG
+        case devSchedulerTapped
+        #endif
     }
 
     enum NavigationEvent {
+        case wakeMochi
+        #if DEBUG
+        case showDevScheduler
+        #endif
         case editBedtime
         case showStats
         case showNotifications

@@ -203,6 +203,10 @@ final class OnboardingRouter: OnboardingRouting {
     func finishOnboarding() {
         Task { @MainActor in
             await onboardingStore.markComplete()
+            // The tab surfaces read entitlement synchronously from the
+            // session - refresh it at the one choke point every entry into
+            // home passes through (lapsed users enter too, degraded).
+            container.membershipSession.status = await container.membershipStore.currentStatus()
             container.session.phase = .home
         }
     }

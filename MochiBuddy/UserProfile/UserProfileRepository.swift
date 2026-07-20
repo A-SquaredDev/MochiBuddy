@@ -86,6 +86,7 @@ final class FirestoreUserProfileRepository: UserProfileRepository {
                 "morningRundown": prefs.morningRundown,
                 "moodDips": prefs.moodDips,
                 "bedtimeSilence": prefs.bedtimeSilence,
+                "hideTaskNames": prefs.hideTaskNames,
             ],
         ], userId: userId)
     }

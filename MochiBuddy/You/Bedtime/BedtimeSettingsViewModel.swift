@@ -15,13 +15,19 @@ final class BedtimeSettingsViewModel: StateViewModel<
 
     private let authRepository: AuthRepository
     private let profileRepository: UserProfileRepository
+    private let relay: NotificationRelaying
 
     // Domain source of truth - wall-clock minutes, not instants.
     private var window: BedtimeWindow = .standard
 
-    init(authRepository: AuthRepository, profileRepository: UserProfileRepository) {
+    init(
+        authRepository: AuthRepository,
+        profileRepository: UserProfileRepository,
+        relay: NotificationRelaying
+    ) {
         self.authRepository = authRepository
         self.profileRepository = profileRepository
+        self.relay = relay
         super.init(initialState: BedtimeSettingsBehavior.UIState())
     }
 
@@ -56,6 +62,8 @@ final class BedtimeSettingsViewModel: StateViewModel<
     private func persist() async {
         guard let userId else { return }
         try? await profileRepository.saveBedtime(window, userId: userId)
+        // Quiet hours moved - drop/re-lay mood pings and the rundown time.
+        relay.requestRelay(.bedtimeChange)
     }
 
     private func rebuildState(editing: BedtimeSettingsBehavior.EditTarget) {

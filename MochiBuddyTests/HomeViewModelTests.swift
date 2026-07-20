@@ -16,8 +16,10 @@ private func makeHomeVM(
     completed: [TaskItem] = [],
     completedStats: [CompletedTaskStat] = [],
     lists: [TaskList] = [],
-    profile: UserProfile = makeProfile(coins: 100, streak: 4)
+    profile: UserProfile = makeProfile(coins: 100, streak: 4),
+    membership explicitMembership: MembershipSession? = nil
 ) -> (HomeViewModel, StubTaskRepository, StubProfileRepository, StubComfortBufferStore) {
+    let membership = explicitMembership ?? MembershipSession()
     let auth = StubAuthRepository()
     let profileRepo = StubProfileRepository()
     profileRepo.profile = profile
@@ -37,8 +39,12 @@ private func makeHomeVM(
         rewardsStore: RewardsStore(profileRepository: profileRepo),
         completionStore: TaskCompletionStore(
             taskRepository: taskRepo,
-            rewardsStore: RewardsStore(profileRepository: profileRepo)
-        )
+            rewardsStore: RewardsStore(profileRepository: profileRepo),
+            membershipSession: membership
+        ),
+        membershipSession: membership,
+        recurrenceRoller: RecurrenceRoller(taskRepository: taskRepo),
+        relay: StubRelay()
     )
     return (vm, taskRepo, profileRepo, buffer)
 }
@@ -70,8 +76,12 @@ struct HomeLoadingTests {
             rewardsStore: RewardsStore(profileRepository: profileRepo),
             completionStore: TaskCompletionStore(
                 taskRepository: taskRepo,
-                rewardsStore: RewardsStore(profileRepository: profileRepo)
-            )
+                rewardsStore: RewardsStore(profileRepository: profileRepo),
+                membershipSession: MembershipSession()
+            ),
+            membershipSession: MembershipSession(),
+            recurrenceRoller: RecurrenceRoller(taskRepository: taskRepo),
+            relay: StubRelay()
         )
         await vm.triggerAsync(.refresh)
         #expect(vm.uiState.isLoading == false)

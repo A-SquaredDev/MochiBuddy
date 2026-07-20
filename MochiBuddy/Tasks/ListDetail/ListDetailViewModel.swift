@@ -19,6 +19,9 @@ final class ListDetailViewModel: StateViewModel<
     private let profileRepository: UserProfileRepository
     private let completionStore: TaskCompletionStore
     private let remindersGateway: RemindersGateway
+    private let membershipSession: MembershipSession
+    private let recurrenceRoller: RecurrenceRoller
+    private let relay: NotificationRelaying
 
     // Domain source of truth - UIState is derived from these.
     private var open: [TaskItem] = []
@@ -32,7 +35,10 @@ final class ListDetailViewModel: StateViewModel<
         taskRepository: TaskRepository,
         profileRepository: UserProfileRepository,
         completionStore: TaskCompletionStore,
-        remindersGateway: RemindersGateway
+        remindersGateway: RemindersGateway,
+        membershipSession: MembershipSession,
+        recurrenceRoller: RecurrenceRoller,
+        relay: NotificationRelaying
     ) {
         self.source = source
         self.authRepository = authRepository
@@ -40,6 +46,9 @@ final class ListDetailViewModel: StateViewModel<
         self.profileRepository = profileRepository
         self.completionStore = completionStore
         self.remindersGateway = remindersGateway
+        self.membershipSession = membershipSession
+        self.recurrenceRoller = recurrenceRoller
+        self.relay = relay
 
         var initial = ListDetailBehavior.UIState()
         switch source {
@@ -61,6 +70,10 @@ final class ListDetailViewModel: StateViewModel<
             // reminders stay in the Reminders app, not here.
             initial.canAdd = false
         }
+        // Lapsed: existing tasks stay completable, new capture is removed.
+        if membershipSession.isLapsed {
+            initial.canAdd = false
+        }
         super.init(initialState: initial)
     }
 
@@ -80,11 +93,13 @@ final class ListDetailViewModel: StateViewModel<
             }
 
         case .addTapped:
+            guard uiState.canAdd else { return }
             state.editingTask = TasksBehavior.EditingTask(task: nil)
 
         case .editorDismissed:
             state.editingTask = nil
             await refresh()
+            relay.requestRelay(.taskChange)
         }
     }
 
@@ -110,13 +125,19 @@ final class ListDetailViewModel: StateViewModel<
 
         guard let userId else { return }
         let scopedListId = listId
-        open = ((try? await taskRepository.incompleteTasks(userId: userId)) ?? [])
-            .filter { $0.listId == scopedListId }
+        var fetched = (try? await taskRepository.incompleteTasks(userId: userId)) ?? []
+        // Roll before filtering so a re-stamped occurrence keeps this list
+        // consistent with Home and the Tasks tab.
+        let profile = try? await profileRepository.fetchProfile(userId: userId)
+        fetched = await recurrenceRoller.rollForward(
+            fetched,
+            frozen: (profile?.vacationActive(at: .now) ?? false) || membershipSession.isLapsed,
+            userId: userId
+        )
+        open = fetched.filter { $0.listId == scopedListId }
         done = ((try? await taskRepository.completedTasks(limit: 50, userId: userId)) ?? [])
             .filter { $0.listId == scopedListId }
-        if let profile = try? await profileRepository.fetchProfile(userId: userId) {
-            coins = profile.coins
-        }
+        coins = profile?.coins ?? coins
         rebuild()
     }
 

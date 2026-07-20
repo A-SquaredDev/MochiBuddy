@@ -38,7 +38,7 @@ final class WelcomeBackViewModel: ObservableStateViewModel<
             state.isWorking = true
             let status = await membershipStore.currentStatus()
             switch status {
-            case .active, .trial:
+            case .active, .trial, .billingGrace:
                 state.isWorking = false
                 setNavigationEvent(.enterApp)
             case .lapsed, .notSubscribed:

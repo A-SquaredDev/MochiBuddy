@@ -24,7 +24,11 @@ final class ManageListsViewModel: StateViewModel<
     /// old draft back - swallow that exact string until different input.
     private var lastCreatedDraftName: String?
 
-    init(authRepository: AuthRepository, listRepository: ListRepository) {
+    init(
+        authRepository: AuthRepository,
+        listRepository: ListRepository,
+        membershipSession: MembershipSession
+    ) {
         self.authRepository = authRepository
         self.listRepository = listRepository
         var initial = ManageListsBehavior.UIState()
@@ -32,6 +36,7 @@ final class ManageListsViewModel: StateViewModel<
             ManageListsBehavior.ColorChoice(id: $0, color: Color(hexString: $0))
         }
         initial.selectedColorId = TaskListDefaults.colorChoices[0]
+        initial.canAddLists = !membershipSession.isLapsed
         super.init(initialState: initial)
     }
 
@@ -50,6 +55,7 @@ final class ManageListsViewModel: StateViewModel<
             state.selectedColorId = id
 
         case .createTapped:
+            guard uiState.canAddLists else { return }
             let name = uiState.draftName.trimmingCharacters(in: .whitespaces)
             guard !name.isEmpty, let userId else { return }
             Haptics.success()

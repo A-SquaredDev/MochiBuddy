@@ -22,6 +22,9 @@ final class HomeViewModel: StateViewModel<
     private let bufferStore: ComfortBufferStore
     private let rewardsStore: RewardsStore
     private let completionStore: TaskCompletionStore
+    private let membershipSession: MembershipSession
+    private let recurrenceRoller: RecurrenceRoller
+    private let relay: NotificationRelaying
 
     // Domain source of truth - UIState is derived from these.
     /// Incomplete tasks only; completions move to `completedToday`.
@@ -30,6 +33,7 @@ final class HomeViewModel: StateViewModel<
     private var lists: [TaskList] = []
     private var completionsLast24h = 0
     private var vacationMode = false
+    private var vacationResumeAt: Date?
     private var bedtime: BedtimeWindow = .standard
     private var coins = 0
     private var streak = 0
@@ -46,7 +50,10 @@ final class HomeViewModel: StateViewModel<
         listRepository: ListRepository,
         bufferStore: ComfortBufferStore,
         rewardsStore: RewardsStore,
-        completionStore: TaskCompletionStore
+        completionStore: TaskCompletionStore,
+        membershipSession: MembershipSession,
+        recurrenceRoller: RecurrenceRoller,
+        relay: NotificationRelaying
     ) {
         self.authRepository = authRepository
         self.profileRepository = profileRepository
@@ -55,6 +62,9 @@ final class HomeViewModel: StateViewModel<
         self.bufferStore = bufferStore
         self.rewardsStore = rewardsStore
         self.completionStore = completionStore
+        self.membershipSession = membershipSession
+        self.recurrenceRoller = recurrenceRoller
+        self.relay = relay
         super.init(initialState: HomeBehavior.UIState())
     }
 
@@ -68,12 +78,17 @@ final class HomeViewModel: StateViewModel<
             rebuildDerivedState()
 
         case .petTapped:
+            // Lapsed: tap-to-pet is off - Mochi's napping until they're back.
+            guard !uiState.isLapsed else { return }
             bufferStore.add(lift: TreatCatalog.Pet.lift, duration: TreatCatalog.Pet.duration)
             Haptics.impact(.soft)
             state.petSquishTrigger += 1
             rebuildDerivedState()
+            // The buffer lifts the forecast - scheduled pings must follow.
+            relay.requestRelay(.comfortChange)
 
         case .treatsTapped:
+            guard !uiState.isLapsed else { return }
             Haptics.impact(.light)
             state.showTreats = true
 
@@ -92,9 +107,11 @@ final class HomeViewModel: StateViewModel<
             state.quickAddText = text
 
         case .quickAddSubmitted:
+            guard !uiState.isLapsed else { return }
             await quickAdd()
 
         case .composeTapped:
+            guard !uiState.isLapsed else { return }
             let title = uiState.quickAddText.trimmingCharacters(in: .whitespaces)
             if !uiState.quickAddText.isEmpty {
                 lastSubmittedQuickAddTitle = uiState.quickAddText
@@ -117,6 +134,7 @@ final class HomeViewModel: StateViewModel<
         case .editorDismissed:
             state.editingTask = nil
             await refresh()
+            relay.requestRelay(.taskChange)
         }
     }
 
@@ -147,9 +165,18 @@ final class HomeViewModel: StateViewModel<
             coins = profile.coins
             streak = profile.streakCount
             vacationMode = profile.vacationMode
+            vacationResumeAt = profile.vacationResumeAt
             bedtime = profile.bedtime
         }
         tasks = (try? await taskRepository.incompleteTasks(userId: userId)) ?? []
+        // One-live-occurrence invariant: re-stamp recurring tasks whose next
+        // occurrence has come due. Frozen while on vacation (recurrence
+        // pauses) or lapsed (the list drains, nothing self-replenishes).
+        tasks = await recurrenceRoller.rollForward(
+            tasks,
+            frozen: vacationActive(now: .now) || membershipSession.isLapsed,
+            userId: userId
+        )
         let startOfToday = Calendar.current.startOfDay(for: .now)
         completedToday = (try? await taskRepository.completedTasks(since: startOfToday, userId: userId)) ?? []
         lists = (try? await listRepository.fetchLists(userId: userId)) ?? []
@@ -162,6 +189,7 @@ final class HomeViewModel: StateViewModel<
     // MARK: - Actions
 
     private func giveTreat(id: String) async {
+        guard !uiState.isLapsed else { return }
         guard let treat = TreatCatalog.all.first(where: { $0.id == id }),
               coins >= treat.cost,
               let userId
@@ -172,6 +200,7 @@ final class HomeViewModel: StateViewModel<
         state.petSquishTrigger += 1
         rebuildDerivedState()
         await rewardsStore.spendCoins(treat.cost, userId: userId)
+        relay.requestRelay(.comfortChange)
     }
 
     private func quickAdd() async {
@@ -190,6 +219,7 @@ final class HomeViewModel: StateViewModel<
             repeatRule: nil, completed: false, completedAt: nil, createdAt: .now
         ))
         rebuildDerivedState()
+        relay.requestRelay(.taskChange)
     }
 
     private func toggleTask(id: String) async {
@@ -245,31 +275,39 @@ final class HomeViewModel: StateViewModel<
 
     private func rebuildDerivedState() {
         let now = Date.now
+        let onVacation = vacationActive(now: now)
         let baseline = MoodEngine.baseline(
             incompleteTasks: tasks.filter { !$0.completed },
             completionsLast24h: completionsLast24h,
-            vacationMode: vacationMode,
+            vacationMode: onVacation,
             now: now
         )
         let buffer = bufferStore.currentValue(now: now)
         let displayed = min(100, max(0, baseline + buffer))
-        let sleeping = !vacationMode && bedtime.contains(now)
+        // Lapsed wins over vacation and bedtime: Mochi is asleep, dormant
+        // and peaceful - never sad as conversion pressure.
+        let lapsed = membershipSession.isLapsed
+        let sleeping = lapsed || (!onVacation && bedtime.contains(now))
 
         let scoped = todayScope(now: now)
 
         var next = uiState
+        next.isLapsed = lapsed
+        next.showBillingBanner = membershipSession.hasBillingIssue
         next.coins = coins
         next.streakDays = streak
         next.baseline = baseline
         next.buffer = buffer
         next.displayedMood = displayed
         next.isSleeping = sleeping
-        (next.moodTitle, next.moodSub) = moodCopy(displayed, sleeping: sleeping)
+        (next.moodTitle, next.moodSub) = moodCopy(
+            displayed, sleeping: sleeping, lapsed: lapsed, vacation: onVacation
+        )
         next.todayDateText = now.formatted(.dateTime.weekday(.wide).day().month(.wide))
         next.todayItems = scoped.map { item(for: $0, now: now) }
         next.doneTodayItems = completedToday.map { item(for: $0, now: now) }
         next.weekPreview = weekPreview(now: now)
-        next.boostFadeText = boostFadeText(buffer: buffer, now: now)
+        next.boostFadeText = lapsed ? nil : boostFadeText(buffer: buffer, now: now)
         next.leftText = "\(scoped.count) left"
         next.showEmptyToday = scoped.isEmpty
         next.bufferLabel = "+\(Int(buffer.rounded())) / \(Int(MoodEngine.Constants.bufferCap))"
@@ -356,8 +394,16 @@ final class HomeViewModel: StateViewModel<
         )
     }
 
-    private func moodCopy(_ value: Double, sleeping: Bool) -> (String, String) {
-        if vacationMode {
+    /// Vacation with auto-expiry applied - the same rule the forecast uses.
+    private func vacationActive(now: Date) -> Bool {
+        VacationSchedule.isActive(mode: vacationMode, resumeAt: vacationResumeAt, at: now)
+    }
+
+    private func moodCopy(_ value: Double, sleeping: Bool, lapsed: Bool, vacation: Bool) -> (String, String) {
+        if lapsed {
+            return ("Mochi is napping", "Wake Mochi to bring everything back")
+        }
+        if vacation {
             return ("Mochi is resting", "Vacation mode · nudges paused")
         }
         if sleeping {

@@ -28,6 +28,8 @@ protocol TaskRepository: AnyObject {
     @discardableResult
     func addTask(_ draft: TaskDraft, userId: String) async throws -> String
     func incompleteTasks(userId: String) async throws -> [TaskItem]
+    /// One task by id - notification actions resolve their target with it.
+    func task(id: String, userId: String) async throws -> TaskItem?
     /// Most recent completions, newest first.
     func completedTasks(limit: Int, userId: String) async throws -> [TaskItem]
     /// Completions on/after `since`, newest first.
@@ -37,6 +39,11 @@ protocol TaskRepository: AnyObject {
     func updateTask(_ task: TaskItem, userId: String) async throws
     /// Pushes the due date and increments the procrastination counter.
     func snoozeTask(id: String, to newDueAt: Date, userId: String) async throws
+    /// Re-stamps a rolled-forward recurring occurrence and silently logs
+    /// the missed ones (one-live-occurrence invariant). Distinct from
+    /// snooze - a roll is the calendar moving on, not the user deferring,
+    /// so it never touches rescheduleCount.
+    func rollForwardTask(id: String, to newDueAt: Date, missedOccurrences: Int, userId: String) async throws
     func deleteTask(id: String, userId: String) async throws
     func incompleteTaskCount(userId: String) async throws -> Int
     func totalTaskCount(userId: String) async throws -> Int
@@ -130,6 +137,15 @@ final class FirestoreTaskRepository: TaskRepository {
         ], merge: true, completion: nil)
     }
 
+    func rollForwardTask(id: String, to newDueAt: Date, missedOccurrences: Int, userId: String) async throws {
+        tasks(userId).document(id).setData([
+            "dueAt": Timestamp(date: newDueAt),
+            "missedCount": FieldValue.increment(Int64(missedOccurrences)),
+            "lastMissedAt": Timestamp(date: .now),
+            "updatedAt": FieldValue.serverTimestamp(),
+        ], merge: true, completion: nil)
+    }
+
     func deleteTask(id: String, userId: String) async throws {
         tasks(userId).document(id).delete(completion: nil)
     }
@@ -167,10 +183,19 @@ final class FirestoreTaskRepository: TaskRepository {
         return TaskRepeat(freq: freq, days: data?["days"] as? [Int])
     }
 
+    func task(id: String, userId: String) async throws -> TaskItem? {
+        let snapshot = try await tasks(userId).document(id).getDocument()
+        guard snapshot.exists, let data = snapshot.data() else { return nil }
+        return Self.taskItem(id: snapshot.documentID, data: data)
+    }
+
     private static func taskItem(from document: QueryDocumentSnapshot) -> TaskItem {
-        let data = document.data()
+        taskItem(id: document.documentID, data: document.data())
+    }
+
+    private static func taskItem(id: String, data: [String: Any]) -> TaskItem {
         return TaskItem(
-            id: document.documentID,
+            id: id,
             title: data["title"] as? String ?? "",
             notes: data["notes"] as? String,
             dueAt: (data["dueAt"] as? Timestamp)?.dateValue(),

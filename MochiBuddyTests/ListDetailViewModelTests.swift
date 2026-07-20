@@ -30,9 +30,13 @@ private func makeListDetailVM(
         profileRepository: profileRepo,
         completionStore: TaskCompletionStore(
             taskRepository: taskRepo,
-            rewardsStore: RewardsStore(profileRepository: profileRepo)
+            rewardsStore: RewardsStore(profileRepository: profileRepo),
+            membershipSession: MembershipSession()
         ),
-        remindersGateway: reminders
+        remindersGateway: reminders,
+        membershipSession: MembershipSession(),
+        recurrenceRoller: RecurrenceRoller(taskRepository: taskRepo),
+        relay: StubRelay()
     )
     return (vm, taskRepo, profileRepo)
 }

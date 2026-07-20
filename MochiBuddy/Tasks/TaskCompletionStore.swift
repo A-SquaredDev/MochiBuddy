@@ -21,10 +21,17 @@ final class TaskCompletionStore {
         /// The spawned occurrence deleted because its completion was undone
         /// - callers must drop it from their local arrays too.
         var reapedTaskId: String? = nil
+        /// Set when this completion landed a sparse streak milestone
+        /// (7 / 30 / every 50) - the celebration hook.
+        var milestoneStreak: Int? = nil
     }
 
     private let taskRepository: TaskRepository
     private let rewardsStore: RewardsStore
+    private let membershipSession: MembershipSession
+
+    /// Fired after every persisted toggle - the notification re-lay hook.
+    var onMutation: (() -> Void)?
 
     /// Which spawn each completion created, so an undo can reap it instead
     /// of leaving a duplicate future occurrence behind. Session-scoped: an
@@ -32,9 +39,14 @@ final class TaskCompletionStore {
     /// matches the old behavior at worst.
     private var spawnByCompletedTaskId: [String: String] = [:]
 
-    init(taskRepository: TaskRepository, rewardsStore: RewardsStore) {
+    init(
+        taskRepository: TaskRepository,
+        rewardsStore: RewardsStore,
+        membershipSession: MembershipSession
+    ) {
         self.taskRepository = taskRepository
         self.rewardsStore = rewardsStore
+        self.membershipSession = membershipSession
     }
 
     func setCompleted(
@@ -44,6 +56,15 @@ final class TaskCompletionStore {
         userId: String
     ) async -> ToggleOutcome {
         try? await taskRepository.setCompleted(taskId: task.id, completed: completed, userId: userId)
+        defer { onMutation?() }
+
+        // Lapsed: completing stays allowed ("finish what you started") but
+        // the coin balance is frozen, the streak is frozen, and recurrence
+        // never spawns - the list genuinely drains instead of replenishing
+        // into a free habit-tracker.
+        guard !membershipSession.isLapsed else {
+            return ToggleOutcome(coinsDelta: 0, streak: nil, spawnedNext: nil)
+        }
 
         guard completed else {
             let delta = await rewardsStore.revokeCompletion(currentCoins: currentCoins, userId: userId)
@@ -79,6 +100,11 @@ final class TaskCompletionStore {
         }
 
         let outcome = await rewardsStore.awardCompletion(userId: userId)
-        return ToggleOutcome(coinsDelta: outcome.coinsDelta, streak: outcome.streak, spawnedNext: spawned)
+        return ToggleOutcome(
+            coinsDelta: outcome.coinsDelta,
+            streak: outcome.streak,
+            spawnedNext: spawned,
+            milestoneStreak: StreakMilestones.isMilestone(outcome.streak) ? outcome.streak : nil
+        )
     }
 }

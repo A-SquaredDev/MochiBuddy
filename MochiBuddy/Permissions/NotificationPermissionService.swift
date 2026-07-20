@@ -13,6 +13,10 @@ import UserNotifications
 protocol NotificationPermissionService: AnyObject {
     func authorizationStatus() async -> UNAuthorizationStatus
     func requestAuthorization() async -> Bool
+    /// Provisional (quiet) delivery as the floor for users who skipped the
+    /// primer - no system prompt is shown, notifications land silently in
+    /// the notification center. Degrade, don't disable.
+    func requestProvisionalIfUndetermined() async
 }
 
 final class UNNotificationPermissionService: NotificationPermissionService {
@@ -23,5 +27,11 @@ final class UNNotificationPermissionService: NotificationPermissionService {
     func requestAuthorization() async -> Bool {
         let center = UNUserNotificationCenter.current()
         return (try? await center.requestAuthorization(options: [.alert, .sound, .badge])) ?? false
+    }
+
+    func requestProvisionalIfUndetermined() async {
+        guard await authorizationStatus() == .notDetermined else { return }
+        _ = try? await UNUserNotificationCenter.current()
+            .requestAuthorization(options: [.alert, .sound, .badge, .provisional])
     }
 }

@@ -60,6 +60,13 @@ struct NotificationPrefsView: View {
                             isOn: viewModel.collectBinding(for: \.bedtimeSilence, action: { .setBedtimeSilence($0) })
                         )
                         .padding(.vertical, 13)
+                        MochiDashedDivider()
+                        MochiToggleRow(
+                            title: "Hide task names on lock screen",
+                            subtitle: "Reminders stay private in public",
+                            isOn: viewModel.collectBinding(for: \.hideTaskNames, action: { .setHideTaskNames($0) })
+                        )
+                        .padding(.vertical, 13)
                     }
                 }
 

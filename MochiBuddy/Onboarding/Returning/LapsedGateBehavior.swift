@@ -27,10 +27,12 @@ enum LapsedGateBehavior {
         case selectPlan(String)
         case reactivateTapped
         case restoreTapped
+        /// "Not now" - into the app as a quiet checklist, Mochi asleep.
+        case continueWithoutTapped
         case dismissRestoreMessage
     }
 
-    enum NavigationEvent {
+    enum NavigationEvent: Equatable {
         case enterApp
         case showRestoreFound(RestorablePurchase)
     }

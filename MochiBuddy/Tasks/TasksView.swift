@@ -23,10 +23,13 @@ struct TasksView: View {
                     HStack(spacing: 7) {
                         if viewModel.isLoading {
                             SkeletonBone(width: 58, height: 28, radius: 14)
-                        } else {
+                        } else if !viewModel.isLapsed {
+                            // Lapsed: coins frozen+hidden, no new tasks.
                             CoinPill(coins: viewModel.coins)
                         }
-                        addButton
+                        if !viewModel.isLapsed {
+                            addButton
+                        }
                     }
                 }
                 segTabs
@@ -274,10 +277,12 @@ struct TasksView: View {
                 Text("A calm day. Add something when you're ready.")
                     .font(MochiFont.body(12, weight: .bold))
                     .foregroundStyle(theme.muted)
-                MochiButton(title: "Add a task", size: .md, block: false) {
-                    viewModel.trigger(.addTapped)
+                if !viewModel.isLapsed {
+                    MochiButton(title: "Add a task", size: .md, block: false) {
+                        viewModel.trigger(.addTapped)
+                    }
+                    .padding(.top, 8)
                 }
-                .padding(.top, 8)
             }
             .frame(maxWidth: .infinity)
         }

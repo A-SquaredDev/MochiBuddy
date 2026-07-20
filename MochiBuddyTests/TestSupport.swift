@@ -88,8 +88,10 @@ func makeProfile(
     bestStreak: Int = 0,
     lastActiveDate: Date? = nil,
     vacationMode: Bool = false,
+    vacationResumeAt: Date? = nil,
     // An empty window so mood assertions don't flip when the suite runs at night.
     bedtime: BedtimeWindow = BedtimeWindow(startMinutes: 0, endMinutes: 0),
+    notificationPrefs: NotificationPrefs = .standard,
     importedReminderListIds: [String] = []
 ) -> UserProfile {
     UserProfile(
@@ -98,8 +100,8 @@ func makeProfile(
         coins: coins, streakCount: streak, bestStreakCount: bestStreak,
         lastActiveDate: lastActiveDate, isSubscribed: false, trialEndsAt: nil,
         onboardingComplete: true, notificationsEnabled: nil,
-        notificationPrefs: .standard, soundEnabled: false,
-        vacationMode: vacationMode, vacationResumeAt: nil,
+        notificationPrefs: notificationPrefs, soundEnabled: false,
+        vacationMode: vacationMode, vacationResumeAt: vacationResumeAt,
         importedReminderListIds: importedReminderListIds
     )
 }
@@ -280,6 +282,7 @@ final class StubTaskRepository: TaskRepository {
     private(set) var setCompletedCalls: [(taskId: String, completed: Bool)] = []
     private(set) var updatedTasks: [TaskItem] = []
     private(set) var snoozeCalls: [(id: String, newDueAt: Date)] = []
+    private(set) var rollForwardCalls: [(id: String, newDueAt: Date, missed: Int)] = []
     private(set) var deletedIds: [String] = []
 
     @discardableResult
@@ -288,6 +291,9 @@ final class StubTaskRepository: TaskRepository {
         return nextAddedTaskId
     }
     func incompleteTasks(userId: String) async throws -> [TaskItem] { incomplete }
+    func task(id: String, userId: String) async throws -> TaskItem? {
+        (incomplete + completed).first { $0.id == id }
+    }
     func completedTasks(limit: Int, userId: String) async throws -> [TaskItem] { completed }
     func completedTasks(since: Date, userId: String) async throws -> [TaskItem] {
         completed.filter { ($0.completedAt ?? .distantPast) >= since }
@@ -298,6 +304,9 @@ final class StubTaskRepository: TaskRepository {
     func updateTask(_ task: TaskItem, userId: String) async throws { updatedTasks.append(task) }
     func snoozeTask(id: String, to newDueAt: Date, userId: String) async throws {
         snoozeCalls.append((id, newDueAt))
+    }
+    func rollForwardTask(id: String, to newDueAt: Date, missedOccurrences: Int, userId: String) async throws {
+        rollForwardCalls.append((id, newDueAt, missedOccurrences))
     }
     func deleteTask(id: String, userId: String) async throws { deletedIds.append(id) }
     func incompleteTaskCount(userId: String) async throws -> Int { incomplete.count }
@@ -361,6 +370,7 @@ final class StubComfortBufferStore: ComfortBufferStore {
     private(set) var boosts: [(lift: Double, duration: TimeInterval)] = []
     var value: Double = 0
     var expiry: Date?
+    var active: [BufferBoost] = []
 
     func add(lift: Double, duration: TimeInterval) {
         boosts.append((lift, duration))
@@ -369,4 +379,29 @@ final class StubComfortBufferStore: ComfortBufferStore {
     }
     func currentValue(now: Date) -> Double { value }
     func latestExpiry(now: Date) -> Date? { value > 0 ? expiry : nil }
+    func activeBoosts(now: Date) -> [BufferBoost] { active }
+}
+
+final class StubNotificationScheduler: NotificationScheduling {
+    var pending: [String] = []
+    private(set) var removedIds: [String] = []
+    private(set) var scheduled: [ScheduledNotificationRequest] = []
+
+    func pendingIds() async -> [String] { pending }
+    func pendingRequests() async -> [PendingNotificationSummary] {
+        pending.map { PendingNotificationSummary(id: $0, nextFireDate: nil) }
+    }
+    func removePending(ids: [String]) { removedIds += ids }
+    func schedule(_ request: ScheduledNotificationRequest) async { scheduled.append(request) }
+}
+
+final class RecordingTelemetry: NotificationTelemetry {
+    private(set) var events: [NotificationTelemetryEvent] = []
+    func log(_ event: NotificationTelemetryEvent) { events.append(event) }
+}
+
+@MainActor
+final class StubRelay: NotificationRelaying {
+    private(set) var triggers: [RelayTrigger] = []
+    func requestRelay(_ trigger: RelayTrigger) { triggers.append(trigger) }
 }

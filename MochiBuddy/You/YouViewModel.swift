@@ -19,7 +19,9 @@ final class YouViewModel: ObservableStateViewModel<
     private let profileRepository: UserProfileRepository
     private let listRepository: ListRepository
     private let membershipStore: MembershipStore
+    private let membershipSession: MembershipSession
     private let themeStore: ThemeStore
+    private let relay: NotificationRelaying
 
     // Domain source of truth - UIState is derived from this.
     private var profile: UserProfile?
@@ -29,13 +31,17 @@ final class YouViewModel: ObservableStateViewModel<
         profileRepository: UserProfileRepository,
         listRepository: ListRepository,
         membershipStore: MembershipStore,
-        themeStore: ThemeStore
+        membershipSession: MembershipSession,
+        themeStore: ThemeStore,
+        relay: NotificationRelaying
     ) {
         self.authRepository = authRepository
         self.profileRepository = profileRepository
         self.listRepository = listRepository
         self.membershipStore = membershipStore
+        self.membershipSession = membershipSession
         self.themeStore = themeStore
+        self.relay = relay
 
         var initial = YouBehavior.UIState()
         initial.flavors = MochiTheme.all.map {
@@ -53,6 +59,9 @@ final class YouViewModel: ObservableStateViewModel<
             await refresh()
 
         case .selectFlavor(let id):
+            // Lapsed: themes are locked to current (the picker is hidden;
+            // this guard covers any stray trigger).
+            guard !uiState.isLapsed else { return }
             themeStore.apply(themeId: id)
             state.selectedFlavorId = id
             if let userId {
@@ -64,6 +73,7 @@ final class YouViewModel: ObservableStateViewModel<
             state.morningRundown = isOn
             if let userId, let prefs = profile?.notificationPrefs {
                 try? await profileRepository.saveNotificationPrefs(prefs, userId: userId)
+                relay.requestRelay(.prefsChange)
             }
 
         case .setSoundEnabled(let isOn):
@@ -101,6 +111,10 @@ final class YouViewModel: ObservableStateViewModel<
         case .vacationTapped: setNavigationEvent(.showVacation)
         case .manageListsTapped: setNavigationEvent(.showManageLists)
         case .deleteAccountTapped: setNavigationEvent(.startDeleteFlow)
+        case .wakeMochiTapped: setNavigationEvent(.wakeMochi)
+        #if DEBUG
+        case .devSchedulerTapped: setNavigationEvent(.showDevScheduler)
+        #endif
         }
     }
 
@@ -147,6 +161,11 @@ final class YouViewModel: ObservableStateViewModel<
         }
 
         let status = await membershipStore.currentStatus()
+        // Keep the app-wide snapshot fresh - a restore or an expiry that
+        // happened since launch propagates from here.
+        membershipSession.status = status
+        next.isLapsed = membershipSession.isLapsed
+        next.hasBillingIssue = membershipSession.hasBillingIssue
         (next.isMember, next.subscriptionSub) = await membershipLine(for: status)
         if next.isMember, let email = account?.email {
             next.identitySub = "\(email) · Mochi+ member"
@@ -187,6 +206,8 @@ final class YouViewModel: ObservableStateViewModel<
             return (true, line)
         case .trial(let endsAt):
             return (true, "Mochi+ · free trial ends \(Self.dateText(endsAt))")
+        case .billingGrace:
+            return (true, "Mochi+ · payment method needs a refresh")
         case .lapsed:
             return (false, "Lapsed · renew to keep Mochi thriving")
         case .notSubscribed:

@@ -49,7 +49,7 @@ final class DeleteWarnViewModel: ObservableStateViewModel<
             let status = await membershipStore.currentStatus()
             state.isChecking = false
             switch status {
-            case .active, .trial:
+            case .active, .trial, .billingGrace:
                 setNavigationEvent(.showSubscriptionWarning)
             case .lapsed, .notSubscribed:
                 setNavigationEvent(.showFinalConfirm)

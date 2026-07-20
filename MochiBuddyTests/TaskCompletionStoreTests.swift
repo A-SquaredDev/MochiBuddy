@@ -13,14 +13,49 @@ import Testing
 @Suite("TaskCompletionStore")
 struct TaskCompletionStoreTests {
 
-    private func makeStore() -> (TaskCompletionStore, StubTaskRepository, StubProfileRepository) {
+    private func makeStore(
+        membership: MembershipSession? = nil
+    ) -> (TaskCompletionStore, StubTaskRepository, StubProfileRepository) {
         let taskRepo = StubTaskRepository()
         let profileRepo = StubProfileRepository()
         let store = TaskCompletionStore(
             taskRepository: taskRepo,
-            rewardsStore: RewardsStore(profileRepository: profileRepo)
+            rewardsStore: RewardsStore(profileRepository: profileRepo),
+            membershipSession: membership ?? MembershipSession()
         )
         return (store, taskRepo, profileRepo)
+    }
+
+    private func makeLapsedSession() -> MembershipSession {
+        let session = MembershipSession()
+        session.status = .lapsed
+        return session
+    }
+
+    @Test("lapsed: completing persists but pays nothing and spawns nothing - the list drains")
+    func lapsedCompletionIsFrozen() async {
+        let (store, taskRepo, profileRepo) = makeStore(membership: makeLapsedSession())
+        let task = makeTask(id: "t1", dueAt: Dates.hours(-1), hasTime: true, repeatRule: .daily)
+        let outcome = await store.setCompleted(task, completed: true, currentCoins: 40, userId: "user1")
+
+        #expect(taskRepo.setCompletedCalls.first?.completed == true, "completing must still persist")
+        #expect(outcome.coinsDelta == 0)
+        #expect(outcome.streak == nil, "streak freezes, it never moves during lapse")
+        #expect(outcome.spawnedNext == nil, "recurrence must not spawn during lapse")
+        #expect(taskRepo.addedDrafts.isEmpty)
+        #expect(profileRepo.coinDeltas.isEmpty)
+        #expect(profileRepo.savedStreaks.isEmpty)
+    }
+
+    @Test("lapsed: undoing a completion claws nothing back - the balance stays frozen")
+    func lapsedUndoIsFrozen() async {
+        let (store, taskRepo, profileRepo) = makeStore(membership: makeLapsedSession())
+        let task = makeTask(id: "t1", completed: true, completedAt: Dates.now)
+        let outcome = await store.setCompleted(task, completed: false, currentCoins: 40, userId: "user1")
+
+        #expect(taskRepo.setCompletedCalls.first?.completed == false)
+        #expect(outcome.coinsDelta == 0)
+        #expect(profileRepo.coinDeltas.isEmpty)
     }
 
     @Test("completing persists and pays out")

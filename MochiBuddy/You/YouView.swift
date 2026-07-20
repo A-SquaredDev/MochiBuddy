@@ -20,11 +20,17 @@ struct YouView: View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 12) {
                 ScreenTopBar(title: "You", subtitle: "Preferences & Mochi's care") {
-                    CoinPill(coins: viewModel.coins)
+                    if !viewModel.isLapsed {
+                        CoinPill(coins: viewModel.coins)
+                    }
                 }
                 identityRow
-                flavorCard
-                careCard
+                if viewModel.isLapsed {
+                    wakeMochiCard
+                } else {
+                    flavorCard
+                    careCard
+                }
                 navigationRows
                 MochiEyebrow(text: "Account")
                     .padding(.top, 4)
@@ -32,6 +38,12 @@ struct YouView: View {
                 MochiEyebrow(text: "About & legal")
                     .padding(.top, 4)
                 legalRows
+                #if DEBUG
+                MochiListRow(title: "Scheduler inspector", subtitle: "DEBUG · forecast vs pending queue") {
+                    viewModel.trigger(.devSchedulerTapped)
+                }
+                .padding(.top, 4)
+                #endif
                 Text(viewModel.appVersion)
                     .font(MochiFont.body(10.5, weight: .bold))
                     .foregroundStyle(theme.muted)
@@ -67,6 +79,10 @@ struct YouView: View {
             case .showManageLists: router.navigateToManageLists()
             case .startDeleteFlow: router.navigateToDeleteWarn()
             case .signedOut: router.exitToOnboarding()
+            case .wakeMochi: router.wakeMochi()
+            #if DEBUG
+            case .showDevScheduler: router.navigateToDevScheduler()
+            #endif
             }
         }
     }
@@ -182,19 +198,44 @@ struct YouView: View {
         }
     }
 
+    /// Lapsed replacement for the care/flavor cards: Mochi naps, one CTA.
+    private var wakeMochiCard: some View {
+        MochiCard(padding: EdgeInsets(top: 16, leading: 15, bottom: 16, trailing: 15)) {
+            VStack(spacing: 6) {
+                MochiPetView(mood: .sleeping, size: 96)
+                Text("Mochi is napping")
+                    .font(MochiFont.display(14, weight: .semibold))
+                    .foregroundStyle(theme.ink)
+                Text("Your tasks, coins and streak are safe. Nothing was deleted.")
+                    .font(MochiFont.body(11.5, weight: .bold))
+                    .foregroundStyle(theme.muted)
+                    .multilineTextAlignment(.center)
+                MochiButton(title: "Wake Mochi", variant: .primary, size: .md) {
+                    viewModel.trigger(.wakeMochiTapped)
+                }
+                .padding(.top, 8)
+            }
+            .frame(maxWidth: .infinity)
+        }
+    }
+
     private var navigationRows: some View {
         VStack(spacing: 8) {
             MochiListRow(title: "Streaks & stats", subtitle: "Your gentle momentum") {
                 viewModel.trigger(.statsTapped)
             }
-            MochiListRow(title: "Notifications", subtitle: viewModel.notificationsSub) {
-                viewModel.trigger(.notificationsTapped)
-            }
-            MochiListRow(title: "Apple Reminders", subtitle: viewModel.remindersSub) {
-                viewModel.trigger(.remindersTapped)
-            }
-            MochiListRow(title: "Vacation mode", subtitle: viewModel.vacationSub) {
-                viewModel.trigger(.vacationTapped)
+            // Lapsed hides what's meaningless with Mochi asleep: nudge
+            // prefs, new Reminders imports, vacation mode.
+            if !viewModel.isLapsed {
+                MochiListRow(title: "Notifications", subtitle: viewModel.notificationsSub) {
+                    viewModel.trigger(.notificationsTapped)
+                }
+                MochiListRow(title: "Apple Reminders", subtitle: viewModel.remindersSub) {
+                    viewModel.trigger(.remindersTapped)
+                }
+                MochiListRow(title: "Vacation mode", subtitle: viewModel.vacationSub) {
+                    viewModel.trigger(.vacationTapped)
+                }
             }
             MochiListRow(title: "Manage lists", subtitle: viewModel.listsSub) {
                 viewModel.trigger(.manageListsTapped)

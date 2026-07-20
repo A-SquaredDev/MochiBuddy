@@ -27,6 +27,9 @@ final class TasksViewModel: ObservableStateViewModel<
     private let profileRepository: UserProfileRepository
     private let completionStore: TaskCompletionStore
     private let remindersGateway: RemindersGateway
+    private let membershipSession: MembershipSession
+    private let recurrenceRoller: RecurrenceRoller
+    private let relay: NotificationRelaying
     private let defaults: UserDefaults
 
     // Domain source of truth - UIState is derived from these.
@@ -46,6 +49,9 @@ final class TasksViewModel: ObservableStateViewModel<
         profileRepository: UserProfileRepository,
         completionStore: TaskCompletionStore,
         remindersGateway: RemindersGateway,
+        membershipSession: MembershipSession,
+        recurrenceRoller: RecurrenceRoller,
+        relay: NotificationRelaying,
         defaults: UserDefaults = .standard
     ) {
         self.authRepository = authRepository
@@ -54,6 +60,9 @@ final class TasksViewModel: ObservableStateViewModel<
         self.profileRepository = profileRepository
         self.completionStore = completionStore
         self.remindersGateway = remindersGateway
+        self.membershipSession = membershipSession
+        self.recurrenceRoller = recurrenceRoller
+        self.relay = relay
         self.defaults = defaults
         super.init(initialState: TasksBehavior.UIState())
     }
@@ -79,11 +88,15 @@ final class TasksViewModel: ObservableStateViewModel<
             }
 
         case .addTapped:
+            // Lapsed: no new tasks - the add affordances are hidden, this
+            // guard covers any path that still fires the action.
+            guard !uiState.isLapsed else { return }
             state.editingTask = TasksBehavior.EditingTask(task: nil)
 
         case .editorDismissed:
             state.editingTask = nil
             await refresh()
+            relay.requestRelay(.taskChange)
 
         case .dismissCelebration:
             defaults.set(Self.dayKey(for: .now), forKey: Self.celebrationDismissedDayKey)
@@ -122,11 +135,21 @@ final class TasksViewModel: ObservableStateViewModel<
         completed = (try? await taskRepository.completedTasks(limit: 50, userId: userId)) ?? []
         lists = (try? await listRepository.fetchLists(userId: userId)) ?? []
         var syncedReminderListIds: [String] = []
+        var onVacation = false
         if let profile = try? await profileRepository.fetchProfile(userId: userId) {
             coins = profile.coins
             streak = profile.streakCount
             syncedReminderListIds = profile.importedReminderListIds
+            onVacation = profile.vacationActive(at: .now)
         }
+        // One-live-occurrence invariant - same roll Home applies, so the
+        // two surfaces can never disagree on a recurring task's due date.
+        incomplete = await recurrenceRoller.rollForward(
+            incomplete,
+            frozen: onVacation || membershipSession.isLapsed,
+            userId: userId
+        )
+        state.isLapsed = membershipSession.isLapsed
         await refreshReminders(syncedListIds: syncedReminderListIds)
         rebuild()
     }

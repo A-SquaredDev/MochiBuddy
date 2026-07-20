@@ -57,6 +57,17 @@ struct WelcomeBackRoutingTests {
         #expect(recorder.events == [.showRestoreFound(purchase)])
     }
 
+    @Test("billing grace is fully entitled - a failed card retry never gates a paying customer")
+    func billingGraceEnters() async {
+        let membership = StubMembershipStore()
+        membership.status = .billingGrace(plan: .yearly, renewsAt: Dates.days(3))
+        let vm = makeVM(membership)
+        let recorder = EventRecorder(vm)
+        await vm.triggerAsync(.continueTapped)
+        await recorder.drain()
+        #expect(recorder.events == [.enterApp])
+    }
+
     @Test("lapsed with nothing to restore hits the lapsed gate")
     func lapsedGated() async {
         let membership = StubMembershipStore()
@@ -75,6 +86,25 @@ struct WelcomeBackRoutingTests {
         await vm.triggerAsync(.switchAccountTapped)
         await recorder.drain()
         #expect(recorder.events == [.restartOnboarding])
+    }
+}
+
+@Suite("LapsedGate · degradation is a choice, not a wall")
+@MainActor
+struct LapsedGatePassThroughTests {
+
+    @Test("'Not now' enters the app - lapsed degrades to a quiet checklist instead of locking out")
+    func notNowEntersDegraded() async {
+        let vm = LapsedGateViewModel(
+            authRepository: StubAuthRepository(),
+            profileRepository: StubProfileRepository(),
+            taskRepository: StubTaskRepository(),
+            membershipStore: StubMembershipStore()
+        )
+        let recorder = EventRecorder(vm)
+        await vm.triggerAsync(.continueWithoutTapped)
+        await recorder.drain()
+        #expect(recorder.events == [.enterApp])
     }
 }
 

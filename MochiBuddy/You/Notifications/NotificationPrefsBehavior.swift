@@ -21,6 +21,8 @@ enum NotificationPrefsBehavior {
         var moodDips = false
         var bedtimeSilence = true
         var bedtimeSilenceSub = ""
+        /// Opt-in lock-screen privacy: hide task names from notifications.
+        var hideTaskNames = false
         /// Notifications denied at the OS level - show the Settings hint.
         var systemDenied = false
     }
@@ -32,5 +34,6 @@ enum NotificationPrefsBehavior {
         case setMorningRundown(Bool)
         case setMoodDips(Bool)
         case setBedtimeSilence(Bool)
+        case setHideTaskNames(Bool)
     }
 }

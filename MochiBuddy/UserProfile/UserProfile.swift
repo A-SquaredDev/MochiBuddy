@@ -27,6 +27,18 @@ struct BedtimeWindow: Equatable {
     }
 }
 
+/// Whether vacation is in force at an instant - the ONE definition of
+/// auto-expiry, shared by the live mood engine and the forecast so a
+/// scheduled ping can never disagree with mood(now) about it.
+enum VacationSchedule {
+    static func isActive(mode: Bool, resumeAt: Date?, at now: Date) -> Bool {
+        guard mode else { return false }
+        // Open-ended (no end date) stays on until turned off.
+        guard let resumeAt else { return true }
+        return now < resumeAt
+    }
+}
+
 /// "How chatty should Mochi be?" - the overall nudge cadence dial.
 enum NudgeLevel: String, CaseIterable, Equatable {
     case rarely
@@ -40,6 +52,9 @@ struct NotificationPrefs: Equatable {
     var morningRundown = true
     var moodDips = false
     var bedtimeSilence = true
+    /// Opt-in lock-screen privacy: task names show by default (normal for
+    /// a reminders app); on, reminders and rundowns go nameless.
+    var hideTaskNames = false
 
     static let standard = NotificationPrefs()
 }
@@ -67,4 +82,9 @@ struct UserProfile: Equatable {
     /// When set, vacation mode auto-resumes at this instant.
     var vacationResumeAt: Date?
     var importedReminderListIds: [String]
+
+    /// Vacation with auto-expiry applied - use this, not the raw flag.
+    func vacationActive(at now: Date) -> Bool {
+        VacationSchedule.isActive(mode: vacationMode, resumeAt: vacationResumeAt, at: now)
+    }
 }
