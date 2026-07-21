@@ -18,7 +18,8 @@ private func makeHomeVM(
     lists: [TaskList] = [],
     profile: UserProfile = makeProfile(coins: 100, streak: 4),
     membership explicitMembership: MembershipSession? = nil,
-    reentry explicitReentry: VacationReentryService? = nil
+    reentry explicitReentry: VacationReentryService? = nil,
+    celebrationCenter: CelebrationCenter? = nil
 ) -> (HomeViewModel, StubTaskRepository, StubProfileRepository, StubComfortBufferStore) {
     let membership = explicitMembership ?? MembershipSession()
     let auth = StubAuthRepository()
@@ -52,7 +53,8 @@ private func makeHomeVM(
             bufferStore: buffer,
             relay: StubRelay(),
             defaults: UserDefaults(suiteName: "reentry-\(UUID())")!
-        )
+        ),
+        celebrationCenter: celebrationCenter ?? CelebrationCenter()
     )
     return (vm, taskRepo, profileRepo, buffer)
 }
@@ -96,10 +98,42 @@ struct HomeLoadingTests {
                 bufferStore: StubComfortBufferStore(),
                 relay: StubRelay(),
                 defaults: UserDefaults(suiteName: "reentry-\(UUID())")!
-            )
+            ),
+            celebrationCenter: CelebrationCenter()
         )
         await vm.triggerAsync(.refresh)
         #expect(vm.uiState.isLoading == false)
+    }
+}
+
+@Suite("HomeViewModel · celebrations")
+@MainActor
+struct HomeCelebrationTests {
+
+    @Test("a landed milestone celebrates on Home once, then dismisses cleanly")
+    func milestoneCelebration() async {
+        let center = CelebrationCenter()
+        let (vm, _, _, _) = makeHomeVM(celebrationCenter: center)
+        center.post(milestone: 7)
+
+        await vm.triggerAsync(.refresh)
+        #expect(vm.uiState.celebrationText == StreakMilestones.celebrationText(days: 7))
+        #expect(center.pendingMilestone == nil, "consumed once shown")
+
+        await vm.triggerAsync(.dismissCelebration)
+        #expect(vm.uiState.celebrationText == nil)
+        await vm.triggerAsync(.tick)
+        #expect(vm.uiState.celebrationText == nil, "a dismissed banner stays dismissed")
+    }
+
+    @Test("the center keeps only the deepest pending milestone - a drained widget queue coalesces")
+    func centerCoalesces() {
+        let center = CelebrationCenter()
+        center.post(milestone: 7)
+        center.post(milestone: 30)
+        center.post(milestone: 7)
+        #expect(center.consumeMilestone() == 30)
+        #expect(center.consumeMilestone() == nil)
     }
 }
 

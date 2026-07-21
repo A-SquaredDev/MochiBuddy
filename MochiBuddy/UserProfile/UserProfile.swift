@@ -15,6 +15,13 @@ struct BedtimeWindow: Equatable {
 
     static let standard = BedtimeWindow(startMinutes: 22 * 60, endMinutes: 7 * 60)
 
+    /// A zero-length window is never allowed (doc edge case) - a collided
+    /// picker or corrupt doc falls back to the default window at every
+    /// persistence boundary, never to "no quiet hours at all".
+    var sanitized: BedtimeWindow {
+        startMinutes == endMinutes ? .standard : self
+    }
+
     /// Whether the local wall-clock time falls inside the window (which
     /// usually wraps past midnight, e.g. 22:00 → 07:00).
     func contains(_ date: Date, calendar: Calendar = .current) -> Bool {

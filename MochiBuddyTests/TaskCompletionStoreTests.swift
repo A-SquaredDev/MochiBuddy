@@ -58,6 +58,32 @@ struct TaskCompletionStoreTests {
         #expect(profileRepo.coinDeltas.isEmpty)
     }
 
+    @Test("a completion that lands a sparse milestone fires the celebration hook; ordinary days stay quiet")
+    func milestoneFiresCelebrationHook() async {
+        let (store, _, profileRepo) = makeStore()
+        profileRepo.profile = makeProfile(
+            streak: 6,
+            lastActiveDate: Calendar.current.date(byAdding: .day, value: -1, to: .now)
+        )
+        var milestones: [Int] = []
+        store.onMilestone = { milestones.append($0) }
+
+        let outcome = await store.setCompleted(
+            makeTask(id: "t1"), completed: true, currentCoins: 0, userId: "user1"
+        )
+        #expect(outcome.milestoneStreak == 7, "day 6 + today = the first sparse milestone")
+        #expect(milestones == [7])
+
+        // The next completion the same day holds the streak - no re-fire,
+        // so a dismissed banner never resurrects during the milestone day.
+        profileRepo.profile = makeProfile(streak: 7, lastActiveDate: .now)
+        let again = await store.setCompleted(
+            makeTask(id: "t2"), completed: true, currentCoins: 0, userId: "user1"
+        )
+        #expect(again.milestoneStreak == nil)
+        #expect(milestones == [7])
+    }
+
     @Test("completing persists and pays out")
     func completePersistsAndPays() async {
         let (store, taskRepo, _) = makeStore()

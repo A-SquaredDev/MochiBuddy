@@ -13,7 +13,7 @@ import GoogleSignIn
 @main
 struct MochiBuddyApp: App {
 
-    @State private var container: AppContainer
+    @State private var container: AppContainer?
 
     init() {
         FirebaseApp.configure()
@@ -23,26 +23,30 @@ struct MochiBuddyApp: App {
         Firestore.firestore().settings = settings
 
         RevenueCatConfig.configure()
-
-        let container = AppContainer()
-        _container = State(initialValue: container)
-
-        // Activate last session's fetched tuning before anything computes,
-        // then re-lay in case a lay raced the (near-instant) activation.
-        // The background fetch inside lands next launch - values never
-        // change mid-session, so mood(t) stays deterministic.
-        Task { @MainActor in
-            await RemoteTuning.bootstrap()
-            container.notificationOrchestrator.requestRelay(.remoteConfigFetch)
-        }
     }
 
     var body: some Scene {
         WindowGroup {
-            RootView(container: container)
-                .onOpenURL { url in
-                    GIDSignIn.sharedInstance.handle(url)
+            Group {
+                if let container {
+                    RootView(container: container)
+                        .onOpenURL { url in
+                            GIDSignIn.sharedInstance.handle(url)
+                        }
+                } else {
+                    // A frame of brand background while last session's
+                    // fetched tuning activates. The container - and so
+                    // every engine - only exists after apply, keeping
+                    // mood(t) deterministic for the whole session (the
+                    // background fetch inside lands next launch).
+                    MochiTheme.sesame.bg.ignoresSafeArea()
                 }
+            }
+            .task {
+                guard container == nil else { return }
+                await RemoteTuning.bootstrap()
+                container = AppContainer()
+            }
         }
     }
 }

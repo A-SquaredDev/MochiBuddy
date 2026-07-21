@@ -33,6 +33,10 @@ final class TaskCompletionStore {
     /// Fired after every persisted toggle - the notification re-lay hook.
     var onMutation: (() -> Void)?
 
+    /// Fired when a completion lands a sparse streak milestone - the
+    /// celebration hook, one level above whichever surface checked off.
+    var onMilestone: ((Int) -> Void)?
+
     /// Which spawn each completion created, so an undo can reap it instead
     /// of leaving a duplicate future occurrence behind. Session-scoped: an
     /// undo after relaunch can't reap (the link isn't persisted), which
@@ -100,11 +104,18 @@ final class TaskCompletionStore {
         }
 
         let outcome = await rewardsStore.awardCompletion(userId: userId)
+        // Only the completion that actually REACHES the milestone
+        // celebrates - later check-offs the same day stay quiet.
+        let milestone = outcome.streakExtended && StreakMilestones.isMilestone(outcome.streak)
+            ? outcome.streak : nil
+        if let milestone {
+            onMilestone?(milestone)
+        }
         return ToggleOutcome(
             coinsDelta: outcome.coinsDelta,
             streak: outcome.streak,
             spawnedNext: spawned,
-            milestoneStreak: StreakMilestones.isMilestone(outcome.streak) ? outcome.streak : nil
+            milestoneStreak: milestone
         )
     }
 }

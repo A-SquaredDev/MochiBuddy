@@ -55,6 +55,7 @@ final class AppContainer {
     let remindersGateway: RemindersGateway
     let comfortBufferStore: ComfortBufferStore
     let rewardsStore: RewardsStore
+    let celebrationCenter = CelebrationCenter()
     let taskCompletionStore: TaskCompletionStore
     let recurrenceRoller: RecurrenceRoller
     let notificationScheduler: NotificationScheduling
@@ -95,6 +96,9 @@ final class AppContainer {
 
         let telemetry = OSLogNotificationTelemetry()
         notificationScheduler = UNNotificationScheduler()
+        // Auto-updating: the orchestrator and mirror hold their calendar
+        // for the app's lifetime, and timed reminders are wall-clock
+        // intentions - a landed flight must re-lay against the NEW zone.
         notificationOrchestrator = NotificationOrchestrator(
             authRepository: authRepository,
             profileRepository: profileRepository,
@@ -103,7 +107,8 @@ final class AppContainer {
             bufferStore: comfortBufferStore,
             membershipSession: membershipSession,
             scheduler: notificationScheduler,
-            telemetry: telemetry
+            telemetry: telemetry,
+            calendar: .autoupdatingCurrent
         )
         vacationReentryService = VacationReentryService(
             profileRepository: profileRepository,
@@ -128,13 +133,20 @@ final class AppContainer {
         taskCompletionStore.onMutation = { [weak notificationOrchestrator] in
             notificationOrchestrator?.requestRelay(.taskChange)
         }
+        // Milestones from any surface (incl. the widget drain) celebrate
+        // in-app on Home - completions only happen with the app open or
+        // land at drain time on the next open, so a push would always
+        // arrive while the user is already looking at Mochi.
+        taskCompletionStore.onMilestone = { [weak celebrationCenter] milestone in
+            celebrationCenter?.post(milestone: milestone)
+        }
         // A lapse or reactivation reshapes the whole plan (promises-only
         // vs the full set) the moment it's learned.
         membershipSession.onChange = { [weak notificationOrchestrator] in
             notificationOrchestrator?.requestRelay(.entitlementChange)
         }
 
-        widgetStateMirror = WidgetStateMirror(themeStore: themeStore)
+        widgetStateMirror = WidgetStateMirror(themeStore: themeStore, calendar: .autoupdatingCurrent)
         widgetCompletionDrain = WidgetCompletionDrain(
             authRepository: authRepository,
             taskRepository: taskRepository,
@@ -144,6 +156,16 @@ final class AppContainer {
         // Every lay refreshes the widget from the exact world it planned.
         notificationOrchestrator.onRelaid = { [weak widgetStateMirror] context in
             widgetStateMirror?.mirror(context: context)
+        }
+        // Timed reminders are wall-clock intentions ("5pm" fires at 5pm
+        // wherever the user lands) - a timezone change re-lays everything
+        // against the new local clock.
+        NotificationCenter.default.addObserver(
+            forName: .NSSystemTimeZoneDidChange, object: nil, queue: .main
+        ) { [weak notificationOrchestrator] _ in
+            Task { @MainActor in
+                notificationOrchestrator?.requestRelay(.timezoneChange)
+            }
         }
 
         // -mochiStartAtHome skips the flow for UI work on the tab surfaces

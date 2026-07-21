@@ -67,9 +67,12 @@ final class FirestoreUserProfileRepository: UserProfileRepository {
     }
 
     func saveBedtime(_ bedtime: BedtimeWindow, userId: String) async throws {
+        // Never persist a zero-length window - sleep must always enforce
+        // SOME quiet hours (doc edge case).
+        let window = bedtime.sanitized
         try await merge([
-            "bedtimeStart": bedtime.startMinutes,
-            "bedtimeEnd": bedtime.endMinutes,
+            "bedtimeStart": window.startMinutes,
+            "bedtimeEnd": window.endMinutes,
             "timezone": TimeZone.current.identifier,
         ], userId: userId)
     }

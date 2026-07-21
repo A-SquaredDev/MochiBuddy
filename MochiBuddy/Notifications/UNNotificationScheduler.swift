@@ -16,6 +16,34 @@ import UserNotifications
 
 final class UNNotificationScheduler: NotificationScheduling {
 
+    /// The one risky mapping in this adapter, split out pure so it's
+    /// testable: a repeating time-interval trigger re-fires every
+    /// `interval` seconds (never a calendar cadence) and traps below 60s
+    /// with an ObjC exception `try?` can't catch. Only the builder's
+    /// repeatingComponents may express a calendar cadence; the only
+    /// legitimate repeating interval is the backstop's (days).
+    enum TriggerSpec: Equatable {
+        case calendar(DateComponents)
+        case interval(TimeInterval, repeats: Bool)
+        /// The moment passed mid-lay.
+        case drop
+    }
+
+    static func triggerSpec(
+        for request: ScheduledNotificationRequest,
+        now: Date = .now
+    ) -> TriggerSpec {
+        if let components = request.repeatingComponents {
+            return .calendar(components)
+        }
+        let interval = request.plan.fireAt.timeIntervalSince(now)
+        guard interval > 1 else { return .drop }
+        if request.plan.repeats {
+            return .interval(max(interval, 60), repeats: true)
+        }
+        return .interval(interval, repeats: false)
+    }
+
     private let center = UNUserNotificationCenter.current()
 
     func pendingIds() async -> [String] {
@@ -52,14 +80,13 @@ final class UNNotificationScheduler: NotificationScheduling {
         }
 
         let trigger: UNNotificationTrigger
-        if let components = request.repeatingComponents {
+        switch Self.triggerSpec(for: request) {
+        case .calendar(let components):
             trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
-        } else {
-            let interval = request.plan.fireAt.timeIntervalSinceNow
-            guard interval > 1 else { return } // the moment passed mid-lay
-            trigger = UNTimeIntervalNotificationTrigger(
-                timeInterval: interval, repeats: request.plan.repeats
-            )
+        case .interval(let interval, let repeats):
+            trigger = UNTimeIntervalNotificationTrigger(timeInterval: interval, repeats: repeats)
+        case .drop:
+            return
         }
 
         try? await center.add(UNNotificationRequest(
@@ -90,7 +117,11 @@ enum NotificationCategories {
                     identifier: NotificationActionID.pet, title: "Pet Mochi", options: []
                 ),
                 UNNotificationAction(
-                    identifier: NotificationActionID.shh, title: "Mochi, shh · 24h", options: []
+                    identifier: NotificationActionID.shh,
+                    // The valve's length is remote-tunable - the label must
+                    // never promise a different duration than it delivers.
+                    title: "Mochi, shh · \(Int((NotificationOrchestrator.Constants.shhDuration / 3600).rounded()))h",
+                    options: []
                 ),
             ],
             intentIdentifiers: []

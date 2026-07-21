@@ -70,7 +70,7 @@ enum UserProfileMapper {
             bedtime: BedtimeWindow(
                 startMinutes: dto.bedtimeStart ?? BedtimeWindow.standard.startMinutes,
                 endMinutes: dto.bedtimeEnd ?? BedtimeWindow.standard.endMinutes
-            ),
+            ).sanitized,
             themeId: dto.themeId,
             coins: dto.coins ?? 0,
             streakCount: dto.streakCount ?? 0,

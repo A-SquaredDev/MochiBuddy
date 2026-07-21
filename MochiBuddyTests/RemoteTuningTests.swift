@@ -156,6 +156,36 @@ struct RemoteTuningTests {
         #expect(tuning == expected, "every parameter must land in exactly one field")
     }
 
+    @Test("console hours and days become engine seconds exactly once, in the pure layer")
+    func derivedIntervalConversions() {
+        var tuning = ResolvedTuning()
+        tuning.shhHours = 48
+        tuning.recoveryHoldHours = 36
+        tuning.backstopDays = 10
+        tuning.vacationGraceDecayHours = 12
+        tuning.cadenceVerySad = .init(count: 4, spacingHours: 2.5)
+
+        #expect(tuning.shhDuration == 48 * 3600)
+        #expect(tuning.recoveryHoldDuration == 36 * 3600)
+        #expect(tuning.backstopInterval == 10 * 24 * 3600)
+        #expect(tuning.vacationGraceDecay == 12 * 3600)
+        #expect(tuning.cadenceVerySad.spacing == 2.5 * 3600)
+    }
+
+    @Test("vacation_grace_wake follows a tuned anchor unless the console sets it explicitly")
+    func graceWakeFollowsAnchor() {
+        let anchorOnly = ResolvedTuning.resolve(
+            from: StubTuningSource(numbers: ["mood_anchor": 64])
+        )
+        #expect(anchorOnly.vacationGraceWake == 64,
+                "the wake target is DEFINED as the content anchor (doc: default = A)")
+
+        let both = ResolvedTuning.resolve(
+            from: StubTuningSource(numbers: ["mood_anchor": 64, "vacation_grace_wake": 50])
+        )
+        #expect(both.vacationGraceWake == 50, "an explicit console value still wins")
+    }
+
     @Test("the Firebase source ignores values the console never set")
     func firebaseSourceFiltersUnsetKeys() {
         // Deterministic without network: the test process never fetches or
@@ -172,6 +202,11 @@ struct RemoteTuningTests {
         #expect(MoodEngine.Constants.anchor == 58)
         #expect(NotificationPlanner.Constants.floorTaperBudgets == [4, 3, 2, 1])
         #expect(NotificationPlanner.Constants.cadence(for: .verySad, level: .balanced).count == 4)
+        #expect(NotificationPlanner.Constants.cadence(for: .verySad, level: .balanced).spacing == 2 * 3600)
+        #expect(NotificationPlanner.Constants.backstopInterval == 7 * 24 * 3600)
+        #expect(NotificationOrchestrator.Constants.shhDuration == 24 * 3600)
+        #expect(TaperTracker.recoveryHold == 24 * 3600)
+        #expect(VacationConstants.graceDecay == 24 * 3600)
         #expect(VacationConstants.maxDays == 30)
         #expect(RewardsStore.coinsPerTask == 10)
         #expect(StreakMilestones.isMilestone(80))

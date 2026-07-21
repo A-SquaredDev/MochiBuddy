@@ -35,6 +35,17 @@ private func makeState(
 @Suite("MochiWidgetState · evaluation")
 struct WidgetStateEvaluationTests {
 
+    @Test("the locked state-variant table: Complete everywhere, Pet only while active")
+    func displayStateRules() {
+        for state in [MochiWidgetState.DisplayState.active, .lapsed, .vacation] {
+            #expect(state.allowsComplete,
+                    "\(state): completing from the widget stays available in every state")
+        }
+        #expect(MochiWidgetState.DisplayState.active.allowsPet)
+        #expect(!MochiWidgetState.DisplayState.lapsed.allowsPet, "Mochi's napping")
+        #expect(!MochiWidgetState.DisplayState.vacation.allowsPet, "Mochi's resting")
+    }
+
     @Test("baseline interpolates linearly between samples and clamps at the ends")
     func baselineLerp() {
         let state = makeState(baseline: [

@@ -193,7 +193,7 @@ struct MochiWidgetEntryView: View {
                 }
                 if let task = nextTask {
                     HStack(spacing: 8) {
-                        if task.completable, entry.state?.displayState != .vacation {
+                        if task.completable, entry.state?.displayState.allowsComplete == true {
                             Button(intent: CompleteTaskIntent(taskId: task.id)) {
                                 Image(systemName: "circle")
                                     .font(.system(size: 17, weight: .semibold))
@@ -252,7 +252,7 @@ struct MochiWidgetEntryView: View {
     /// entirely inside the App Group, no sync, instant reload.
     private func petButton(size: CGFloat) -> some View {
         Group {
-            if entry.state?.displayState == .active {
+            if entry.state?.displayState.allowsPet == true {
                 Button(intent: PetMochiIntent()) {
                     petImage(size: size)
                 }

@@ -310,6 +310,20 @@ struct NotificationRequestBuilderTests {
         #expect(request.urgency == .timeSensitive)
         #expect(request.categoryId == NotificationCategoryID.reminder)
         #expect(request.repeatingComponents != nil)
+        #expect(request.plan.repeats, "a calendar-repeatable promise keeps its one-slot repeat")
+    }
+
+    @Test("weekdays/custom promises never repeat without calendar components - a repeating time-interval trigger would re-fire every (now → due) span")
+    func nonRepeatableCadencePromisesScheduleOnce() {
+        for rule in [TaskRepeat.weekdays, .custom([2, 4])] {
+            let task = makeTask(id: "t1", dueAt: Dates.hours(23), hasTime: true, repeatRule: rule)
+            let request = build(
+                PlannedNotification(id: "due-t1", kind: .promise, fireAt: Dates.hours(23), repeats: true, taskId: "t1"),
+                tasks: [task]
+            )
+            #expect(request.repeatingComponents == nil)
+            #expect(!request.plan.repeats, "\(rule) must schedule the single next fire and lean on the re-lay")
+        }
     }
 
     @Test("a mood ping is passive, threaded, in the mood category, with pool copy and no task names")
@@ -368,6 +382,67 @@ struct NotificationRequestBuilderTests {
         )
         #expect(request.urgency == .passive)
         #expect(NotificationCopy.floorChronicPool.contains(request.content.body))
+    }
+}
+
+@Suite("UNNotificationScheduler · trigger spec")
+@MainActor
+struct TriggerSpecTests {
+
+    private func request(
+        fireAt: Date,
+        repeats: Bool = false,
+        components: DateComponents? = nil
+    ) -> ScheduledNotificationRequest {
+        ScheduledNotificationRequest(
+            plan: PlannedNotification(id: "id", kind: .promise, fireAt: fireAt, repeats: repeats),
+            content: NotificationCopy.Content(title: "t", body: "b"),
+            urgency: .timeSensitive,
+            categoryId: nil,
+            threadId: nil,
+            repeatingComponents: components
+        )
+    }
+
+    @Test("calendar components always win - the only way a promise repeats")
+    func componentsWin() {
+        var components = DateComponents()
+        components.hour = 9
+        let spec = UNNotificationScheduler.triggerSpec(
+            for: request(fireAt: Dates.hours(1), repeats: true, components: components),
+            now: Dates.now
+        )
+        #expect(spec == .calendar(components))
+    }
+
+    @Test("a one-shot fire maps to a non-repeating interval; a passed moment drops")
+    func oneShotAndPast() {
+        #expect(UNNotificationScheduler.triggerSpec(
+            for: request(fireAt: Dates.hours(2)), now: Dates.now
+        ) == .interval(2 * 3600, repeats: false))
+        #expect(UNNotificationScheduler.triggerSpec(
+            for: request(fireAt: Dates.hours(-1)), now: Dates.now
+        ) == .drop)
+    }
+
+    @Test("a repeating interval under 60s clamps - iOS raises an uncatchable exception below it")
+    func repeatingIntervalClampsToSixty() {
+        let spec = UNNotificationScheduler.triggerSpec(
+            for: request(fireAt: Dates.now.addingTimeInterval(30), repeats: true),
+            now: Dates.now
+        )
+        #expect(spec == .interval(60, repeats: true))
+    }
+}
+
+@Suite("BedtimeWindow · sanitization")
+struct BedtimeWindowSanitizeTests {
+
+    @Test("a zero-length window is never persisted - it falls back to the default, not to 'no quiet hours'")
+    func zeroLengthFallsBack() {
+        #expect(BedtimeWindow(startMinutes: 9 * 60, endMinutes: 9 * 60).sanitized == .standard)
+        let real = BedtimeWindow(startMinutes: 23 * 60, endMinutes: 6 * 60)
+        #expect(real.sanitized == real)
     }
 }
 

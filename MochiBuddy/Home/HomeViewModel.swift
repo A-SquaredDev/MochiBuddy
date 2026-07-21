@@ -26,6 +26,7 @@ final class HomeViewModel: StateViewModel<
     private let recurrenceRoller: RecurrenceRoller
     private let relay: NotificationRelaying
     private let reentryService: VacationReentryService
+    private let celebrationCenter: CelebrationCenter
 
     // Domain source of truth - UIState is derived from these.
     /// Incomplete tasks only; completions move to `completedToday`.
@@ -59,7 +60,8 @@ final class HomeViewModel: StateViewModel<
         membershipSession: MembershipSession,
         recurrenceRoller: RecurrenceRoller,
         relay: NotificationRelaying,
-        reentryService: VacationReentryService
+        reentryService: VacationReentryService,
+        celebrationCenter: CelebrationCenter
     ) {
         self.authRepository = authRepository
         self.profileRepository = profileRepository
@@ -72,6 +74,7 @@ final class HomeViewModel: StateViewModel<
         self.recurrenceRoller = recurrenceRoller
         self.relay = relay
         self.reentryService = reentryService
+        self.celebrationCenter = celebrationCenter
         super.init(initialState: HomeBehavior.UIState())
     }
 
@@ -142,6 +145,9 @@ final class HomeViewModel: StateViewModel<
             state.editingTask = nil
             await refresh()
             relay.requestRelay(.taskChange)
+
+        case .dismissCelebration:
+            state.celebrationText = nil
 
         case .endVacationTapped, .vacationWelcomeBack:
             guard let userId = authRepository.currentAccount?.uid else { return }
@@ -414,6 +420,11 @@ final class HomeViewModel: StateViewModel<
         let scoped = todayScope(now: now)
 
         var next = uiState
+        // A milestone landed anywhere (this screen, Tasks, a notification
+        // action, the widget drain) celebrates here, on Mochi's surface.
+        if let milestone = celebrationCenter.consumeMilestone() {
+            next.celebrationText = StreakMilestones.celebrationText(days: milestone)
+        }
         next.isLapsed = lapsed
         next.showBillingBanner = membershipSession.hasBillingIssue
         next.isOnVacation = onVacation && !lapsed

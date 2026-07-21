@@ -26,6 +26,9 @@ struct HomeView: View {
                     loadingSkeleton
                 } else {
                     header
+                    if let celebration = viewModel.celebrationText {
+                        celebrationBanner(celebration)
+                    }
                     if viewModel.showBillingBanner {
                         billingBanner
                     }
@@ -171,6 +174,32 @@ struct HomeView: View {
             .overlay(RoundedRectangle(cornerRadius: MochiRadius.md).stroke(theme.line, lineWidth: 1.5))
         }
         .buttonStyle(SquishButtonStyle())
+    }
+
+    // MARK: - Celebration
+
+    /// Sparse streak milestones (7 / 30 / then every 50) - the upside
+    /// must hit as hard as the downside, wherever the completion landed.
+    private func celebrationBanner(_ text: String) -> some View {
+        HStack(spacing: 9) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(theme.primaryText)
+            Text(text)
+                .font(MochiFont.body(12, weight: .heavy))
+                .foregroundStyle(theme.ink)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Button {
+                viewModel.trigger(.dismissCelebration)
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 11, weight: .heavy))
+                    .foregroundStyle(theme.muted)
+            }
+        }
+        .padding(EdgeInsets(top: 10, leading: 12, bottom: 10, trailing: 12))
+        .background(theme.surface, in: RoundedRectangle(cornerRadius: MochiRadius.md))
+        .overlay(RoundedRectangle(cornerRadius: MochiRadius.md).stroke(theme.line, lineWidth: 1.5))
     }
 
     // MARK: - Vacation

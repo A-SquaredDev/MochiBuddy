@@ -80,6 +80,9 @@ enum HomeBehavior {
         var isSleeping = false
         var moodTitle = "Mochi feels content"
         var moodSub = "Clear a task to make it beam"
+        /// Sparse streak-milestone banner (7 / 30 / then every 50) - the
+        /// in-app celebration surface; nil hides it.
+        var celebrationText: String?
         var petSquishTrigger = 0
         var quickAddText = ""
         var todayDateText = ""
@@ -113,6 +116,7 @@ enum HomeBehavior {
         case toggleTask(String)
         case taskTapped(String)
         case editorDismissed
+        case dismissCelebration
         // Vacation surfaces.
         case endVacationTapped
         case vacationKeepResting

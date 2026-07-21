@@ -20,4 +20,9 @@ enum StreakMilestones {
         guard let last = fixed.max(), days > last, thenEvery > 0 else { return false }
         return (days - last) % thenEvery == 0
     }
+
+    /// The in-app celebration line for a landed milestone.
+    static func celebrationText(days: Int) -> String {
+        "\(days) days in a row! Mochi is so proud."
+    }
 }

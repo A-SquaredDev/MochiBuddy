@@ -74,7 +74,7 @@ enum NotificationPlanner {
         _ input: NotificationPlanInput,
         calendar: Calendar = .current
     ) -> [PlannedNotification] {
-        let promises = planPromises(input)
+        let promises = planPromises(input, calendar: calendar)
 
         // Lapsed: the quiet checklist keeps its real reminders,
         // indefinitely, and gets nothing else - the winback IS the app
@@ -94,17 +94,29 @@ enum NotificationPlanner {
     /// One exact reminder per future timed task. Date-only tasks have no
     /// instant to promise; the morning rundown carries them. Vacation is
     /// the ONE suppression allowed to silence a promise (truly silent).
-    private static func planPromises(_ input: NotificationPlanInput) -> [PlannedNotification] {
+    private static func planPromises(
+        _ input: NotificationPlanInput,
+        calendar: Calendar
+    ) -> [PlannedNotification] {
         guard input.prefs.taskReminders else { return [] }
+        let capture = input.snapshot.capturedAt
         return input.snapshot.tasks.compactMap { task in
-            guard !task.completed, task.hasTime, let dueAt = task.dueAt,
-                  dueAt > input.snapshot.capturedAt,
-                  !vacationCovers(dueAt, input: input)
-            else { return nil }
+            guard !task.completed, task.hasTime, var fireAt = task.dueAt else { return nil }
+            // An overdue-but-not-yet-rolled recurring occurrence still
+            // promises its NEXT occurrence. Dropping it here would let the
+            // diff cancel the pending trigger during the overdue window,
+            // and a user who never reopens the app would silently lose
+            // tomorrow's reminder - a reminders app that drops a reminder
+            // is broken.
+            if fireAt <= capture {
+                guard let rule = task.repeatRule else { return nil }
+                fireAt = rule.nextOccurrence(after: fireAt, now: capture, calendar: calendar)
+            }
+            guard fireAt > capture, !vacationCovers(fireAt, input: input) else { return nil }
             return PlannedNotification(
                 id: NotificationID.due(taskId: task.id),
                 kind: .promise,
-                fireAt: dueAt,
+                fireAt: fireAt,
                 repeats: task.repeatRule != nil,
                 taskId: task.id
             )

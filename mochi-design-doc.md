@@ -7,7 +7,28 @@
 
 ## Changelog
 
-**v0.6 — July 19 2026** *(current)*
+**v0.6.1 — July 19 2026** *(current)* — hardening pass, no design changes
+- **Promise-integrity fixes.** (1) Weekdays/custom recurring promises no longer fall into a
+  repeating time-interval trigger (which re-fires every "now → due" span and traps below
+  60s); without calendar components a promise schedules its single next fire and leans on
+  the re-lay. (2) An overdue-but-not-yet-rolled recurring occurrence now promises its
+  **next** occurrence, so a re-lay during the overdue window can never drop tomorrow's
+  reminder for a user who doesn't reopen the app.
+- **Complete-from-widget re-enabled on vacation** per the locked state-variant table
+  (vacation removes pressure, not function); the table is now pinned by shared
+  `DisplayState` rules + a test.
+- **Streak-milestone celebrations wired end-to-end** (in-app): every completion surface
+  (Home, Tasks, notification actions, the widget drain) posts through one
+  `CelebrationCenter`; Home shows the banner. In-app by design — milestones only land with
+  the app open or at drain time, so a push would always arrive mid-session.
+- **Remote Config applied strictly before anything computes** (the container is built
+  after activate+apply), the shh action label reads the tuned duration, the widget-mirror
+  horizon tracks `notif_horizon_days`, and `vacation_grace_wake` now **derives from
+  `mood_anchor` unless set explicitly** (wake target is defined as = A).
+- **Timezone-change re-lay wired** (wall-clock reminder semantics); zero-length bedtime
+  windows are sanitized to the default at every persistence boundary.
+
+**v0.6 — July 19 2026**
 - **Widgets — RESOLVED.** Full technical spec locked. WidgetKit extension + a shared
   mood-engine framework; **static image assets only** (never load Rive in the extension);
   **all reads from the App Group** (no Firestore/EventKit/network at render time). Surfaces:
@@ -86,9 +107,10 @@
 
 ## Implementation status
 
-> 🛠 **As of July 19 2026.** Everything the changelog resolved through v0.6 is now built
-> and covered by the automated suite: **367 tests, 0 failures** (`MochiBuddyTests`,
-> Swift Testing, app-hosted).
+> 🛠 **As of July 19 2026 (v0.6.1).** Everything the changelog resolved through v0.6, plus
+> the v0.6.1 hardening pass, is built and covered by the automated suite: **379 tests,
+> 0 failures** (`MochiBuddyTests`, Swift Testing, app-hosted; one deliberately-skipped
+> icon-export harness).
 
 | Spec section | Status | Where it lives (code) |
 |---|---|---|
@@ -104,7 +126,8 @@
 | Dev tool: scheduler inspector (v0.4) | ✅ Implemented, sim-verified | `You/DevScheduler/` behind `#if DEBUG`: forecast curve + pending queue chart, quiet-hour shading, slot meter, taper/shh state, live invariant check, time travel, force re-lay. Found a real bug on first open (stale rundowns for a lapsed user; fixed via `MembershipSession.onChange` re-lay) |
 | Vacation mode (v0.5) | ✅ Implemented + tested, sim-verified | `VacationSchedule.effectiveEnd` (open-ended auto-expires at the 30-day cap; `vacationStartedAt` persisted), `You/Vacation/VacationReentryService.swift` (bucket of one-off tasks overdue at the effective end, grace buffer lift to the content anchor over 24h, streak freeze via lastActive bump, 14-day open-ended check-in), Home banner + End now + resting pose pinned + triage sheet (per-row and bulk complete / spread-reschedule / dismiss / Later). Planner also mutes mood pings through the 24h post-vacation grace window |
 | Widgets (v0.6) | ✅ Implemented + tested | `MochiWidgetExtension` target + `MochiShared/` sources compiled by both targets (in place of a framework); `MochiWidgetState` contract in the App Group (`MochiShared/WidgetState.swift`), mirrored by the app after every re-lay (`WidgetStateMirror`); timeline = stored baseline curve + live shared comfort buffer; small/medium + all three lock families; Pet + Complete intents; state variants active/lapsed/vacation |
-| Remote Config | ✅ Wired + published | `Tuning/RemoteTuning.swift`: `TuningSource` protocol over Firebase, pure `ResolvedTuning.resolve` with range clamping (a console typo degrades to the shipped default, never a broken invariant), applied once at launch (activate-on-next-launch, so mood(t) stays deterministic per session; the background fetch lands next launch), followed by one re-lay; skipped entirely under tests. All 24 parameters are published in the console and pinned by tests (`consoleKeysMatch`, `everyKeyDecodes`) against the canonical list in `RemoteTuning.numberKeys`/`jsonKeys` |
+| Remote Config | ✅ Wired + published | `Tuning/RemoteTuning.swift`: `TuningSource` protocol over Firebase, pure `ResolvedTuning.resolve` with range clamping (a console typo degrades to the shipped default, never a broken invariant). Applied **before `AppContainer` is built** (the app awaits activate+apply, then constructs the container), so nothing ever computes on pre-apply values and mood(t) is strictly deterministic per session; the background fetch lands next launch. Skipped entirely under tests. All 24 parameters are published in the console and pinned by tests (`consoleKeysMatch`, `everyKeyDecodes`); hours/days→seconds conversions live in pure `ResolvedTuning` derived properties with their own non-default tests |
+| Celebrations (in-app) | ✅ Implemented + tested (v0.6.1) | `Rewards/CelebrationCenter.swift` + `TaskCompletionStore.onMilestone`: every completion surface (Home, Tasks tab, notification Complete action, widget drain) posts a landed sparse milestone (7 / 30 / then every 50) through the one center; Home shows the banner (`celebrationText`, dismissible, fires only on the completion that reaches the milestone). No push celebration class exists **by design** — see deltas |
 
 ### Remote Config parameters (published July 19 2026)
 
@@ -128,6 +151,12 @@ behavior is unchanged until a deliberate tuning pass). The canonical list lives 
 **Deliberately not remote-tunable:** the buffer cap and treat/pet values (the widget
 evaluates them without Firebase) and the 64-slot pending-notification cap (an iOS
 platform fact).
+
+**`vacation_grace_wake` derives from `mood_anchor` when unset** (v0.6.1): the wake target
+is *defined* as the content anchor, so tuning the anchor alone moves the wake with it; an
+explicitly published `vacation_grace_wake` still wins. The tuned values also reach their
+user-facing surfaces: the "Mochi, shh · Nh" action label reads `notif_shh_hours`, and the
+widget-mirror horizon tracks `notif_horizon_days`.
 
 **Known deltas from the spec, all deliberate:**
 - **Widget poses are code-drawn, not asset exports:** the shared Canvas pet view renders to
@@ -158,11 +187,22 @@ platform fact).
 - The **resting pose renders as the sleeping pose** until the commissioned art lands
   (roadmap #6), with its own distinct VoiceOver label so the two calm states never conflate.
 - Re-lay triggers wired: foreground, every completion, editor saves, pet/treat, vacation,
-  bedtime, prefs, entitlement change, notification actions. **Still unwired:**
-  `EKEventStoreChanged` and timezone change.
-- Streak-milestone **notifications** wait on the widget (v0.6, complete-from-widget is
-  their trigger); the detection hook (`ToggleOutcome.milestoneStreak`) is in place with no
-  in-app celebration surface yet.
+  bedtime, prefs, entitlement change, notification actions, **timezone change** (v0.6.1;
+  the orchestrator and widget mirror hold `.autoupdatingCurrent` calendars). **Still
+  unwired:** `EKEventStoreChanged`.
+- **Celebrations are in-app only — there is no push celebration class** (v0.6.1). A
+  milestone can only land on a completion, which happens with the app open or at
+  widget-drain time on the next open; a celebration push would always arrive mid-session.
+  The spec's "cute good-job notifications … for tasks completed from the widget" is
+  served by the drain-time Home banner instead. `NotificationCopy.celebrationPool` is
+  retained as the copy source if a push path ever ships.
+- **Coin anti-farming (daily diminishing returns) is not implemented** — deliberate:
+  open question #2 (the taper curve) is undecided, and the `dailyCoinsEarned` /
+  `dailyCoinsDate` fields are reserved in the data model for when it is. Flat
+  `coins_per_task` until then.
+- **Notification imagery (expressive Mochi faces, intensity-capped) is not implemented**
+  — gated on the commissioned pose set (roadmap #6). Interruption levels, thread
+  coalescing, and copy voices shipped; attachments land with the art.
 - Snooze targets: tonight = 19:00 (or an hour out if already evening), tomorrow = 09:00.
 - Trial expiry mid-session is caught at flow entry / You-tab refresh, not by a live
   listener; consistent with "trial expiry is not an auth event."

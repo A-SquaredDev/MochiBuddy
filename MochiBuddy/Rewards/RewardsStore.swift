@@ -21,6 +21,9 @@ final class RewardsStore {
         let coinsDelta: Int
         let streak: Int
         let bestStreak: Int
+        /// False when today already held the streak - a milestone only
+        /// celebrates on the completion that actually reaches it.
+        let streakExtended: Bool
     }
 
     private let profileRepository: UserProfileRepository
@@ -39,9 +42,11 @@ final class RewardsStore {
 
         let today = calendar.startOfDay(for: .now)
         let streak: Int
+        var extended = true
         if let lastActive = profile?.lastActiveDate.map(calendar.startOfDay(for:)) {
             if lastActive == today {
                 streak = max(previousStreak, 1)
+                extended = false
             } else if calendar.date(byAdding: .day, value: 1, to: lastActive) == today {
                 streak = previousStreak + 1
             } else {
@@ -54,7 +59,9 @@ final class RewardsStore {
 
         try? await profileRepository.incrementCoins(by: Self.coinsPerTask, userId: userId)
         try? await profileRepository.saveStreak(count: streak, best: best, lastActiveDate: today, userId: userId)
-        return CompletionOutcome(coinsDelta: Self.coinsPerTask, streak: streak, bestStreak: best)
+        return CompletionOutcome(
+            coinsDelta: Self.coinsPerTask, streak: streak, bestStreak: best, streakExtended: extended
+        )
     }
 
     /// A completion was undone: claw the coins back (never below zero) so

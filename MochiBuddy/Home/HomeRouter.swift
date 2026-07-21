@@ -31,7 +31,8 @@ final class HomeRouter {
             membershipSession: container.membershipSession,
             recurrenceRoller: container.recurrenceRoller,
             relay: container.notificationOrchestrator,
-            reentryService: container.vacationReentryService
+            reentryService: container.vacationReentryService,
+            celebrationCenter: container.celebrationCenter
         )
         return AnyView(HomeView(viewModel: viewModel, router: self))
     }

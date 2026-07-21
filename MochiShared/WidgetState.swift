@@ -30,6 +30,13 @@ struct MochiWidgetState: Codable, Equatable {
         /// Resting, "On vacation" hint + end date, never the wake CTA -
         /// the two calm states stay distinct (locked decision).
         case vacation
+
+        /// The locked state-variant table (design doc: Widgets). Complete
+        /// stays available in EVERY state: lapsed keeps existing tasks
+        /// completable, vacation removes pressure, not function.
+        var allowsComplete: Bool { true }
+        /// Tap-to-pet is active-only - never on a napping or resting Mochi.
+        var allowsPet: Bool { self == .active }
     }
 
     /// One sample of the baseline mood(t) curve (no buffer baked in).

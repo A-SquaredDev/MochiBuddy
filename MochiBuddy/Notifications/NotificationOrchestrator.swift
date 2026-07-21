@@ -24,7 +24,7 @@ enum RelayTrigger: String {
     case prefsChange
     case entitlementChange
     case notificationAction
-    case remoteConfigFetch
+    case timezoneChange
 }
 
 @MainActor

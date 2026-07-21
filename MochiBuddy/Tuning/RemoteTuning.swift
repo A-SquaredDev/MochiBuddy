@@ -30,6 +30,9 @@ struct ResolvedTuning: Equatable {
     struct Cadence: Equatable, Codable {
         var count: Int
         var spacingHours: Double
+
+        /// The seconds the planner actually spaces with.
+        var spacing: TimeInterval { spacingHours * 3600 }
     }
 
     struct Milestones: Equatable, Codable {
@@ -68,6 +71,16 @@ struct ResolvedTuning: Equatable {
 
     static let defaults = ResolvedTuning()
 
+    // MARK: - Derived intervals
+
+    // The one place console hours/days become engine seconds - pure, so a
+    // units mistake here fails a test instead of shipping silently.
+
+    var shhDuration: TimeInterval { shhHours * 3600 }
+    var recoveryHoldDuration: TimeInterval { recoveryHoldHours * 3600 }
+    var backstopInterval: TimeInterval { TimeInterval(backstopDays) * 24 * 3600 }
+    var vacationGraceDecay: TimeInterval { vacationGraceDecayHours * 3600 }
+
     /// Read every parameter, keeping the default wherever the source is
     /// silent or the value fails validation.
     static func resolve(from source: TuningSource) -> ResolvedTuning {
@@ -97,6 +110,12 @@ struct ResolvedTuning: Equatable {
         number("mood_momentum_max", 0...100, into: &tuning.moodMomentumMax)
         number("mood_momentum_saturation", 0.1...100, into: &tuning.moodMomentumSaturation)
         number("mood_momentum_gate", 0.1...100, into: &tuning.moodMomentumGate)
+
+        // The re-entry wake target is DEFINED as the content anchor (doc:
+        // Vacation mode → Constants, default = A). Track a tuned anchor
+        // unless the console sets the wake explicitly - tuning the anchor
+        // alone must never silently break "wake at ~content".
+        tuning.vacationGraceWake = tuning.moodAnchor
 
         count("notif_mood_pings_daily_ceiling", 0...24, into: &tuning.moodPingsDailyCeiling)
         if let data = source.json("notif_floor_taper"),
@@ -179,22 +198,19 @@ enum RemoteTuning {
         NotificationPlanner.Constants.moodPingsPerDayCeiling = tuning.moodPingsDailyCeiling
         NotificationPlanner.Constants.floorTaperBudgets = tuning.floorTaper
         NotificationPlanner.Constants.cadenceRules = [
-            .verySad: .init(count: tuning.cadenceVerySad.count,
-                            spacing: tuning.cadenceVerySad.spacingHours * 3600),
-            .anxious: .init(count: tuning.cadenceAnxious.count,
-                            spacing: tuning.cadenceAnxious.spacingHours * 3600),
-            .uneasy: .init(count: tuning.cadenceUneasy.count,
-                           spacing: tuning.cadenceUneasy.spacingHours * 3600),
+            .verySad: .init(count: tuning.cadenceVerySad.count, spacing: tuning.cadenceVerySad.spacing),
+            .anxious: .init(count: tuning.cadenceAnxious.count, spacing: tuning.cadenceAnxious.spacing),
+            .uneasy: .init(count: tuning.cadenceUneasy.count, spacing: tuning.cadenceUneasy.spacing),
         ]
-        NotificationPlanner.Constants.backstopInterval = TimeInterval(tuning.backstopDays) * 24 * 3600
+        NotificationPlanner.Constants.backstopInterval = tuning.backstopInterval
         NotificationOrchestrator.Constants.horizonDays = tuning.horizonDays
-        NotificationOrchestrator.Constants.shhDuration = tuning.shhHours * 3600
-        TaperTracker.recoveryHold = tuning.recoveryHoldHours * 3600
+        NotificationOrchestrator.Constants.shhDuration = tuning.shhDuration
+        TaperTracker.recoveryHold = tuning.recoveryHoldDuration
         NotificationCopy.crushedYesterdayThreshold = tuning.crushedYesterdayThreshold
 
         VacationConstants.defaultDays = tuning.vacationDefaultDays
         VacationConstants.graceWake = tuning.vacationGraceWake
-        VacationConstants.graceDecay = tuning.vacationGraceDecayHours * 3600
+        VacationConstants.graceDecay = tuning.vacationGraceDecay
         VacationConstants.checkinDays = tuning.vacationCheckinDays
         VacationConstants.maxDays = tuning.vacationMaxDays
 
@@ -204,8 +220,11 @@ enum RemoteTuning {
     }
 
     /// Activate whatever last session fetched, apply it, then fetch in
-    /// the background for next launch. Skipped entirely under tests so
-    /// console tuning can never bend constant-pinned expectations.
+    /// the background for next launch. The app awaits this BEFORE building
+    /// AppContainer, so nothing ever computes on pre-apply values and
+    /// mood(t) is deterministic for the whole session. Skipped entirely
+    /// under tests so console tuning can never bend constant-pinned
+    /// expectations.
     static func bootstrap() async {
         guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else {
             return

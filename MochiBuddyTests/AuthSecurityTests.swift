@@ -125,7 +125,8 @@ struct DataScopingTests {
                 bufferStore: StubComfortBufferStore(),
                 relay: StubRelay(),
                 defaults: UserDefaults(suiteName: "reentry-\(UUID())")!
-            )
+            ),
+            celebrationCenter: CelebrationCenter()
         )
         await vm.triggerAsync(.refresh)
         await vm.triggerAsync(.quickAddChanged("task"))

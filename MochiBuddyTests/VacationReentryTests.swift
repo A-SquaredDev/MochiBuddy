@@ -440,7 +440,8 @@ private func makeHomeVMForVacation(
         membershipSession: membership,
         recurrenceRoller: RecurrenceRoller(taskRepository: taskRepo),
         relay: StubRelay(),
-        reentryService: reentry
+        reentryService: reentry,
+        celebrationCenter: CelebrationCenter()
     )
     return (vm, taskRepo, profileRepo, buffer)
 }

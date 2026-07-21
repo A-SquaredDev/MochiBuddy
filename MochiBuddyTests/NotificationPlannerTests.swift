@@ -99,6 +99,21 @@ struct PlannerPromiseTests {
         #expect(plan.filter { $0.kind == .promise }.isEmpty)
     }
 
+    @Test("an overdue recurring occurrence still promises its NEXT fire - a re-lay in the overdue window must never drop tomorrow's reminder")
+    func overdueRecurringPromisesNextOccurrence() {
+        // Daily habit due 09:00 today, now 10:00 - overdue but not yet
+        // rolled (the roll waits for tomorrow's occurrence to come due).
+        let dueAt = Dates.hours(-1)
+        let plan = NotificationPlanner.plan(makeInput(
+            tasks: [makeTask(id: "habit", dueAt: dueAt, hasTime: true, repeatRule: .daily)]
+        ))
+        let promises = plan.filter { $0.kind == .promise }
+        #expect(promises.count == 1)
+        #expect(promises.first?.id == "due-habit")
+        #expect(promises.first?.fireAt == Dates.hours(23), "tomorrow 09:00 - the next occurrence")
+        #expect(promises.first?.repeats == true)
+    }
+
     @Test("a recurring timed task promises with a repeating trigger - one slot forever")
     func recurringPromiseRepeats() {
         let plan = NotificationPlanner.plan(makeInput(

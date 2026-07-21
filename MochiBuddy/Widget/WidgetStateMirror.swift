@@ -18,8 +18,9 @@ final class WidgetStateMirror {
     enum Constants {
         /// Baseline sampling step for the stored curve.
         static let resolution: TimeInterval = 30 * 60
-        /// Mirrored horizon - matches the scheduler's.
-        static let horizonDays = 7
+        /// Mirrored horizon - reads the scheduler's so a tuned
+        /// notif_horizon_days can't desync "the timeline IS the forecast".
+        static var horizonDays: Int { NotificationOrchestrator.Constants.horizonDays }
     }
 
     private let themeStore: ThemeStore

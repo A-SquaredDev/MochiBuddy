@@ -77,6 +77,12 @@ enum NotificationRequestBuilder {
                     for: rule, dueAt: plan.fireAt, calendar: calendar
                 )
             }
+            // A promise may only repeat via calendar components. Without
+            // them (weekdays/custom) the adapter's fallback is a repeating
+            // time-interval trigger, which re-fires every (now → due) span
+            // - schedule the single next fire and let the re-lay refresh.
+            var plan = plan
+            plan.repeats = repeating != nil
             return ScheduledNotificationRequest(
                 plan: plan,
                 content: NotificationCopy.reminder(taskTitle: task?.title, hideTaskNames: hideTaskNames),
