@@ -68,6 +68,10 @@ enum TaskEditorBehavior {
         var repeatDayOptions: [DayChip] = []
         var notes = ""
         var isWorking = false
+        /// Recurring task: "skip this occurrence vs delete series" dialog.
+        var showDeleteOptions = false
+        /// Recurring task: "save this occurrence vs whole series" dialog.
+        var showSaveScopeOptions = false
     }
 
     enum ViewAction {
@@ -86,6 +90,12 @@ enum TaskEditorBehavior {
         case saveTapped
         case snoozeTapped
         case deleteTapped
+        case confirmSaveOccurrence
+        case confirmSaveSeries
+        case cancelSaveScope
+        case confirmSkipOccurrence
+        case confirmDeleteSeries
+        case cancelDeleteOptions
     }
 
     enum NavigationEvent {

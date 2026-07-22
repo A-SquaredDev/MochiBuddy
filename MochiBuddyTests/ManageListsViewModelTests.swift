@@ -19,6 +19,7 @@ private func makeManageListsVM(
     let vm = ManageListsViewModel(
         authRepository: StubAuthRepository(),
         listRepository: listRepo,
+        taskRepository: StubTaskRepository(),
         membershipSession: MembershipSession()
     )
     return (vm, listRepo)

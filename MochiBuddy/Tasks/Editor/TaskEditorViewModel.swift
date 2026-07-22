@@ -142,10 +142,45 @@ final class TaskEditorViewModel: ObservableStateViewModel<
 
         case .deleteTapped:
             guard let task = editingTask, let userId else { return }
+            // A recurring task gets a choice: skip just this occurrence, or
+            // end the series. (Skipping needs a date to roll forward from.)
+            if task.repeatRule != nil, task.dueAt != nil {
+                state.showDeleteOptions = true
+                return
+            }
             state.isWorking = true
             try? await taskRepository.deleteTask(id: task.id, userId: userId)
             setNavigationEvent(.done)
 
+        case .confirmSkipOccurrence:
+            guard let task = editingTask, let rule = task.repeatRule,
+                  let due = task.dueAt, let userId else { return }
+            state.showDeleteOptions = false
+            state.isWorking = true
+            var skipped = task
+            skipped.dueAt = rule.nextOccurrence(after: due)
+            try? await taskRepository.updateTask(skipped, userId: userId)
+            setNavigationEvent(.done)
+
+        case .confirmDeleteSeries:
+            guard let task = editingTask, let userId else { return }
+            state.showDeleteOptions = false
+            state.isWorking = true
+            try? await taskRepository.deleteTask(id: task.id, userId: userId)
+            setNavigationEvent(.done)
+
+        case .cancelDeleteOptions:
+            state.showDeleteOptions = false
+
+        case .confirmSaveOccurrence:
+            await saveDetachedOccurrence()
+
+        case .confirmSaveSeries:
+            state.showSaveScopeOptions = false
+            await performSave()
+
+        case .cancelSaveScope:
+            state.showSaveScopeOptions = false
         }
     }
 
@@ -223,8 +258,23 @@ final class TaskEditorViewModel: ObservableStateViewModel<
 
     private func save() async {
         let title = draft.title.trimmingCharacters(in: .whitespaces)
-        guard !title.isEmpty, let userId else { return }
+        guard !title.isEmpty else { return }
         draft.title = title
+
+        // Editing a recurring task with its rule intact: ask whether the
+        // change is for this occurrence or the series. A rule change is a
+        // series-level edit by definition, so it saves straight through.
+        // (Detaching needs the original date to roll the series forward.)
+        if let task = editingTask, task.dueAt != nil,
+           task.repeatRule != nil, draft.repeatRule == task.repeatRule {
+            state.showSaveScopeOptions = true
+            return
+        }
+        await performSave()
+    }
+
+    private func performSave() async {
+        guard let userId else { return }
         state.isWorking = true
 
         if let task = editingTask {
@@ -240,6 +290,39 @@ final class TaskEditorViewModel: ObservableStateViewModel<
         } else {
             _ = try? await taskRepository.addTask(draft, userId: userId)
         }
+        Haptics.success()
+        setNavigationEvent(.done)
+    }
+
+    /// "This occurrence only": the edited task detaches into a one-off, and
+    /// a fresh document due at the next occurrence carries the series on
+    /// with the original details.
+    private func saveDetachedOccurrence() async {
+        guard let task = editingTask, let rule = task.repeatRule,
+              let due = task.dueAt, let userId else { return }
+        state.showSaveScopeOptions = false
+        state.isWorking = true
+
+        var detached = task
+        detached.title = draft.title
+        detached.notes = draft.notes
+        detached.dueAt = draft.dueAt
+        detached.hasTime = draft.hasTime
+        detached.priority = draft.priority
+        detached.listId = draft.listId
+        detached.repeatRule = nil
+        try? await taskRepository.updateTask(detached, userId: userId)
+
+        let continuation = TaskDraft(
+            title: task.title,
+            notes: task.notes,
+            dueAt: rule.nextOccurrence(after: due),
+            hasTime: task.hasTime,
+            priority: task.priority,
+            listId: task.listId,
+            repeatRule: rule
+        )
+        _ = try? await taskRepository.addTask(continuation, userId: userId)
         Haptics.success()
         setNavigationEvent(.done)
     }

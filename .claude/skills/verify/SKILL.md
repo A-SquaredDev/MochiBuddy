@@ -67,6 +67,20 @@ end tell
   Keystrokes can truncate if followed too quickly by another action — sleep ≥1s.
   Hardware-keyboard autocorrect DOES fire ("Buuy milk" → "But milk").
 - Screenshots: `xcrun simctl io <UDID> screenshot out.png`.
+- Scrolling: AX can't press off-screen rows ("not found") — drag-scroll with
+  cliclick (this install's cliclick has no `sd`/`su`; use press-drag):
+  `cliclick dd:1238,700 dm:1238,600 dm:1238,450 dm:1238,250 du:1238,250`.
+- Screenshot px → screen coords for cliclick: with the window at
+  {1038, 35, 403x867}, screen ≈ (1038 + px_x/3.0, 13 + px_y/2.9) — derived
+  empirically; re-derive the y offset from a known-good click if the window
+  moves. Segmented pickers are easier via AX (`AXRadioButton` with the
+  segment title, e.g. "24h") than coordinates.
+- Chart scrubbing (`chartXSelection`): press-and-hold ~0.5s, then drag in
+  small steps (`dd`, sleep, several `dm` with ~0.15s sleeps). Selection
+  clears on release, so screenshot BEFORE `du`. Fast synthetic drags are
+  swallowed.
+- The `press.scpt` "not found" result still exits 0 — `||` fallbacks never
+  run; check the printed output instead.
 
 ## Flows worth driving
 

@@ -15,6 +15,8 @@ struct ManageListsView: View {
         ManageListsBehavior.ViewAction
     >
     let router: any BackRouting
+    /// Builds the task-editor sheet for a repeating series (routers own DI).
+    let taskEditor: (TaskItem) -> AnyView
 
     @Environment(\.mochiTheme) private var theme
     @FocusState private var nameFieldFocused: Bool
@@ -27,7 +29,6 @@ struct ManageListsView: View {
                     subtitle: "Edit, reorder or remove",
                     onBack: { router.navigateBack() }
                 )
-                .padding(.bottom, 8)
 
                 if viewModel.lists.isEmpty {
                     emptyHint
@@ -37,26 +38,50 @@ struct ManageListsView: View {
 
             ForEach(viewModel.lists) { list in
                 listRow(list)
-                    .listRowStyling()
-                    .padding(.bottom, 8)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets())
+                    // The card is the CELL background (not an inner view):
+                    // a clear cell makes the drag-lift shadow render as a
+                    // solid dark slab under the row while reordering.
+                    .listRowBackground(
+                        ZStack {
+                            RoundedRectangle(cornerRadius: MochiRadius.md)
+                                .fill(theme.surface2)
+                            RoundedRectangle(cornerRadius: MochiRadius.md)
+                                .strokeBorder(theme.line, lineWidth: 1.5)
+                        }
+                    )
             }
             .onMove { from, to in
                 viewModel.trigger(.moveList(from: from, to: to))
+            }
+
+            if !viewModel.repeating.isEmpty {
+                Group {
+                    MochiEyebrow(text: "Repeating tasks")
+                        .padding(.top, 4)
+                }
+                .listRowStyling()
+                ForEach(viewModel.repeating) { series in
+                    repeatingRow(series)
+                        .listRowStyling()
+                }
             }
 
             if viewModel.canAddLists {
                 Group {
                     MochiEyebrow(text: "New list")
                         .padding(.top, 4)
-                        .padding(.bottom, 8)
                     colorPicker
-                        .padding(.bottom, 8)
                     nameInput
                 }
                 .listRowStyling()
             }
         }
         .listStyle(.plain)
+        // Spacing lives BETWEEN cells, not inside them - in-cell bottom
+        // padding widens the drag-lift shadow past the card.
+        .listRowSpacing(8)
         .scrollContentBackground(.hidden)
         .scrollIndicators(.hidden)
         .environment(\.defaultMinListRowHeight, 0)
@@ -65,6 +90,11 @@ struct ManageListsView: View {
         .contentMargins(.bottom, 24, for: .scrollContent)
         .background(theme.bg)
         .onLoad { viewModel.trigger(.load) }
+        .sheet(
+            item: viewModel.collectBinding(for: \.editingSeries, action: { _ in .seriesEditorDismissed })
+        ) { editing in
+            taskEditor(editing.task)
+        }
         .alert(
             "Delete \(viewModel.deleteCandidateName ?? "list")?",
             isPresented: viewModel.collectBinding(for: \.showDeleteConfirm, action: .cancelDelete),
@@ -89,13 +119,33 @@ struct ManageListsView: View {
     }
 
     private func listRow(_ list: ManageListsBehavior.ListUIItem) -> some View {
+        VStack(spacing: 0) {
+            listRowHeader(list)
+            if viewModel.editingColorListId == list.id {
+                rowColorPicker(list)
+            }
+        }
+        .padding(EdgeInsets(top: 11, leading: 12, bottom: 11, trailing: 12))
+        .animation(MochiMotion.soft, value: viewModel.editingColorListId)
+    }
+
+    private func listRowHeader(_ list: ManageListsBehavior.ListUIItem) -> some View {
         HStack(spacing: 11) {
             Image(systemName: "line.3.horizontal")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(theme.muted)
-            Circle()
-                .fill(list.color)
-                .frame(width: 12, height: 12)
+            Button {
+                Haptics.impact(.light)
+                viewModel.trigger(.colorDotTapped(id: list.id))
+            } label: {
+                Circle()
+                    .fill(list.color)
+                    .frame(width: 12, height: 12)
+                    .frame(width: 24, height: 24)
+                    .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Change color of \(list.name)")
             HStack(spacing: 6) {
                 Image(systemName: list.icon)
                     .font(.system(size: 12, weight: .semibold))
@@ -127,12 +177,63 @@ struct ManageListsView: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Delete \(list.name)")
         }
-        .padding(EdgeInsets(top: 11, leading: 12, bottom: 11, trailing: 12))
-        .background(theme.surface2, in: RoundedRectangle(cornerRadius: MochiRadius.md))
-        .overlay(
-            RoundedRectangle(cornerRadius: MochiRadius.md)
-                .stroke(theme.line, lineWidth: 1.5)
-        )
+    }
+
+    /// A live recurring series - tap to edit its rule in the task editor.
+    private func repeatingRow(_ series: ManageListsBehavior.RepeatingUIItem) -> some View {
+        Button {
+            Haptics.impact(.light)
+            viewModel.trigger(.seriesTapped(id: series.id))
+        } label: {
+            HStack(spacing: 11) {
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(theme.primaryText)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(series.title)
+                        .font(MochiFont.body(13, weight: .heavy))
+                        .foregroundStyle(theme.ink)
+                        .lineLimit(1)
+                    Text(series.cadence)
+                        .font(MochiFont.body(11, weight: .bold))
+                        .foregroundStyle(theme.muted)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                MochiRowChevron()
+            }
+            .padding(EdgeInsets(top: 11, leading: 12, bottom: 11, trailing: 12))
+            .background(theme.surface2, in: RoundedRectangle(cornerRadius: MochiRadius.md))
+            .overlay(
+                RoundedRectangle(cornerRadius: MochiRadius.md)
+                    .stroke(theme.line, lineWidth: 1.5)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// Inline swatches shown under a row after tapping its color dot.
+    private func rowColorPicker(_ list: ManageListsBehavior.ListUIItem) -> some View {
+        HStack(spacing: 6) {
+            ForEach(viewModel.colorChoices) { choice in
+                let isSelected = choice.id == list.colorHex
+                Button {
+                    Haptics.selection()
+                    viewModel.trigger(.selectRowColor(id: list.id, colorHex: choice.id))
+                } label: {
+                    Circle()
+                        .fill(choice.color)
+                        .frame(width: 26, height: 26)
+                        .overlay(
+                            Circle().stroke(isSelected ? theme.ink : theme.line, lineWidth: isSelected ? 2.5 : 1.5)
+                        )
+                }
+                .buttonStyle(SquishButtonStyle())
+                .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 10)
     }
 
     private var colorPicker: some View {
@@ -207,7 +308,6 @@ struct ManageListsView: View {
                     .foregroundStyle(theme.muted)
             }
         }
-        .padding(.bottom, 8)
     }
 }
 

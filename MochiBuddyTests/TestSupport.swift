@@ -259,6 +259,14 @@ final class StubProfileRepository: UserProfileRepository {
     func saveAccountLink(provider: String, displayName: String?, userId: String) async throws {
         accountLinks.append((provider, displayName, userId))
     }
+    private(set) var savedDisplayNames: [String] = []
+    func saveDisplayName(_ name: String, userId: String) async throws {
+        savedDisplayNames.append(name)
+        if var profile {
+            profile.displayName = name
+            self.profile = profile
+        }
+    }
     func saveMembershipMirror(isSubscribed: Bool, trialEndsAt: Date?, userId: String) async throws {
         membershipMirrors.append((isSubscribed, trialEndsAt, userId))
     }
@@ -338,6 +346,13 @@ final class StubListRepository: ListRepository {
         return TaskList(id: "created-\(createdNames.count)", name: name, colorHex: colorHex, icon: icon, order: order)
     }
     func renameList(id: String, name: String, userId: String) async throws {}
+    private(set) var colorUpdates: [(id: String, colorHex: String)] = []
+    func updateListColor(id: String, colorHex: String, userId: String) async throws {
+        colorUpdates.append((id, colorHex))
+        if let index = lists.firstIndex(where: { $0.id == id }) {
+            lists[index].colorHex = colorHex
+        }
+    }
     func deleteList(id: String, userId: String) async throws {}
     func saveOrder(ids: [String], userId: String) async throws {}
 }

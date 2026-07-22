@@ -16,6 +16,7 @@ protocol ListRepository: AnyObject {
     @discardableResult
     func createList(name: String, colorHex: String, icon: String, order: Int, userId: String) async throws -> TaskList
     func renameList(id: String, name: String, userId: String) async throws
+    func updateListColor(id: String, colorHex: String, userId: String) async throws
     func deleteList(id: String, userId: String) async throws
     /// Persists a full reorder - ids in their new display order.
     func saveOrder(ids: [String], userId: String) async throws
@@ -62,6 +63,10 @@ final class FirestoreListRepository: ListRepository {
 
     func renameList(id: String, name: String, userId: String) async throws {
         lists(userId).document(id).setData(["name": name], merge: true, completion: nil)
+    }
+
+    func updateListColor(id: String, colorHex: String, userId: String) async throws {
+        lists(userId).document(id).setData(["color": colorHex], merge: true, completion: nil)
     }
 
     func deleteList(id: String, userId: String) async throws {

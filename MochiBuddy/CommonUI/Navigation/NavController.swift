@@ -8,6 +8,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 /// A lightweight data carrier describing a navigation destination.
 protocol NavRoute {
@@ -104,7 +105,29 @@ struct NavHost: View {
                 .navigationDestination(for: NavController.Entry.self) { entry in
                     entry.content
                         .toolbar(.hidden, for: .navigationBar)
+                        .background(SwipeBackEnabler())
                 }
+        }
+    }
+}
+
+/// Hiding the navigation bar (above) also disables UIKit's interactive
+/// edge-swipe-to-pop. This re-attaches the gesture on every pushed
+/// destination; the delegate keeps it from firing on a root screen.
+private struct SwipeBackEnabler: UIViewControllerRepresentable {
+    func makeUIViewController(context: Context) -> Controller { Controller() }
+    func updateUIViewController(_ controller: Controller, context: Context) {}
+
+    final class Controller: UIViewController, UIGestureRecognizerDelegate {
+        override func viewWillAppear(_ animated: Bool) {
+            super.viewWillAppear(animated)
+            guard let pop = navigationController?.interactivePopGestureRecognizer else { return }
+            pop.delegate = self
+            pop.isEnabled = true
+        }
+
+        func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+            (navigationController?.viewControllers.count ?? 0) > 1
         }
     }
 }

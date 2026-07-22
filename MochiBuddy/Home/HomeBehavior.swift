@@ -16,6 +16,7 @@ enum HomeBehavior {
         var listName: String? = nil
         var listColor: Color? = nil
         var sourceBadge: String? = nil
+        var isRecurring: Bool = false
     }
 
     struct TreatUIItem: Equatable, Identifiable {

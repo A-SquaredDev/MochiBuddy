@@ -65,7 +65,9 @@ final class YouRouter: YouRouting {
     func navigateToDevScheduler() {
         let viewModel = DevSchedulerViewModel(
             orchestrator: container.notificationOrchestrator,
-            scheduler: container.notificationScheduler
+            scheduler: container.notificationScheduler,
+            membershipStore: container.membershipStore,
+            membershipSession: container.membershipSession
         )
         navController.navigate(
             route: AdHocRoute(key: "you.devScheduler"),
@@ -128,11 +130,23 @@ final class YouRouter: YouRouting {
         let viewModel = ManageListsViewModel(
             authRepository: container.authRepository,
             listRepository: container.listRepository,
+            taskRepository: container.taskRepository,
             membershipSession: container.membershipSession
         )
         navController.navigate(
             route: AdHocRoute(key: "you.lists"),
-            view: AnyView(ManageListsView(viewModel: viewModel, router: self))
+            view: AnyView(ManageListsView(
+                viewModel: viewModel,
+                router: self,
+                taskEditor: { [weak self] task in
+                    self.map { AnyView(TaskEditorView(viewModel: TaskEditorViewModel(
+                        editingTask: task,
+                        authRepository: $0.container.authRepository,
+                        taskRepository: $0.container.taskRepository,
+                        listRepository: $0.container.listRepository
+                    ))) } ?? AnyView(EmptyView())
+                }
+            ))
         )
     }
 

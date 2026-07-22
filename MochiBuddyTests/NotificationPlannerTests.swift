@@ -26,7 +26,6 @@ private func makeInput(
     taskReminders: Bool = true,
     morningRundown: Bool = false,
     moodDips: Bool = false,
-    level: NudgeLevel = .balanced,
     lapsed: Bool = false,
     shhUntil: Date? = nil,
     consecutiveFloorDays: Int = 0,
@@ -36,7 +35,6 @@ private func makeInput(
     prefs.taskReminders = taskReminders
     prefs.morningRundown = morningRundown
     prefs.moodDips = moodDips
-    prefs.level = level
     return NotificationPlanInput(
         snapshot: MoodSnapshot(
             tasks: tasks, completionTimes: completionTimes, boosts: [],
@@ -289,16 +287,6 @@ struct PlannerCadenceTests {
         let counts = perDayCounts(moodPings(plan))
         #expect(counts.allSatisfy { $0 <= NotificationPlanner.Constants.moodPingsPerDayCeiling })
         #expect(counts.first == 4, "the capture day fills to exactly the ceiling")
-    }
-
-    @Test("'rarely' caps every band at one gentle ping a day - quieter must never mean the OS off switch")
-    func rarelyDialCaps() {
-        let plan = NotificationPlanner.plan(makeInput(
-            tasks: floorTasks(),
-            moodDips: true,
-            level: .rarely
-        ))
-        #expect(perDayCounts(moodPings(plan)).allSatisfy { $0 == 1 })
     }
 
     @Test("content is silence: an on-track user gets zero mood pings")

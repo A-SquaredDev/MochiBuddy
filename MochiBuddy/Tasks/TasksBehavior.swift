@@ -23,6 +23,7 @@ enum TasksBehavior {
         var listName: String? = nil
         var listColor: Color? = nil
         var sourceBadge: String? = nil
+        var isRecurring: Bool = false
     }
 
     /// A labelled run of rows ("Overdue · 2", "Tomorrow · Wed", "Yesterday").

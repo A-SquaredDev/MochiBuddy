@@ -411,3 +411,104 @@ struct TaskEditorEditTests {
         #expect(repo.snoozeCalls.isEmpty)
     }
 }
+
+@Suite("TaskEditor · recurring scope")
+@MainActor
+struct TaskEditorRecurringScopeTests {
+
+    private var recurringTask: TaskItem {
+        makeTask(
+            id: "r1",
+            title: "Water the plants",
+            dueAt: calendar.startOfDay(for: .now),
+            priority: .med,
+            repeatRule: .daily
+        )
+    }
+
+    @Test("saving a recurring edit asks for scope instead of writing")
+    func savePromptsForScope() async {
+        let (vm, repo) = makeEditorVM(editing: recurringTask)
+        await vm.triggerAsync(.load)
+        await vm.triggerAsync(.titleChanged("Water ALL the plants"))
+        await vm.triggerAsync(.saveTapped)
+        #expect(vm.uiState.showSaveScopeOptions == true)
+        #expect(repo.updatedTasks.isEmpty)
+        #expect(repo.addedDrafts.isEmpty)
+    }
+
+    @Test("changing the rule itself saves straight through - it IS a series edit")
+    func ruleChangeSkipsPrompt() async {
+        let (vm, repo) = makeEditorVM(editing: recurringTask)
+        await vm.triggerAsync(.load)
+        await vm.triggerAsync(.selectRepeat("weekly"))
+        await vm.triggerAsync(.saveTapped)
+        #expect(vm.uiState.showSaveScopeOptions == false)
+        #expect(repo.updatedTasks.first?.repeatRule == .weekly)
+    }
+
+    @Test("series scope updates the document in place, rule intact")
+    func saveSeries() async {
+        let (vm, repo) = makeEditorVM(editing: recurringTask)
+        await vm.triggerAsync(.load)
+        await vm.triggerAsync(.titleChanged("Water ALL the plants"))
+        await vm.triggerAsync(.saveTapped)
+        await vm.triggerAsync(.confirmSaveSeries)
+        let updated = try! #require(repo.updatedTasks.first)
+        #expect(updated.title == "Water ALL the plants")
+        #expect(updated.repeatRule == .daily)
+        #expect(repo.addedDrafts.isEmpty)
+    }
+
+    @Test("occurrence scope detaches the edit and spawns the series continuation")
+    func saveOccurrence() async {
+        let task = recurringTask
+        let (vm, repo) = makeEditorVM(editing: task)
+        await vm.triggerAsync(.load)
+        await vm.triggerAsync(.titleChanged("Water plants (moved)"))
+        await vm.triggerAsync(.saveTapped)
+        await vm.triggerAsync(.confirmSaveOccurrence)
+
+        let detached = try! #require(repo.updatedTasks.first)
+        #expect(detached.id == "r1")
+        #expect(detached.title == "Water plants (moved)")
+        #expect(detached.repeatRule == nil, "the edited occurrence becomes a one-off")
+
+        let continuation = try! #require(repo.addedDrafts.first)
+        #expect(continuation.title == "Water the plants", "the series keeps its original details")
+        #expect(continuation.repeatRule == .daily)
+        let expected = TaskRepeat.daily.nextOccurrence(after: task.dueAt!)
+        #expect(continuation.dueAt == expected)
+    }
+
+    @Test("deleting a recurring task asks skip-vs-series instead of deleting")
+    func deletePromptsForScope() async {
+        let (vm, repo) = makeEditorVM(editing: recurringTask)
+        await vm.triggerAsync(.load)
+        await vm.triggerAsync(.deleteTapped)
+        #expect(vm.uiState.showDeleteOptions == true)
+        #expect(repo.deletedIds.isEmpty)
+    }
+
+    @Test("skip this occurrence re-stamps the due date to the next one")
+    func skipOccurrence() async {
+        let task = recurringTask
+        let (vm, repo) = makeEditorVM(editing: task)
+        await vm.triggerAsync(.load)
+        await vm.triggerAsync(.deleteTapped)
+        await vm.triggerAsync(.confirmSkipOccurrence)
+        let skipped = try! #require(repo.updatedTasks.first)
+        #expect(skipped.dueAt == TaskRepeat.daily.nextOccurrence(after: task.dueAt!))
+        #expect(skipped.repeatRule == .daily)
+        #expect(repo.deletedIds.isEmpty)
+    }
+
+    @Test("delete the series removes the document")
+    func deleteSeries() async {
+        let (vm, repo) = makeEditorVM(editing: recurringTask)
+        await vm.triggerAsync(.load)
+        await vm.triggerAsync(.deleteTapped)
+        await vm.triggerAsync(.confirmDeleteSeries)
+        #expect(repo.deletedIds == ["r1"])
+    }
+}

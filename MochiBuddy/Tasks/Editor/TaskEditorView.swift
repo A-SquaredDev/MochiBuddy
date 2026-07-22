@@ -19,8 +19,18 @@ struct TaskEditorView: View {
     @Environment(\.mochiTheme) private var theme
     @Environment(\.dismiss) private var dismiss
     @FocusState private var titleFocused: Bool
+    @FocusState private var notesFocused: Bool
 
     var body: some View {
+        // NavigationStack solely as a toolbar host - without it the keyboard
+        // accessory (the checkmark that dismisses) never renders in a sheet.
+        NavigationStack {
+            editorContent
+                .toolbar(.hidden, for: .navigationBar)
+        }
+    }
+
+    private var editorContent: some View {
         VStack(spacing: 0) {
             HStack {
                 Text(viewModel.isEditing ? "Edit task" : "New task")
@@ -77,6 +87,7 @@ struct TaskEditorView: View {
                         )
                         .font(MochiFont.body(12.5, weight: .bold))
                         .foregroundStyle(theme.ink)
+                        .focused($notesFocused)
                         .lineLimit(2...5)
                         .padding(EdgeInsets(top: 11, leading: 13, bottom: 11, trailing: 13))
                         .background(theme.surface, in: RoundedRectangle(cornerRadius: MochiRadius.md))
@@ -93,11 +104,49 @@ struct TaskEditorView: View {
             footer
         }
         .background(theme.bg)
-        // The footer stays put when the keyboard rises; scrolling still
-        // dismisses the keyboard interactively.
-        .ignoresSafeArea(.keyboard, edges: .bottom)
+        .toolbar {
+            // Notes is a multiline field, so return inserts a newline;
+            // the accessory checkmark is the only way to dismiss there.
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button {
+                    titleFocused = false
+                    notesFocused = false
+                } label: {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 15, weight: .semibold))
+                }
+                .accessibilityLabel("Dismiss keyboard")
+            }
+        }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
+        .confirmationDialog(
+            "This task repeats",
+            isPresented: viewModel.collectBinding(for: \.showSaveScopeOptions, action: .cancelSaveScope),
+            titleVisibility: .visible,
+            actions: {
+                Button("Just this occurrence") { viewModel.trigger(.confirmSaveOccurrence) }
+                Button("The whole series") { viewModel.trigger(.confirmSaveSeries) }
+                Button("Cancel", role: .cancel) { viewModel.trigger(.cancelSaveScope) }
+            },
+            message: {
+                Text("Changing just this occurrence detaches it. The series keeps repeating with its old details.")
+            }
+        )
+        .confirmationDialog(
+            "This task repeats",
+            isPresented: viewModel.collectBinding(for: \.showDeleteOptions, action: .cancelDeleteOptions),
+            titleVisibility: .visible,
+            actions: {
+                Button("Skip this occurrence") { viewModel.trigger(.confirmSkipOccurrence) }
+                Button("Delete the series", role: .destructive) { viewModel.trigger(.confirmDeleteSeries) }
+                Button("Cancel", role: .cancel) { viewModel.trigger(.cancelDeleteOptions) }
+            },
+            message: {
+                Text("Skipping moves it to its next date. Deleting the series stops it for good.")
+            }
+        )
         .animation(MochiMotion.soft, value: viewModel.activePicker)
         .animation(MochiMotion.soft, value: viewModel.selectedRepeatId)
         .onLoad {
@@ -128,6 +177,8 @@ struct TaskEditorView: View {
             .font(MochiFont.body(13, weight: .heavy))
             .foregroundStyle(theme.ink)
             .focused($titleFocused)
+            .submitLabel(.done)
+            .onSubmit { titleFocused = false }
         }
         .padding(EdgeInsets(top: 11, leading: 11, bottom: 11, trailing: 11))
         .background(theme.surface, in: RoundedRectangle(cornerRadius: MochiRadius.md))
@@ -284,7 +335,18 @@ struct TaskEditorView: View {
                 } label: {
                     HStack(spacing: 6) {
                         if let color = dotColor(option.dot) {
-                            Circle().fill(color).frame(width: 9, height: 9)
+                            // A list's color can match theme.primary exactly
+                            // (e.g. Black Sesame + the default purple), so the
+                            // dot needs a ring to stay visible on selection.
+                            Circle()
+                                .fill(color)
+                                .overlay(
+                                    Circle().stroke(
+                                        isOn ? theme.primaryInk.opacity(0.85) : .clear,
+                                        lineWidth: 1.5
+                                    )
+                                )
+                                .frame(width: 9, height: 9)
                         }
                         Text(option.label)
                             .font(MochiFont.display(12.5, weight: .medium))

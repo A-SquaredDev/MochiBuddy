@@ -71,15 +71,7 @@ enum VacationSchedule {
     }
 }
 
-/// "How chatty should Mochi be?" - the overall nudge cadence dial.
-enum NudgeLevel: String, CaseIterable, Equatable {
-    case rarely
-    case balanced
-    case chatty
-}
-
 struct NotificationPrefs: Equatable {
-    var level: NudgeLevel = .balanced
     var taskReminders = true
     var morningRundown = true
     var moodDips = false

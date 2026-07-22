@@ -257,7 +257,8 @@ final class ListDetailViewModel: StateViewModel<
         // No list indicator here - every row belongs to this screen's list.
         return TasksBehavior.TodoUIItem(
             id: task.id, title: task.title,
-            meta: display.meta, state: display.state, chip: display.chip
+            meta: display.meta, state: display.state, chip: display.chip,
+            isRecurring: task.repeatRule != nil
         )
     }
 }

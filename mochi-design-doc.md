@@ -467,9 +467,14 @@ can permanently kill notifications in one tap — an irreversible loss of the wh
 2. **Tone never tracks volume.** Every line stays soft — Mochi is sad *with* you, never *at*
    you. "Mochi's having a hard day too" ✓ / "You've ignored 6 tasks" ✗.
 3. **An in-app valve that isn't the nuclear option.** Every escalation ping carries a
-   **"Mochi, shh — 24h"** action; plus a **"how chatty is Mochi" dial** (Quiet / Normal /
-   Chatty, default Normal) and vacation mode. The easiest way to quiet Mochi must never be
-   iOS's system-level off switch.
+   **"Mochi, shh — 24h"** action; plus per-category toggles (task reminders / morning
+   rundown / mood dips, each independently off-able) and vacation mode. The easiest way to
+   quiet Mochi must never be iOS's system-level off switch.
+   > 🆕 **2026-07-21 — dial removed.** The originally specced "how chatty is Mochi" dial
+   > (Quiet / Normal / Chatty) shipped, then was cut by product decision: one cadence (the
+   > old Normal table) for everyone, no granularity beyond the category toggles. `NudgeLevel`
+   > and the stored `level` pref are gone from the code; stale `level` fields in existing
+   > Firestore docs are ignored on decode.
 
 ### Scheduling model (local, predictive)
 

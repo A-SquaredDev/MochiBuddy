@@ -92,9 +92,6 @@ enum UserProfileMapper {
     private static func notificationPrefs(from data: [String: Any]?) -> NotificationPrefs {
         guard let data else { return .standard }
         var prefs = NotificationPrefs.standard
-        if let raw = data["level"] as? String, let level = NudgeLevel(rawValue: raw) {
-            prefs.level = level
-        }
         prefs.taskReminders = data["taskReminders"] as? Bool ?? prefs.taskReminders
         prefs.morningRundown = data["morningRundown"] as? Bool ?? prefs.morningRundown
         prefs.moodDips = data["moodDips"] as? Bool ?? prefs.moodDips

@@ -43,7 +43,7 @@ enum NotificationPlanner {
     enum Constants {
         /// iOS's pending-notification ceiling - a platform fact, not a knob.
         static let slotCap = 64
-        /// Hard global ceiling on mood pings per day, every dial setting.
+        /// Hard global ceiling on mood pings per day.
         static var moodPingsPerDayCeiling = 4
         /// Floor-state taper: day 1 = 4 … day 4+ = 1, indefinitely.
         static var floorTaperBudgets = [4, 3, 2, 1]
@@ -58,13 +58,8 @@ enum NotificationPlanner {
             .uneasy: CadenceRule(count: 1, spacing: 4 * 3600),
         ]
 
-        static func cadence(for band: MoodBand, level: NudgeLevel) -> (count: Int, spacing: TimeInterval) {
+        static func cadence(for band: MoodBand) -> (count: Int, spacing: TimeInterval) {
             let rule = cadenceRules[band] ?? CadenceRule(count: 0, spacing: 4 * 3600)
-            // "Rarely" caps every band at one gentle ping a day - quieting
-            // Mochi must never require the system-level off switch.
-            if level == .rarely {
-                return (min(rule.count, 1), rule.spacing)
-            }
             return (rule.count, rule.spacing)
         }
     }
@@ -145,7 +140,7 @@ enum NotificationPlanner {
         var lastPingAt: Date?
 
         for segment in segments {
-            let (dailyCount, spacing) = Constants.cadence(for: segment.band, level: input.prefs.level)
+            let (dailyCount, spacing) = Constants.cadence(for: segment.band)
             guard dailyCount > 0 else { continue }
 
             // A segment opening at a crossing pings at the crossing (no

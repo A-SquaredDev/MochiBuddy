@@ -15,9 +15,11 @@ final class ManageListsViewModel: StateViewModel<
 
     private let authRepository: AuthRepository
     private let listRepository: ListRepository
+    private let taskRepository: TaskRepository
 
     // Domain source of truth.
     private var lists: [TaskList] = []
+    private var repeatingTasks: [TaskItem] = []
     private var deleteCandidateId: String?
     private var renameCandidateId: String?
     /// After create clears the field, the focused TextField can echo the
@@ -27,10 +29,12 @@ final class ManageListsViewModel: StateViewModel<
     init(
         authRepository: AuthRepository,
         listRepository: ListRepository,
+        taskRepository: TaskRepository,
         membershipSession: MembershipSession
     ) {
         self.authRepository = authRepository
         self.listRepository = listRepository
+        self.taskRepository = taskRepository
         var initial = ManageListsBehavior.UIState()
         initial.colorChoices = TaskListDefaults.colorChoices.map {
             ManageListsBehavior.ColorChoice(id: $0, color: Color(hexString: $0))
@@ -121,6 +125,24 @@ final class ManageListsViewModel: StateViewModel<
         case .cancelRename:
             renameCandidateId = nil
             state.showRename = false
+
+        case .colorDotTapped(let id):
+            state.editingColorListId = uiState.editingColorListId == id ? nil : id
+
+        case .selectRowColor(let id, let colorHex):
+            state.editingColorListId = nil
+            guard let index = lists.firstIndex(where: { $0.id == id }), let userId else { return }
+            lists[index].colorHex = colorHex
+            rebuildRows()
+            try? await listRepository.updateListColor(id: id, colorHex: colorHex, userId: userId)
+
+        case .seriesTapped(let id):
+            guard let task = repeatingTasks.first(where: { $0.id == id }) else { return }
+            state.editingSeries = ManageListsBehavior.EditingSeries(task: task)
+
+        case .seriesEditorDismissed:
+            state.editingSeries = nil
+            await reload()
         }
     }
 
@@ -129,17 +151,43 @@ final class ManageListsViewModel: StateViewModel<
     private func reload() async {
         guard let userId else { return }
         lists = (try? await listRepository.fetchLists(userId: userId)) ?? []
+        let tasks = (try? await taskRepository.incompleteTasks(userId: userId)) ?? []
+        repeatingTasks = tasks
+            .filter { $0.repeatRule != nil }
+            .sorted { ($0.dueAt ?? .distantFuture) < ($1.dueAt ?? .distantFuture) }
         rebuildRows()
     }
 
     private func rebuildRows() {
+        state.repeating = repeatingTasks.compactMap { task in
+            guard let rule = task.repeatRule else { return nil }
+            return ManageListsBehavior.RepeatingUIItem(
+                id: task.id,
+                title: task.title,
+                cadence: Self.cadenceText(rule)
+            )
+        }
         state.lists = lists.map {
             ManageListsBehavior.ListUIItem(
                 id: $0.id,
                 name: $0.name,
                 icon: $0.icon,
-                color: Color(hexString: $0.colorHex)
+                color: Color(hexString: $0.colorHex),
+                colorHex: $0.colorHex
             )
+        }
+    }
+
+    private static func cadenceText(_ rule: TaskRepeat, calendar: Calendar = .current) -> String {
+        switch rule {
+        case .daily: "Every day"
+        case .weekdays: "Weekdays"
+        case .weekly: "Every week"
+        case .monthly: "Every month"
+        case .custom(let days):
+            days.sorted()
+                .map { calendar.shortStandaloneWeekdaySymbols[$0 - 1] }
+                .joined(separator: " · ")
         }
     }
 }

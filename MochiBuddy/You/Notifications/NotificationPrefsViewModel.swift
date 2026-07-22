@@ -2,7 +2,7 @@
 //  NotificationPrefsViewModel.swift
 //  MochiBuddy
 //
-//  "Gentle nudges, never nags" - the chattiness dial and per-type toggles.
+//  "Gentle nudges, never nags" - the per-type notification toggles.
 //  Every change persists immediately to the profile document.
 //
 
@@ -33,13 +33,7 @@ final class NotificationPrefsViewModel: StateViewModel<
         self.profileRepository = profileRepository
         self.permissionService = permissionService
         self.relay = relay
-        var initial = NotificationPrefsBehavior.UIState()
-        initial.levelOptions = [
-            .init(id: NudgeLevel.rarely.rawValue, label: "Rarely"),
-            .init(id: NudgeLevel.balanced.rawValue, label: "Balanced"),
-            .init(id: NudgeLevel.chatty.rawValue, label: "Keep me on it"),
-        ]
-        super.init(initialState: initial)
+        super.init(initialState: NotificationPrefsBehavior.UIState())
     }
 
     override func triggerAsync(_ action: NotificationPrefsBehavior.ViewAction) async {
@@ -51,11 +45,6 @@ final class NotificationPrefsViewModel: StateViewModel<
             }
             let status = await permissionService.authorizationStatus()
             rebuildState(systemDenied: status == .denied)
-
-        case .selectLevel(let id):
-            guard let level = NudgeLevel(rawValue: id) else { return }
-            prefs.level = level
-            await applyChange()
 
         case .setTaskReminders(let isOn):
             prefs.taskReminders = isOn
@@ -91,7 +80,6 @@ final class NotificationPrefsViewModel: StateViewModel<
     private func rebuildState(systemDenied: Bool) {
         setUIState(
             uiState
-                .updating(\.selectedLevelId, to: prefs.level.rawValue)
                 .updating(\.taskReminders, to: prefs.taskReminders)
                 .updating(\.morningRundown, to: prefs.morningRundown)
                 .updating(\.moodDips, to: prefs.moodDips)

@@ -132,6 +132,7 @@ struct ListDetailView: View {
             state: item.state,
             chip: item.chip,
             sourceBadge: item.sourceBadge,
+            isRecurring: item.isRecurring,
             onTap: { viewModel.trigger(.taskTapped(item.id)) },
             onToggle: { viewModel.trigger(.toggleTask(item.id)) }
         )

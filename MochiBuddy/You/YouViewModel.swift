@@ -104,6 +104,26 @@ final class YouViewModel: ObservableStateViewModel<
                 state.restoreMessage = "Couldn't sign out. \(error.localizedDescription)"
             }
 
+        case .editNameTapped:
+            state.nameDraft = profile?.displayName
+                ?? authRepository.currentAccount?.displayName ?? ""
+            state.showNameEditor = true
+
+        case .nameDraftChanged(let text):
+            state.nameDraft = text
+
+        case .cancelEditName:
+            state.showNameEditor = false
+
+        case .confirmEditName:
+            state.showNameEditor = false
+            let name = uiState.nameDraft.trimmingCharacters(in: .whitespaces)
+            guard !name.isEmpty, let userId else { return }
+            profile?.displayName = name
+            state.displayName = name
+            state.avatarLetter = String(name.prefix(1)).uppercased()
+            try? await profileRepository.saveDisplayName(name, userId: userId)
+
         case .bedtimeTapped: setNavigationEvent(.editBedtime)
         case .statsTapped: setNavigationEvent(.showStats)
         case .notificationsTapped: setNavigationEvent(.showNotifications)
@@ -133,15 +153,19 @@ final class YouViewModel: ObservableStateViewModel<
             next.displayName = "Mochi friend"
             next.identitySub = "Guest account"
         }
-        next.avatarLetter = String(next.displayName.prefix(1)).uppercased()
 
         if let userId, let fetched = try? await profileRepository.fetchProfile(userId: userId) {
             profile = fetched
+            // The profile's name wins: Apple only supplies one on the very
+            // first authorization, so the auth account is often nameless.
+            if let name = fetched.displayName, !name.isEmpty {
+                next.displayName = name
+            }
             next.coins = fetched.coins
             next.bedtimeText = Self.bedtimeText(fetched.bedtime)
             next.morningRundown = fetched.notificationPrefs.morningRundown
             next.soundEnabled = fetched.soundEnabled
-            next.notificationsSub = "Gentle nudges · \(Self.levelText(fetched.notificationPrefs.level))"
+            next.notificationsSub = Self.notificationsSubtitle(fetched.notificationPrefs)
             next.remindersSub = fetched.importedReminderListIds.isEmpty
                 ? "Bring your Reminders in"
                 : "\(fetched.importedReminderListIds.count) list\(fetched.importedReminderListIds.count == 1 ? "" : "s") syncing"
@@ -150,10 +174,11 @@ final class YouViewModel: ObservableStateViewModel<
                 : "Pause all nudges while you rest"
         } else {
             next.bedtimeText = Self.bedtimeText(.standard)
-            next.notificationsSub = "Gentle nudges · balanced"
+            next.notificationsSub = Self.notificationsSubtitle(.standard)
             next.remindersSub = "Bring your Reminders in"
             next.vacationSub = "Pause all nudges while you rest"
         }
+        next.avatarLetter = String(next.displayName.prefix(1)).uppercased()
 
         if let userId {
             let listCount = (try? await listRepository.fetchLists(userId: userId).count) ?? 0
@@ -217,12 +242,13 @@ final class YouViewModel: ObservableStateViewModel<
 
     // MARK: - Formatting
 
-    private static func levelText(_ level: NudgeLevel) -> String {
-        switch level {
-        case .rarely: "rarely"
-        case .balanced: "balanced"
-        case .chatty: "keep me on it"
-        }
+    private static func notificationsSubtitle(_ prefs: NotificationPrefs) -> String {
+        let enabled = [
+            prefs.taskReminders ? "reminders" : nil,
+            prefs.morningRundown ? "rundown" : nil,
+            prefs.moodDips ? "mood dips" : nil,
+        ].compactMap { $0 }
+        return enabled.isEmpty ? "All quiet" : "Gentle " + enabled.joined(separator: " · ")
     }
 
     private static func bedtimeText(_ window: BedtimeWindow) -> String {

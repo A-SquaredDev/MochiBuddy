@@ -84,11 +84,18 @@ final class TasksRouter: TasksRouting {
         let viewModel = ManageListsViewModel(
             authRepository: container.authRepository,
             listRepository: container.listRepository,
+            taskRepository: container.taskRepository,
             membershipSession: container.membershipSession
         )
         navController.navigate(
             route: AdHocRoute(key: "tasks.lists"),
-            view: AnyView(ManageListsView(viewModel: viewModel, router: self))
+            view: AnyView(ManageListsView(
+                viewModel: viewModel,
+                router: self,
+                taskEditor: { [weak self] task in
+                    self?.taskEditor(task: task) ?? AnyView(EmptyView())
+                }
+            ))
         )
     }
 

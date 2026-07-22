@@ -20,7 +20,11 @@ struct TaskList: Equatable, Identifiable {
 }
 
 enum TaskListDefaults {
-    /// Swatch choices from the design's "New list" row.
-    static let colorChoices = ["#C9A6FF", "#FF9DC4", "#8FD3F4", "#9BE6B4"]
+    /// Swatch choices from the design's "New list" row, plus the second
+    /// pastel run (peach, butter, mint, periwinkle).
+    static let colorChoices = [
+        "#C9A6FF", "#FF9DC4", "#8FD3F4", "#9BE6B4",
+        "#FFC9A3", "#FFE8A8", "#A8E6DB", "#B7C5F9",
+    ]
     static let icon = "tag.fill"
 }

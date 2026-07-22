@@ -21,6 +21,7 @@ protocol UserProfileRepository: AnyObject {
     func saveVacation(mode: Bool, resumeAt: Date?, startedAt: Date?, userId: String) async throws
     func saveImportedReminderLists(_ ids: [String], userId: String) async throws
     func saveAccountLink(provider: String, displayName: String?, userId: String) async throws
+    func saveDisplayName(_ name: String, userId: String) async throws
     func saveMembershipMirror(isSubscribed: Bool, trialEndsAt: Date?, userId: String) async throws
     func markOnboardingComplete(userId: String) async throws
     /// Atomic coin adjustment (completions earn, treats spend).
@@ -84,7 +85,6 @@ final class FirestoreUserProfileRepository: UserProfileRepository {
     func saveNotificationPrefs(_ prefs: NotificationPrefs, userId: String) async throws {
         try await merge([
             "notificationPrefs": [
-                "level": prefs.level.rawValue,
                 "taskReminders": prefs.taskReminders,
                 "morningRundown": prefs.morningRundown,
                 "moodDips": prefs.moodDips,
@@ -115,6 +115,10 @@ final class FirestoreUserProfileRepository: UserProfileRepository {
             fields["displayName"] = displayName
         }
         try await merge(fields, userId: userId)
+    }
+
+    func saveDisplayName(_ name: String, userId: String) async throws {
+        try await merge(["displayName": name], userId: userId)
     }
 
     func saveMembershipMirror(isSubscribed: Bool, trialEndsAt: Date?, userId: String) async throws {

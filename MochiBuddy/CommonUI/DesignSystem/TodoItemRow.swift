@@ -29,6 +29,8 @@ struct TodoItemRow: View {
     var listColor: Color? = nil
     /// Tiny capsule after the title for externally-sourced rows ("Reminders").
     var sourceBadge: String? = nil
+    /// Repeat glyph after the title - this row is an occurrence of a series.
+    var isRecurring: Bool = false
     /// Row-body tap (opens detail/edit); the checkbox stays independent.
     var onTap: (() -> Void)?
     let onToggle: () -> Void
@@ -83,6 +85,12 @@ struct TodoItemRow: View {
                         .foregroundStyle(theme.ink)
                         .strikethrough(isDone, color: theme.muted)
                         .lineLimit(2)
+                    if isRecurring {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(theme.muted)
+                            .accessibilityLabel("Repeats")
+                    }
                     if let sourceBadge {
                         Text(sourceBadge)
                             .font(MochiFont.body(9, weight: .heavy))

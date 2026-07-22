@@ -261,12 +261,13 @@ final class HomeViewModel: StateViewModel<
         defer { state.isLoading = false }
         guard let userId else { return }
 
-        if let account = authRepository.currentAccount {
-            let first = account.displayName?.split(separator: " ").first.map(String.init)
-            state.greeting = "Hi, \(first ?? "friend")"
-        }
-
         var profile = try? await profileRepository.fetchProfile(userId: userId)
+        // Prefer the profile's name: Apple only hands the auth account a
+        // name on the very first authorization, so the profile document is
+        // the durable source (and the one the user can edit on the You tab).
+        let name = profile?.displayName ?? authRepository.currentAccount?.displayName
+        let first = name?.split(separator: " ").first.map(String.init)
+        state.greeting = "Hi, \(first ?? "friend")"
         // A vacation that ended while away (date passed / cap hit) gets
         // its re-entry here, on the first open - then reload the profile
         // the service just cleared.
@@ -536,7 +537,8 @@ final class HomeViewModel: StateViewModel<
             id: task.id, title: task.title,
             meta: display.meta, state: display.state, chip: display.chip,
             listName: listTag?.name,
-            listColor: listTag?.color
+            listColor: listTag?.color,
+            isRecurring: task.repeatRule != nil
         )
     }
 

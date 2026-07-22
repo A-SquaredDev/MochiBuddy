@@ -69,6 +69,18 @@ struct YouView: View {
             },
             message: { Text("Your tasks, coins and Mochi stay safe in the cloud. Sign back in anytime.") }
         )
+        .alert(
+            "What should Mochi call you?",
+            isPresented: viewModel.collectBinding(for: \.showNameEditor, action: .cancelEditName),
+            actions: {
+                TextField(
+                    "Your name",
+                    text: viewModel.collectBinding(for: \.nameDraft, action: { .nameDraftChanged($0) })
+                )
+                Button("Save") { viewModel.trigger(.confirmEditName) }
+                Button("Cancel", role: .cancel) { viewModel.trigger(.cancelEditName) }
+            }
+        )
         .onReceive(viewModel.navigationEvents) { event in
             switch event {
             case .editBedtime: router.navigateToBedtime()
@@ -105,6 +117,19 @@ struct YouView: View {
                     .foregroundStyle(theme.muted)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            Button {
+                Haptics.impact(.light)
+                viewModel.trigger(.editNameTapped)
+            } label: {
+                Image(systemName: "pencil")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(theme.muted)
+                    .frame(width: 28, height: 28)
+                    .background(theme.surface, in: Circle())
+                    .overlay(Circle().stroke(theme.line, lineWidth: 1))
+            }
+            .buttonStyle(SquishButtonStyle())
+            .accessibilityLabel("Edit name")
             if viewModel.isMember {
                 Text("Mochi+")
                     .font(MochiFont.body(10, weight: .heavy))

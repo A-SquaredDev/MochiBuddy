@@ -483,7 +483,8 @@ final class TasksViewModel: ObservableStateViewModel<
             id: task.id, title: task.title,
             meta: display.meta, state: display.state, chip: display.chip,
             listName: listTag?.name,
-            listColor: listTag?.color
+            listColor: listTag?.color,
+            isRecurring: task.repeatRule != nil
         )
     }
 }

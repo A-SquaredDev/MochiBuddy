@@ -39,6 +39,8 @@ enum YouBehavior {
         var isRestoring = false
         var restoreMessage: String?
         var showSignOutConfirm = false
+        var showNameEditor = false
+        var nameDraft = ""
     }
 
     enum ViewAction {
@@ -51,6 +53,10 @@ enum YouBehavior {
         case signOutTapped
         case confirmSignOut
         case cancelSignOut
+        case editNameTapped
+        case nameDraftChanged(String)
+        case confirmEditName
+        case cancelEditName
         // Row taps routed through the ViewModel so future logic (e.g. gating)
         // stays out of the View.
         case bedtimeTapped
