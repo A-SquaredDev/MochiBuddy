@@ -94,6 +94,7 @@ final class FirestoreTaskRepository: TaskRepository {
     }
 
     func completedTasks(limit: Int, userId: String) async throws -> [TaskItem] {
+        FirestoreReadLog.record(Self.self)
         // Range + order on the same field - no composite index needed
         // (completedAt only exists on completed tasks). Epoch, not
         // .distantPast - year 1 is outside Timestamp's valid range.
@@ -106,6 +107,7 @@ final class FirestoreTaskRepository: TaskRepository {
     }
 
     func completedTasks(since: Date, userId: String) async throws -> [TaskItem] {
+        FirestoreReadLog.record(Self.self)
         // Range + order on the same field - no composite index needed.
         let snapshot = try await tasks(userId)
             .whereField("completedAt", isGreaterThanOrEqualTo: Timestamp(date: since))
@@ -151,6 +153,7 @@ final class FirestoreTaskRepository: TaskRepository {
     }
 
     func incompleteTasks(userId: String) async throws -> [TaskItem] {
+        FirestoreReadLog.record(Self.self)
         // Single equality filter - no composite index needed; today/overdue
         // grouping happens client-side (task counts stay small).
         let snapshot = try await tasks(userId)
@@ -184,6 +187,7 @@ final class FirestoreTaskRepository: TaskRepository {
     }
 
     func task(id: String, userId: String) async throws -> TaskItem? {
+        FirestoreReadLog.record(Self.self)
         let snapshot = try await tasks(userId).document(id).getDocument()
         guard snapshot.exists, let data = snapshot.data() else { return nil }
         return Self.taskItem(id: snapshot.documentID, data: data)
@@ -210,17 +214,20 @@ final class FirestoreTaskRepository: TaskRepository {
     }
 
     func incompleteTaskCount(userId: String) async throws -> Int {
+        FirestoreReadLog.record(Self.self)
         let query = tasks(userId).whereField("completed", isEqualTo: false).count
         let snapshot = try await query.getAggregation(source: .server)
         return snapshot.count.intValue
     }
 
     func totalTaskCount(userId: String) async throws -> Int {
+        FirestoreReadLog.record(Self.self)
         let snapshot = try await tasks(userId).count.getAggregation(source: .server)
         return snapshot.count.intValue
     }
 
     func completedTaskStats(since: Date, userId: String) async throws -> [CompletedTaskStat] {
+        FirestoreReadLog.record(Self.self)
         // Range on completedAt alone (no composite index needed) - the field
         // only exists on completed tasks.
         let snapshot = try await tasks(userId)

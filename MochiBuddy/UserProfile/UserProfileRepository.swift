@@ -42,12 +42,14 @@ final class FirestoreUserProfileRepository: UserProfileRepository {
     }
 
     func fetchProfile(userId: String) async throws -> UserProfile? {
+        FirestoreReadLog.record(Self.self)
         let snapshot = try await document(userId).getDocument()
         guard snapshot.exists, let data = snapshot.data() else { return nil }
         return UserProfileMapper.map(UserProfileDTO(id: userId, data: data))
     }
 
     func ensureProfile(for account: AuthAccount) async throws {
+        FirestoreReadLog.record(Self.self)
         let snapshot = try await document(account.uid).getDocument()
         guard !snapshot.exists else { return }
         // Not awaited: with offline persistence on, server acks can be

@@ -35,6 +35,7 @@ final class FirestoreListRepository: ListRepository {
     }
 
     func fetchLists(userId: String) async throws -> [TaskList] {
+        FirestoreReadLog.record(Self.self)
         let snapshot = try await lists(userId).order(by: "order").getDocuments()
         return snapshot.documents.map { document in
             let data = document.data()

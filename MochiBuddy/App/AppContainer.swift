@@ -70,7 +70,9 @@ final class AppContainer {
     init() {
         let firestore = Firestore.firestore()
         authRepository = FirebaseAuthRepository()
-        profileRepository = FirestoreUserProfileRepository(firestore: firestore)
+        profileRepository = CachingUserProfileRepository(
+            wrapping: FirestoreUserProfileRepository(firestore: firestore)
+        )
         taskRepository = FirestoreTaskRepository(firestore: firestore)
         listRepository = FirestoreListRepository(firestore: firestore)
         accountEraser = FirestoreAccountEraser(firestore: firestore)
