@@ -19,7 +19,7 @@ struct YouView: View {
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 12) {
-                ScreenTopBar(title: "You", subtitle: "Preferences & Mochi's care") {
+                ScreenTopBar(title: "You", subtitle: "Preferences & care for \(viewModel.mochiName)") {
                     if !viewModel.isLapsed {
                         CoinPill(coins: viewModel.coins)
                     }
@@ -31,6 +31,7 @@ struct YouView: View {
                     flavorCard
                     careCard
                 }
+                yourMochiCard
                 navigationRows
                 MochiEyebrow(text: "Account")
                     .padding(.top, 4)
@@ -67,10 +68,10 @@ struct YouView: View {
                 Button("Sign out", role: .destructive) { viewModel.trigger(.confirmSignOut) }
                 Button("Stay", role: .cancel) { viewModel.trigger(.cancelSignOut) }
             },
-            message: { Text("Your tasks, coins and Mochi stay safe in the cloud. Sign back in anytime.") }
+            message: { Text("Your tasks, coins and \(viewModel.mochiName) stay safe in the cloud. Sign back in anytime.") }
         )
         .alert(
-            "What should Mochi call you?",
+            "What should \(viewModel.mochiName) call you?",
             isPresented: viewModel.collectBinding(for: \.showNameEditor, action: .cancelEditName),
             actions: {
                 TextField(
@@ -81,6 +82,13 @@ struct YouView: View {
                 Button("Cancel", role: .cancel) { viewModel.trigger(.cancelEditName) }
             }
         )
+        .sheet(
+            isPresented: viewModel.collectBinding(for: \.showMochiRename, action: .cancelRenameMochi)
+        ) {
+            mochiRenameSheet
+                .presentationDetents([.height(240)])
+                .presentationDragIndicator(.visible)
+        }
         .onReceive(viewModel.navigationEvents) { event in
             switch event {
             case .editBedtime: router.navigateToBedtime()
@@ -190,7 +198,7 @@ struct YouView: View {
                             Text("Bedtime")
                                 .font(MochiFont.body(13, weight: .heavy))
                                 .foregroundStyle(theme.ink)
-                            Text("Mochi sleeps · nudges pause")
+                            Text("\(viewModel.mochiName) sleeps · nudges pause")
                                 .font(MochiFont.body(11, weight: .bold))
                                 .foregroundStyle(theme.muted)
                         }
@@ -223,25 +231,104 @@ struct YouView: View {
         }
     }
 
-    /// Lapsed replacement for the care/flavor cards: Mochi naps, one CTA.
+    /// Lapsed replacement for the care/flavor cards: the pet naps, one CTA.
+    /// Honest labeling, not a comeback nudge (winback doctrine).
     private var wakeMochiCard: some View {
         MochiCard(padding: EdgeInsets(top: 16, leading: 15, bottom: 16, trailing: 15)) {
             VStack(spacing: 6) {
-                MochiPetView(mood: .sleeping, size: 96)
-                Text("Mochi is napping")
+                MochiPetView(mood: .sleeping, size: 96, petName: viewModel.mochiName)
+                Text("\(viewModel.mochiName) is napping")
                     .font(MochiFont.display(14, weight: .semibold))
                     .foregroundStyle(theme.ink)
                 Text("Your tasks, coins and streak are safe. Nothing was deleted.")
                     .font(MochiFont.body(11.5, weight: .bold))
                     .foregroundStyle(theme.muted)
                     .multilineTextAlignment(.center)
-                MochiButton(title: "Wake Mochi", variant: .primary, size: .md) {
+                MochiButton(title: viewModel.wakeCtaTitle, variant: .primary, size: .md) {
                     viewModel.trigger(.wakeMochiTapped)
                 }
+                .accessibilityLabel("Wake \(viewModel.mochiName)")
                 .padding(.top, 8)
             }
             .frame(maxWidth: .infinity)
         }
+    }
+
+    /// "Your Mochi" - name + adoption date. Available in EVERY state,
+    /// including lapsed: a rename is a pure text fix and withholding a
+    /// text field as resubscribe pressure is manipulation we don't do.
+    private var yourMochiCard: some View {
+        MochiCard(padding: EdgeInsets(top: 14, leading: 15, bottom: 14, trailing: 15)) {
+            VStack(alignment: .leading, spacing: 11) {
+                MochiEyebrow(text: "Your Mochi")
+                Button {
+                    Haptics.impact(.light)
+                    viewModel.trigger(.renameMochiTapped)
+                } label: {
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(viewModel.mochiName)
+                                .font(MochiFont.display(13.5, weight: .semibold))
+                                .foregroundStyle(theme.ink)
+                                .lineLimit(1)
+                            if !viewModel.adoptedOnText.isEmpty {
+                                Text(viewModel.adoptedOnText)
+                                    .font(MochiFont.body(11, weight: .bold))
+                                    .foregroundStyle(theme.muted)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        Image(systemName: "pencil")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(theme.muted)
+                            .frame(width: 28, height: 28)
+                            .background(theme.surface, in: Circle())
+                            .overlay(Circle().stroke(theme.line, lineWidth: 1))
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Rename \(viewModel.mochiName)")
+            }
+        }
+    }
+
+    /// The small rename sheet - same field, same rules as onboarding.
+    private var mochiRenameSheet: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("A new name for \(viewModel.mochiName)?")
+                .font(MochiFont.display(16, weight: .semibold))
+                .foregroundStyle(theme.ink)
+                .padding(.top, 22)
+            HStack(spacing: 7) {
+                Image(systemName: "pencil")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(theme.muted)
+                PetNameTextField(
+                    text: viewModel.collectBinding(for: \.mochiNameDraft, action: { .mochiNameDraftChanged($0) }),
+                    textColor: UIColor(theme.ink),
+                    onSubmit: { viewModel.trigger(.confirmRenameMochi) }
+                )
+                .frame(height: 22)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(theme.surface, in: RoundedRectangle(cornerRadius: MochiRadius.md))
+            .overlay(
+                RoundedRectangle(cornerRadius: MochiRadius.md)
+                    .stroke(theme.line, lineWidth: 2)
+            )
+            MochiButton(title: "Save") {
+                viewModel.trigger(.confirmRenameMochi)
+            }
+            MochiTextLink(title: "Cancel") {
+                viewModel.trigger(.cancelRenameMochi)
+            }
+            .frame(maxWidth: .infinity)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 18)
+        .background(theme.bg)
     }
 
     private var navigationRows: some View {

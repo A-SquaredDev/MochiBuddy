@@ -26,7 +26,7 @@ struct FirstTaskView: View {
                 OnbHeading(
                     eyebrow: "Your first task",
                     title: "What's one thing on your mind?",
-                    bodyText: "Jot it down. Mochi's already rooting for you to check it off.",
+                    bodyText: "Jot it down. \(viewModel.petName) is already rooting for you to check it off.",
                     align: .leading
                 )
                 .padding(.top, 8)
@@ -38,7 +38,7 @@ struct FirstTaskView: View {
                 }
 
                 VStack(spacing: 4) {
-                    MochiPetView(vitality: 90, size: 110)
+                    MochiPetView(vitality: 90, size: 110, petName: viewModel.petName)
                     Text("Ooh, a fresh start")
                         .font(MochiFont.display(13.5, weight: .semibold))
                         .foregroundStyle(theme.ink)

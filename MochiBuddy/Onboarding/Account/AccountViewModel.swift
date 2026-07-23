@@ -30,6 +30,7 @@ final class AccountViewModel: ObservableStateViewModel<
     override func triggerAsync(_ action: AccountBehavior.ViewAction) async {
         switch action {
         case .load:
+            state.petName = onboardingStore.petName
             prepareNonce()
 
         case .appleCompleted(let idToken, let fullName):

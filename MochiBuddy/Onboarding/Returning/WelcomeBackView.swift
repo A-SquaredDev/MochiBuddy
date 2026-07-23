@@ -22,7 +22,7 @@ struct WelcomeBackView: View {
             }
             OnbHeading(
                 eyebrow: "Welcome back",
-                title: "Mochi missed you",
+                title: "\(viewModel.petName) missed you",
                 bodyText: "Everything's just as you left it. Let's pick up right where you stopped."
             )
             accountChip

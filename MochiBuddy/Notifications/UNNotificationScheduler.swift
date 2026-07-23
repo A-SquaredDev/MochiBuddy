@@ -97,8 +97,13 @@ final class UNNotificationScheduler: NotificationScheduling {
 
 enum NotificationCategories {
 
-    /// Register once at startup so actions work from a cold start.
-    static func register(in center: UNUserNotificationCenter = .current()) {
+    /// Register at startup (so actions work from a cold start) and again
+    /// from PetIdentityDidChange BEFORE any re-lay, so newly laid
+    /// notifications reference matching action labels.
+    static func register(
+        petName: String = PetNameSanitizer.defaultName,
+        in center: UNUserNotificationCenter = .current()
+    ) {
         let reminder = UNNotificationCategory(
             identifier: NotificationCategoryID.reminder,
             actions: [
@@ -110,17 +115,18 @@ enum NotificationCategories {
             },
             intentIdentifiers: []
         )
+        let shhHours = Int((NotificationOrchestrator.Constants.shhDuration / 3600).rounded())
         let moodPing = UNNotificationCategory(
             identifier: NotificationCategoryID.moodPing,
             actions: [
                 UNNotificationAction(
-                    identifier: NotificationActionID.pet, title: "Pet Mochi", options: []
+                    identifier: NotificationActionID.pet,
+                    title: NotificationActionTitles.pet(petName: petName),
+                    options: []
                 ),
                 UNNotificationAction(
                     identifier: NotificationActionID.shh,
-                    // The valve's length is remote-tunable - the label must
-                    // never promise a different duration than it delivers.
-                    title: "Mochi, shh · \(Int((NotificationOrchestrator.Constants.shhDuration / 3600).rounded()))h",
+                    title: NotificationActionTitles.shh(petName: petName, hours: shhHours),
                     options: []
                 ),
             ],

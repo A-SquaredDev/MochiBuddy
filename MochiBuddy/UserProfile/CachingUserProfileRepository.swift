@@ -119,6 +119,22 @@ final class CachingUserProfileRepository: UserProfileRepository {
         mutate(userId) { $0.displayName = name }
     }
 
+    func saveMochiName(_ name: String, userId: String) async throws {
+        try await wrapped.saveMochiName(name, userId: userId)
+        // Mirror the persistence-boundary sanitizing.
+        mutate(userId) { $0.mochiName = PetNameSanitizer.canonicalName(from: name) }
+    }
+
+    func stampAdoptedOn(_ dateString: String, userId: String) async throws {
+        try await wrapped.stampAdoptedOn(dateString, userId: userId)
+        // Write-once: the cache honors an existing value like the rules do.
+        mutate(userId) {
+            if $0.adoptedOn == nil, AdoptedOnDate.isValid(dateString) {
+                $0.adoptedOn = dateString
+            }
+        }
+    }
+
     func saveMembershipMirror(isSubscribed: Bool, trialEndsAt: Date?, userId: String) async throws {
         try await wrapped.saveMembershipMirror(isSubscribed: isSubscribed, trialEndsAt: trialEndsAt, userId: userId)
         mutate(userId) {

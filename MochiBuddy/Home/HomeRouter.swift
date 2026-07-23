@@ -48,6 +48,7 @@ final class HomeRouter {
         let viewModel = TaskEditorViewModel(
             editingTask: task,
             draftTitle: draftTitle,
+            petName: container.petIdentityStore.name,
             authRepository: container.authRepository,
             taskRepository: container.taskRepository,
             listRepository: container.listRepository

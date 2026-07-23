@@ -27,6 +27,7 @@ final class BedtimeViewModel: ObservableStateViewModel<
     override func triggerAsync(_ action: BedtimeBehavior.ViewAction) async {
         switch action {
         case .load:
+            state.petName = onboardingStore.petName
             rebuildState(editing: .none)
 
         case .bedtimeTapped:

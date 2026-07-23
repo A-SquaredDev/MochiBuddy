@@ -56,6 +56,10 @@ struct MochiWidgetState: Codable, Equatable {
     var schemaVersion = 1
     var displayState: DisplayState
     var themeId: String
+    /// The pet's name. Optional so a pre-rename snapshot still decodes;
+    /// the widget falls back to "Mochi" via `petDisplayName`, making the
+    /// app-first update order safe.
+    var mochiName: String? = nil
     /// Baseline samples, ascending - the notification forecast's curve,
     /// mirrored verbatim.
     var baseline: [ForecastPoint]
@@ -64,6 +68,11 @@ struct MochiWidgetState: Codable, Equatable {
     var nextTasks: [NextTask]
     var vacationEnd: Date?
     var lastComputed: Date
+
+    /// What widget chrome and VoiceOver call the pet.
+    var petDisplayName: String {
+        mochiName ?? "Mochi"
+    }
 
     // MARK: - Widget-side evaluation
 

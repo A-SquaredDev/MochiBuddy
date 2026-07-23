@@ -29,6 +29,13 @@ struct RootView: View {
             container.membershipSession.status = await container.membershipStore.currentStatus()
             await container.notificationPermissionService.requestProvisionalIfUndetermined()
             await container.widgetCompletionDrain.drain()
+            // Pet identity loads (and one-time migrates legacy profiles,
+            // incl. the interrupted-onboarding adoptedOn backstop) before
+            // the lay so copy and action labels dress with the right name.
+            if let userId = container.authRepository.currentAccount?.uid,
+               let profile = try? await container.profileRepository.fetchProfile(userId: userId) {
+                await container.petIdentityStore.load(profile: profile)
+            }
             container.notificationOrchestrator.requestRelay(.appForeground)
         }
     }

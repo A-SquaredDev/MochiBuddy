@@ -8,6 +8,8 @@ import Foundation
 enum WelcomeBackBehavior {
 
     struct UIState: UpdatableStruct, Equatable {
+        /// The pet's chosen name - "Mochi" until the summary lands.
+        var petName = "Mochi"
         var name = ""
         var detail = ""
         var providerLabel = ""

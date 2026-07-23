@@ -31,8 +31,8 @@ struct BedtimeView: View {
             }
             OnbHeading(
                 eyebrow: "Quiet hours",
-                title: "When should Mochi sleep?",
-                bodyText: "Mochi rests while you do. No anxious pings at 2am, and a friendly rundown of the day when you both wake up."
+                title: "When should \(viewModel.petName) sleep?",
+                bodyText: "\(viewModel.petName) rests while you do. No anxious pings at 2am, and a friendly rundown of the day when you both wake up."
             )
             HStack(spacing: 10) {
                 TimePill(

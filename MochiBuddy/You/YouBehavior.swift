@@ -41,6 +41,16 @@ enum YouBehavior {
         var showSignOutConfirm = false
         var showNameEditor = false
         var nameDraft = ""
+        /// The pet's name - drives every pet-referential line on this tab.
+        var mochiName = "Mochi"
+        /// "Met on July 22, 2026", rendered verbatim from the date-only
+        /// adoptedOn (no timezone math). Empty until the profile loads.
+        var adoptedOnText = ""
+        var showMochiRename = false
+        var mochiNameDraft = ""
+        /// Wake CTA label: name included when it fits the layout,
+        /// verb-only otherwise (VoiceOver always gets the full name).
+        var wakeCtaTitle = "Wake Mochi"
     }
 
     enum ViewAction {
@@ -57,6 +67,12 @@ enum YouBehavior {
         case nameDraftChanged(String)
         case confirmEditName
         case cancelEditName
+        // Pet rename - available in EVERY state incl. lapsed (a pure text
+        // fix wakes nothing, unlocks nothing, schedules nothing).
+        case renameMochiTapped
+        case mochiNameDraftChanged(String)
+        case confirmRenameMochi
+        case cancelRenameMochi
         // Row taps routed through the ViewModel so future logic (e.g. gating)
         // stays out of the View.
         case bedtimeTapped

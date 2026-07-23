@@ -93,10 +93,14 @@ func makeProfile(
     // An empty window so mood assertions don't flip when the suite runs at night.
     bedtime: BedtimeWindow = BedtimeWindow(startMinutes: 0, endMinutes: 0),
     notificationPrefs: NotificationPrefs = .standard,
-    importedReminderListIds: [String] = []
+    importedReminderListIds: [String] = [],
+    createdAt: Date? = nil,
+    mochiName: String = "Mochi",
+    adoptedOn: String? = nil
 ) -> UserProfile {
     UserProfile(
-        id: "user1", displayName: "Alex Rivera", authProvider: nil, createdAt: nil,
+        id: "user1", displayName: "Alex Rivera", authProvider: nil, createdAt: createdAt,
+        mochiName: mochiName, adoptedOn: adoptedOn,
         timezone: nil, bedtime: bedtime, themeId: nil,
         coins: coins, streakCount: streak, bestStreakCount: bestStreak,
         lastActiveDate: lastActiveDate, isSubscribed: false, trialEndsAt: nil,
@@ -264,6 +268,24 @@ final class StubProfileRepository: UserProfileRepository {
         savedDisplayNames.append(name)
         if var profile {
             profile.displayName = name
+            self.profile = profile
+        }
+    }
+    private(set) var savedMochiNames: [String] = []
+    func saveMochiName(_ name: String, userId: String) async throws {
+        let sanitized = PetNameSanitizer.canonicalName(from: name)
+        savedMochiNames.append(sanitized)
+        if var profile {
+            profile.mochiName = sanitized
+            self.profile = profile
+        }
+    }
+    private(set) var stampedAdoptedOns: [String] = []
+    func stampAdoptedOn(_ dateString: String, userId: String) async throws {
+        stampedAdoptedOns.append(dateString)
+        // Mirror the write-once rule: an existing value is never replaced.
+        if var profile, profile.adoptedOn == nil {
+            profile.adoptedOn = dateString
             self.profile = profile
         }
     }

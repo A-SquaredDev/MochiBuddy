@@ -22,6 +22,8 @@ enum AppleRemindersBehavior {
     }
 
     struct UIState: UpdatableStruct, Equatable {
+        /// The pet's chosen name (named in step 2, so it's already set).
+        var petName = "Mochi"
         var phase: Phase = .primer
         var lists: [ListUIItem] = []
         var isWorking = false

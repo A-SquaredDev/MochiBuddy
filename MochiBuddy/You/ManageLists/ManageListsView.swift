@@ -303,7 +303,7 @@ struct ManageListsView: View {
                 Image(systemName: "folder")
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(theme.muted)
-                Text("No lists yet. Mochi files everything in the Inbox. Make one below to sort your tasks.")
+                Text("No lists yet. \(viewModel.petName) files everything in the Inbox. Make one below to sort your tasks.")
                     .font(MochiFont.body(12, weight: .bold))
                     .foregroundStyle(theme.muted)
             }

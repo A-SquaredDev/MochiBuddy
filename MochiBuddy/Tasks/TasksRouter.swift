@@ -55,6 +55,7 @@ final class TasksRouter: TasksRouting {
             editingTask: task,
             draftTitle: draftTitle,
             draftListId: draftListId,
+            petName: container.petIdentityStore.name,
             authRepository: container.authRepository,
             taskRepository: container.taskRepository,
             listRepository: container.listRepository
@@ -85,7 +86,8 @@ final class TasksRouter: TasksRouting {
             authRepository: container.authRepository,
             listRepository: container.listRepository,
             taskRepository: container.taskRepository,
-            membershipSession: container.membershipSession
+            membershipSession: container.membershipSession,
+            petName: container.petIdentityStore.name
         )
         navController.navigate(
             route: AdHocRoute(key: "tasks.lists"),

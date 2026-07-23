@@ -155,7 +155,8 @@ struct WidgetStateMirrorTests {
         vacationMode: Bool = false,
         vacationResumeAt: Date? = nil,
         vacationStartedAt: Date? = nil,
-        hideTaskNames: Bool = false
+        hideTaskNames: Bool = false,
+        petName: String = "Mochi"
     ) -> NotificationOrchestrator.RelayContext {
         var prefs = NotificationPrefs.standard
         prefs.hideTaskNames = hideTaskNames
@@ -169,8 +170,15 @@ struct WidgetStateMirrorTests {
             ),
             prefs: prefs,
             bedtime: .standard,
-            lapsed: lapsed
+            lapsed: lapsed,
+            petName: petName
         )
+    }
+
+    @Test("the mirror writes the pet name into the snapshot for widget chrome")
+    func mirrorsPetName() {
+        let (state, _) = mirror(context: makeContext(petName: "Nori"))
+        #expect(state?.petDisplayName == "Nori")
     }
 
     @Test("the mirrored curve IS the engine's baseline, point for point, with the ranked next tasks")

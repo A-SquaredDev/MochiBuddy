@@ -83,16 +83,38 @@ struct NotificationCopyTests {
     @Test("floor copy shifts pools with the taper: acute early, pure presence later")
     func floorPools() {
         var deck = CopyDeck()
-        let acute = NotificationCopy.moodPing(band: .verySad, floorPhase: .acute, deck: &deck)
-        let chronic = NotificationCopy.moodPing(band: .verySad, floorPhase: .chronic, deck: &deck)
-        #expect(NotificationCopy.floorAcutePool.contains(acute.body))
-        #expect(NotificationCopy.floorChronicPool.contains(chronic.body))
+        let acute = NotificationCopy.moodPing(
+            band: .verySad, floorPhase: .acute, petName: "Mochi", deck: &deck
+        )
+        let chronic = NotificationCopy.moodPing(
+            band: .verySad, floorPhase: .chronic, petName: "Mochi", deck: &deck
+        )
+        #expect(rendered(NotificationCopy.floorAcutePool).contains(acute.body))
+        #expect(rendered(NotificationCopy.floorChronicPool).contains(chronic.body))
+    }
+
+    @Test("every pet-referential line routes through the one templating helper")
+    func petNameTemplating() {
+        var deck = CopyDeck()
+        let ping = NotificationCopy.moodPing(
+            band: .anxious, floorPhase: .acute, petName: "Nori", deck: &deck
+        )
+        #expect(ping.title == "Nori")
+        #expect(!ping.body.contains("{name}"))
+        #expect(!ping.body.contains("Mochi"), "a renamed pet never reads as Mochi: \(ping.body)")
+
+        var celebrationDeck = CopyDeck()
+        let celebration = NotificationCopy.celebration(petName: "Nori", deck: &celebrationDeck)
+        #expect(celebration.title == "Nori")
+        #expect(!celebration.body.contains("{name}"))
     }
 
     @Test("mood copy carries no emoji and no em dash, ever")
     func moodCopyIsClean() {
-        let pools = NotificationCopy.uneasyPool + NotificationCopy.anxiousPool
-            + NotificationCopy.floorAcutePool + NotificationCopy.floorChronicPool
+        let pools = rendered(
+            NotificationCopy.uneasyPool + NotificationCopy.anxiousPool
+                + NotificationCopy.floorAcutePool + NotificationCopy.floorChronicPool
+        )
         for line in pools {
             #expect(!line.contains("—"), "em dash in: \(line)")
             #expect(
@@ -112,22 +134,39 @@ struct NotificationCopyTests {
         #expect(!hidden.body.contains("dentist"))
     }
 
+    @Test("promise copy never embeds the pet name - renames can never touch a promise")
+    func promiseCopyIsPetNameFree() {
+        for hide in [true, false] {
+            let content = NotificationCopy.reminder(taskTitle: "Water the plants", hideTaskNames: hide)
+            #expect(!content.title.contains("Mochi"), "promise title must stay pet-name-free")
+            #expect(!content.body.contains("Mochi"), "promise body must stay pet-name-free")
+            #expect(!content.body.contains("{name}"))
+        }
+    }
+
     @Test("the rundown flexes tone to load and keeps names off the lock screen when asked")
     func rundownTone() {
-        let calm = NotificationCopy.rundown(taskTitles: [], hideTaskNames: false)
+        let calm = NotificationCopy.rundown(taskTitles: [], hideTaskNames: false, petName: "Nori")
         #expect(calm.title == "A calm day")
+        #expect(calm.body.contains("Nori"), "the empty-day body speaks as the pet")
 
         let full = NotificationCopy.rundown(
-            taskTitles: ["Pay rent", "Gym", "Groceries"], hideTaskNames: false
+            taskTitles: ["Pay rent", "Gym", "Groceries"], hideTaskNames: false, petName: "Mochi"
         )
         #expect(full.body == "Pay rent · Gym · Groceries")
 
         let hidden = NotificationCopy.rundown(
-            taskTitles: ["Pay rent", "Gym"], hideTaskNames: true
+            taskTitles: ["Pay rent", "Gym"], hideTaskNames: true, petName: "Mochi"
         )
         #expect(!hidden.body.contains("rent"))
         #expect(hidden.body.contains("2"))
     }
+}
+
+/// Pools store {name} templates; assertions compare against the rendered
+/// default-name lines the builder actually emits.
+private func rendered(_ pool: [String]) -> [String] {
+    pool.map { PetCopyTemplate.render($0, petName: "Mochi") }
 }
 
 @Suite("RundownRanker")
@@ -335,7 +374,7 @@ struct NotificationRequestBuilderTests {
         #expect(request.urgency == .passive)
         #expect(request.threadId == "mochi.mood")
         #expect(request.categoryId == NotificationCategoryID.moodPing)
-        #expect(NotificationCopy.anxiousPool.contains(request.content.body))
+        #expect(rendered(NotificationCopy.anxiousPool).contains(request.content.body))
         #expect(!request.content.body.contains("Very private thing"))
     }
 
@@ -381,7 +420,35 @@ struct NotificationRequestBuilderTests {
             PlannedNotification(id: NotificationID.backstop, kind: .backstop, fireAt: Dates.days(7), repeats: true)
         )
         #expect(request.urgency == .passive)
-        #expect(NotificationCopy.floorChronicPool.contains(request.content.body))
+        #expect(rendered(NotificationCopy.floorChronicPool).contains(request.content.body))
+    }
+
+    @Test("a rename dresses mood pings and rundowns with the new name; promises stay byte-identical")
+    func renameDressing() {
+        var deck = CopyDeck()
+        let ping = NotificationRequestBuilder.request(
+            for: PlannedNotification(id: "mood-1-1", kind: .moodPing, fireAt: Dates.hours(2), band: .anxious),
+            tasksById: [:], allTasks: [],
+            floorPhase: .acute, hideTaskNames: false, petName: "Nori", deck: &deck
+        )
+        #expect(ping.content.title == "Nori")
+        #expect(!ping.content.body.contains("Mochi"))
+
+        // The same promise dressed under both names must be identical -
+        // the "renames never touch a promise" invariant by construction.
+        let task = makeTask(id: "t1", title: "Water plants", dueAt: Dates.hours(23), hasTime: true)
+        let plan = PlannedNotification(id: "due-t1", kind: .promise, fireAt: Dates.hours(23), taskId: "t1")
+        var deckA = CopyDeck()
+        var deckB = CopyDeck()
+        let before = NotificationRequestBuilder.request(
+            for: plan, tasksById: ["t1": task], allTasks: [task],
+            floorPhase: .acute, hideTaskNames: false, petName: "Mochi", deck: &deckA
+        )
+        let after = NotificationRequestBuilder.request(
+            for: plan, tasksById: ["t1": task], allTasks: [task],
+            floorPhase: .acute, hideTaskNames: false, petName: "Nori", deck: &deckB
+        )
+        #expect(before == after, "promise content must not depend on the pet name")
     }
 }
 

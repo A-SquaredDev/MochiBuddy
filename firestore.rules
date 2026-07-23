@@ -20,8 +20,20 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == uid;
     }
 
+    // adoptedOn is write-once (Personal Layer, Feature 1): settable when
+    // absent, then immutable and undeletable. Client code preserving the
+    // invariant is a courtesy; this rule is the guarantee. Note setData
+    // merges produce the post-write doc in request.resource.data, so an
+    // equality check covers updates and attempted field deletes alike.
+    function adoptedOnPreserved() {
+      return !('adoptedOn' in resource.data)
+          || (('adoptedOn' in request.resource.data)
+              && request.resource.data.adoptedOn == resource.data.adoptedOn);
+    }
+
     match /users/{uid} {
-      allow read, write: if isOwner(uid);
+      allow read, create, delete: if isOwner(uid);
+      allow update: if isOwner(uid) && adoptedOnPreserved();
 
       match /tasks/{taskId} {
         allow read, write: if isOwner(uid);

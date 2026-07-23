@@ -8,6 +8,8 @@ import Foundation
 enum AccountBehavior {
 
     struct UIState: UpdatableStruct, Equatable {
+        /// The pet's chosen name (named in step 2, so it's already set).
+        var petName = "Mochi"
         /// SHA-256 nonce the Sign in with Apple request must carry.
         var hashedNonce: String?
         var isWorking = false

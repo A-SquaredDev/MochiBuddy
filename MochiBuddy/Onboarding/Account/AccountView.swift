@@ -26,8 +26,8 @@ struct AccountView: View {
             }
             OnbHeading(
                 eyebrow: "Almost there",
-                title: "Let's keep your Mochi safe",
-                bodyText: "Create an account so your tasks, coins and Mochi's mood follow you to any device, and nothing gets lost."
+                title: "Let's keep \(viewModel.petName) safe",
+                bodyText: "Create an account so your tasks, coins and \(viewModel.petName) follow you to any device, and nothing gets lost."
             )
         } footer: {
             appleButton

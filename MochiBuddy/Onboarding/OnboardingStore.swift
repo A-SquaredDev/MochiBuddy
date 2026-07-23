@@ -17,6 +17,7 @@ final class OnboardingStore {
     private let profileRepository: UserProfileRepository
     private let taskRepository: TaskRepository
     private let themeStore: ThemeStore
+    private let petIdentityStore: PetIdentityStore
 
     // Draft state shared across the flow's screens.
     private(set) var firstTaskTitle: String?
@@ -28,16 +29,29 @@ final class OnboardingStore {
         authRepository: AuthRepository,
         profileRepository: UserProfileRepository,
         taskRepository: TaskRepository,
-        themeStore: ThemeStore
+        themeStore: ThemeStore,
+        petIdentityStore: PetIdentityStore
     ) {
         self.authRepository = authRepository
         self.profileRepository = profileRepository
         self.taskRepository = taskRepository
         self.themeStore = themeStore
+        self.petIdentityStore = petIdentityStore
         selectedThemeId = themeStore.current.id
     }
 
     private var userId: String? { authRepository.currentAccount?.uid }
+
+    /// The chosen pet name, live from the naming beat onward - the very
+    /// next screen's copy uses it (instant proof the choice took).
+    var petName: String { petIdentityStore.name }
+
+    /// The naming beat (either button): sanitize + persist the name and
+    /// stamp the write-once adoptedOn. Skip/keep-default passes "".
+    func completeNamingBeat(rawName: String) async {
+        guard let userId else { return }
+        await petIdentityStore.completeNamingBeat(rawName: rawName, userId: userId)
+    }
 
     func saveFirstTask(title: String) async {
         firstTaskTitle = title

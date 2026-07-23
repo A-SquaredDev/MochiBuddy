@@ -72,6 +72,7 @@ final class WidgetStateMirror {
         let state = MochiWidgetState(
             displayState: displayState,
             themeId: themeStore.current.id,
+            mochiName: context.petName,
             baseline: points,
             hideTaskNames: context.prefs.hideTaskNames,
             nextTasks: top.map { task in

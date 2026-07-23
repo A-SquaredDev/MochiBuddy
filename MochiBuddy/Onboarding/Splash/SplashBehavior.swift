@@ -28,4 +28,6 @@ struct ReturningAccountSummary: Equatable {
     let name: String
     let detail: String
     let providerLabel: String
+    /// The pet's chosen name from the fetched profile.
+    var petName: String = "Mochi"
 }

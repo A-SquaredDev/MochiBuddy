@@ -27,7 +27,7 @@ struct AppleRemindersView: View {
                 OnbHeading(
                     eyebrow: "Optional",
                     title: "Already use Apple Reminders?",
-                    bodyText: "Choose which lists to bring in, so Mochi keeps an eye on everything in one place. We'll never touch your grocery list unless you want us to.",
+                    bodyText: "Choose which lists to bring in, so \(viewModel.petName) keeps an eye on everything in one place. We'll never touch your grocery list unless you want us to.",
                     align: .leading
                 )
                 .padding(.top, 8)

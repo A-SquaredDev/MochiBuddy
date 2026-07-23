@@ -22,6 +22,7 @@ final class YouViewModel: ObservableStateViewModel<
     private let membershipSession: MembershipSession
     private let themeStore: ThemeStore
     private let relay: NotificationRelaying
+    private let petIdentityStore: PetIdentityStore
 
     // Domain source of truth - UIState is derived from this.
     private var profile: UserProfile?
@@ -33,7 +34,8 @@ final class YouViewModel: ObservableStateViewModel<
         membershipStore: MembershipStore,
         membershipSession: MembershipSession,
         themeStore: ThemeStore,
-        relay: NotificationRelaying
+        relay: NotificationRelaying,
+        petIdentityStore: PetIdentityStore
     ) {
         self.authRepository = authRepository
         self.profileRepository = profileRepository
@@ -42,6 +44,7 @@ final class YouViewModel: ObservableStateViewModel<
         self.membershipSession = membershipSession
         self.themeStore = themeStore
         self.relay = relay
+        self.petIdentityStore = petIdentityStore
 
         var initial = YouBehavior.UIState()
         initial.flavors = MochiTheme.all.map {
@@ -124,6 +127,29 @@ final class YouViewModel: ObservableStateViewModel<
             state.avatarLetter = String(name.prefix(1)).uppercased()
             try? await profileRepository.saveDisplayName(name, userId: userId)
 
+        case .renameMochiTapped:
+            state.mochiNameDraft = uiState.mochiName
+            state.showMochiRename = true
+
+        case .mochiNameDraftChanged(let text):
+            state.mochiNameDraft = text
+
+        case .cancelRenameMochi:
+            state.showMochiRename = false
+
+        case .confirmRenameMochi:
+            state.showMochiRename = false
+            guard let userId else { return }
+            // The one PetIdentityDidChange pipeline: sanitize + persist,
+            // action labels, re-lay, widget mirror. A rename to the same
+            // sanitized value is a no-op (no write, no event).
+            if await petIdentityStore.rename(to: uiState.mochiNameDraft, userId: userId) {
+                profile?.mochiName = petIdentityStore.name
+                var next = uiState
+                applyPetIdentity(to: &next)
+                setUIState(next)
+            }
+
         case .bedtimeTapped: setNavigationEvent(.editBedtime)
         case .statsTapped: setNavigationEvent(.showStats)
         case .notificationsTapped: setNavigationEvent(.showNotifications)
@@ -139,6 +165,21 @@ final class YouViewModel: ObservableStateViewModel<
     }
 
     private var userId: String? { authRepository.currentAccount?.uid }
+
+    /// Pet-identity projection: the live store name wins (it is the
+    /// pipeline's source of truth); "Met on" renders the date-only value
+    /// verbatim. In-app CTA fallback: verb-only when the name is too wide
+    /// for the layout (VoiceOver keeps the full name in the view).
+    private func applyPetIdentity(to state: inout YouBehavior.UIState) {
+        let name = petIdentityStore.name
+        state.mochiName = name
+        state.wakeCtaTitle = NotificationActionTitles.fitsCompactBudget(name)
+            ? "Wake \(name)"
+            : "Wake"
+        state.adoptedOnText = (profile?.adoptedOn ?? petIdentityStore.adoptedOn)
+            .flatMap { AdoptedOnDate.displayString($0) }
+            .map { "Met on \($0)" } ?? ""
+    }
 
     private func refresh() async {
         let account = authRepository.currentAccount
@@ -179,6 +220,8 @@ final class YouViewModel: ObservableStateViewModel<
             next.vacationSub = "Pause all nudges while you rest"
         }
         next.avatarLetter = String(next.displayName.prefix(1)).uppercased()
+
+        applyPetIdentity(to: &next)
 
         if let userId {
             let listCount = (try? await listRepository.fetchLists(userId: userId).count) ?? 0

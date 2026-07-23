@@ -75,11 +75,19 @@ final class DeleteWarnViewModel: ObservableStateViewModel<
         state.items = Self.items(
             taskLine: taskLine,
             coins: fetched?.coins,
-            streak: fetched?.streakCount
+            streak: fetched?.streakCount,
+            petName: fetched?.mochiName ?? PetNameSanitizer.defaultName,
+            adoptedOn: fetched?.adoptedOn
         )
     }
 
-    private static func items(taskLine: String, coins: Int?, streak: Int?) -> [DeleteWarnBehavior.ErasedItem] {
+    private static func items(
+        taskLine: String,
+        coins: Int?,
+        streak: Int?,
+        petName: String = PetNameSanitizer.defaultName,
+        adoptedOn: String? = nil
+    ) -> [DeleteWarnBehavior.ErasedItem] {
         [
             .init(id: "tasks", icon: "checklist", title: "All tasks & lists", subtitle: taskLine),
             .init(
@@ -96,7 +104,18 @@ final class DeleteWarnViewModel: ObservableStateViewModel<
             ),
             // DESIGN NOTE: placeholder icon until the content team's Mochi
             // brand mark lands.
-            .init(id: "mochi", icon: PlaceholderArt.symbol, title: "Mochi", subtitle: "Your companion & its history"),
+            // Required disclosure, kept neutral (locked decision): the
+            // pet's name and adoption date listed factually - no guilt
+            // copy, no sad animation. A post-deletion return is a new
+            // adoption with a fresh date.
+            .init(
+                id: "mochi",
+                icon: PlaceholderArt.symbol,
+                title: petName,
+                subtitle: adoptedOn.flatMap { AdoptedOnDate.displayString($0) }
+                    .map { "Your companion · met on \($0)" }
+                    ?? "Your companion & its history"
+            ),
         ]
     }
 }

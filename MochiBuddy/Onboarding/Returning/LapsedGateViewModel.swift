@@ -90,6 +90,9 @@ final class LapsedGateViewModel: ObservableStateViewModel<
         let profile = try? await profileRepository.fetchProfile(userId: userId)
         let taskCount = (try? await taskRepository.incompleteTaskCount(userId: userId)) ?? 0
 
+        if let name = profile?.mochiName {
+            state.petName = name
+        }
         state.stats = [
             LapsedGateBehavior.Stat(icon: "checklist", value: "\(taskCount)", label: "Tasks safe"),
             LapsedGateBehavior.Stat(icon: "flame.fill", value: "\(profile?.streakCount ?? 0)-day", label: "Streak kept"),

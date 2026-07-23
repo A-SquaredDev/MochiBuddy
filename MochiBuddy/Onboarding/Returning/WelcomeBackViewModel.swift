@@ -29,6 +29,7 @@ final class WelcomeBackViewModel: ObservableStateViewModel<
         case .load:
             setUIState(
                 uiState
+                    .updating(\.petName, to: summary.petName)
                     .updating(\.name, to: summary.name)
                     .updating(\.detail, to: summary.detail)
                     .updating(\.providerLabel, to: summary.providerLabel)

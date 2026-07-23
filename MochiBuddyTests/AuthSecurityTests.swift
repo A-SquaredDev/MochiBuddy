@@ -139,14 +139,19 @@ struct DataScopingTests {
     @Test("sign-out from the You tab actually signs out before leaving")
     func signOutSignsOut() async {
         let auth = StubAuthRepository()
+        let profileRepo = StubProfileRepository()
         let vm = YouViewModel(
             authRepository: auth,
-            profileRepository: StubProfileRepository(),
+            profileRepository: profileRepo,
             listRepository: StubListRepository(),
             membershipStore: StubMembershipStore(),
             membershipSession: MembershipSession(),
             themeStore: ThemeStore(defaults: UserDefaults(suiteName: "mochi-tests-\(UUID())")!),
-            relay: StubRelay()
+            relay: StubRelay(),
+            petIdentityStore: PetIdentityStore(
+                profileRepository: profileRepo,
+                defaults: UserDefaults(suiteName: "mochi-tests-\(UUID())")!
+            )
         )
         let recorder = EventRecorder(vm)
         await vm.triggerAsync(.signOutTapped)

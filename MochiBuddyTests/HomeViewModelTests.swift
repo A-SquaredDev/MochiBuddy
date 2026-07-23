@@ -235,7 +235,7 @@ struct HomeTodayScopeTests {
         let (vm, _, _, _) = makeHomeVM(incomplete: [overdue])
         await vm.triggerAsync(.refresh)
         #expect(vm.uiState.baseline < MoodEngine.Constants.anchor)
-        #expect(vm.uiState.moodTitle == "Mochi's getting sleepy" || vm.uiState.moodTitle == "Mochi feels content")
+        #expect(vm.uiState.moodTitle == "Mochi is getting sleepy" || vm.uiState.moodTitle == "Mochi feels content")
     }
 
     @Test("vacation mode swaps the mood copy and shields the baseline")

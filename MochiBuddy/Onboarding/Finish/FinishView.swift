@@ -10,6 +10,9 @@ import SwiftUI
 
 struct FinishView: View {
     let router: any OnboardingRouting
+    /// Pet-referential copy only - "Add the Mochi widget" and "Enter
+    /// Mochi" below are brand and stay literal.
+    var petName = "Mochi"
 
     @Environment(\.mochiTheme) private var theme
     @State private var showWidgetHelp = false
@@ -17,11 +20,11 @@ struct FinishView: View {
     var body: some View {
         OnbScaffold {
             VStack(spacing: 4) {
-                MochiPetView(vitality: 96, size: 104)
+                MochiPetView(vitality: 96, size: 104, petName: petName)
                 OnbHeading(
                     eyebrow: "You're all set",
-                    title: "Keep Mochi where you'll see it",
-                    bodyText: "A home-screen widget shows Mochi's mood and your next task at a glance. It's the single best way to stay on track."
+                    title: "Keep \(petName) where you'll see it",
+                    bodyText: "A home-screen widget shows \(petName) and your next task at a glance. It's the single best way to stay on track."
                 )
             }
             widgetPreviews

@@ -43,7 +43,8 @@ final class OnboardingRouter: OnboardingRouting {
             authRepository: container.authRepository,
             profileRepository: container.profileRepository,
             taskRepository: container.taskRepository,
-            themeStore: container.themeStore
+            themeStore: container.themeStore,
+            petIdentityStore: container.petIdentityStore
         )
     }
 
@@ -58,9 +59,10 @@ final class OnboardingRouter: OnboardingRouting {
     }
 
     func navigateToMeetMochi() {
+        let viewModel = MeetMochiViewModel(onboardingStore: onboardingStore)
         navController.navigate(
             route: AdHocRoute(key: "meetMochi"),
-            view: AnyView(MeetMochiView(viewModel: MeetMochiViewModel(), router: self))
+            view: AnyView(MeetMochiView(viewModel: viewModel, router: self))
         )
     }
 
@@ -136,7 +138,7 @@ final class OnboardingRouter: OnboardingRouting {
     func navigateToFinish() {
         navController.navigate(
             route: AdHocRoute(key: "finish"),
-            view: AnyView(FinishView(router: self))
+            view: AnyView(FinishView(router: self, petName: onboardingStore.petName))
         )
     }
 
@@ -194,7 +196,10 @@ final class OnboardingRouter: OnboardingRouting {
         Task { @MainActor in
             _ = try? await container.authRepository.ensureSession()
             navController.replaceStack(
-                with: AnyView(MeetMochiView(viewModel: MeetMochiViewModel(), router: self)),
+                with: AnyView(MeetMochiView(
+                    viewModel: MeetMochiViewModel(onboardingStore: onboardingStore),
+                    router: self
+                )),
                 route: AdHocRoute(key: "meetMochi")
             )
         }

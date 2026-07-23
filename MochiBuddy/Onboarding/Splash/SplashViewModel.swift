@@ -75,6 +75,8 @@ final class SplashViewModel: ObservableStateViewModel<
         case "google.com": "Google"
         default: "Account"
         }
-        return ReturningAccountSummary(name: name, detail: detail, providerLabel: provider)
+        return ReturningAccountSummary(
+            name: name, detail: detail, providerLabel: provider, petName: profile.mochiName
+        )
     }
 }

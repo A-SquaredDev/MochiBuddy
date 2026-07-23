@@ -71,6 +71,12 @@ enum HomeBehavior {
         var showTriage = false
         var greeting = "Hi, friend"
         var subGreeting = "Let's keep Mochi happy"
+        /// The pet's name - drives every pet-referential line on Home.
+        var mochiName = "Mochi"
+        /// CTA labels with the compact fallback already applied (verb-only
+        /// when the name is too wide); views add the full-name a11y label.
+        var wakeCtaTitle = "Wake Mochi"
+        var petCtaTitle = "Pet Mochi"
         var coins = 0
         var streakDays = 0
         var baseline: Double = MoodEngine.Constants.anchor

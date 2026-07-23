@@ -3,15 +3,33 @@
 //  MochiBuddy
 //
 //  Three classes, three non-negotiable voices (design doc: Copy & voice):
-//  mood pings are Mochi's blame-free monologue and never name a task;
+//  mood pings are the pet's blame-free monologue and never name a task;
 //  reminders and the rundown always name the task; celebrations celebrate.
 //  Floor copy is two pools - acute (day 1-2, gentle and hopeful) and
 //  chronic (day 3+, pure presence, zero ask). Emoji live in celebrations
 //  only. Ship test for every line: would this make a fragile person at
 //  the floor feel worse? If yes, it was cut.
 //
+//  Pet-referential lines route through the one templating helper
+//  (Personal Layer, Feature 1): pools hold {name} templates, rendered with
+//  the profile's pet name at dress time. Promise (reminder) copy never
+//  embeds the pet name - the locked rule that lets renames leave promises
+//  untouched by construction. Pronouns stay they/them (pronoun selection
+//  is deferred).
+//
 
 import Foundation
+
+/// The one templating helper: every pet-referential copy surface inserts
+/// the name through here. The name is user content - inserted verbatim,
+/// never localized, never case-transformed.
+enum PetCopyTemplate {
+    static let namePlaceholder = "{name}"
+
+    static func render(_ template: String, petName: String) -> String {
+        template.replacingOccurrences(of: namePlaceholder, with: petName)
+    }
+}
 
 /// Round-robin cursor per pool with a built-in "never repeat until the
 /// pool cycles" guarantee. Codable so the orchestrator persists rotation
@@ -43,47 +61,47 @@ enum NotificationCopy {
     // MARK: - Mood ping pools (never a task name, never a count)
 
     static let uneasyPool = [
-        "Mochi is getting a little fidgety. One small win would settle him right down.",
-        "Mochi keeps glancing at the list. Nothing scary, just a nudge.",
-        "A tiny task would make Mochi's whole afternoon.",
-        "Mochi is doing little pacing circles. He believes in you.",
-        "One check-off and Mochi curls right back up.",
-        "Mochi noticed something slipping. No rush, whenever you're ready.",
+        "{name} is getting a little fidgety. One small win would settle them right down.",
+        "{name} keeps glancing at the list. Nothing scary, just a nudge.",
+        "One tiny task and {name} will glow all afternoon.",
+        "{name} is doing little pacing circles. They believe in you.",
+        "One check-off and {name} curls right back up.",
+        "{name} noticed something slipping. No rush, whenever you're ready.",
     ]
 
     static let anxiousPool = [
-        "Mochi is having a wobbly moment. He'd love some company.",
-        "Mochi is a little tangled up right now. A small step would help you both.",
-        "Things feel heavy to Mochi today. Start tiny, he'll follow.",
-        "Mochi is chewing on his blanket again. Come sit with the list together.",
-        "Mochi is worried, but he knows you always come through.",
-        "Deep breaths, says Mochi. One thing at a time.",
+        "{name} is having a wobbly moment. They'd love some company.",
+        "{name} is a little tangled up right now. A small step would help you both.",
+        "Things feel heavy to {name} today. Start tiny, they'll follow.",
+        "{name} is chewing on a blanket corner again. Come sit with the list together.",
+        "{name} is worried, but they know you always come through.",
+        "Deep breaths, says {name}. One thing at a time.",
     ]
 
     static let floorAcutePool = [
-        "Mochi is having a hard day too. Anything at all lifts you both.",
-        "It's been a lot lately. Mochi just wants to see you.",
-        "Mochi is sitting with it. One little thing, together?",
-        "Even a tiny check-in makes Mochi's day softer.",
-        "Rough patch. Mochi is not going anywhere.",
-        "Mochi saved you a spot. Whenever you're ready.",
+        "{name} is having a hard day too. Anything at all lifts you both.",
+        "It's been a lot lately. {name} just wants to see you.",
+        "{name} is sitting with it. One little thing, together?",
+        "Even a tiny check-in makes the day softer for {name}.",
+        "Rough patch. {name} is not going anywhere.",
+        "{name} saved you a spot. Whenever you're ready.",
     ]
 
     static let floorChronicPool = [
-        "No pressure. Mochi is just here.",
-        "Mochi is keeping your spot warm.",
-        "Nothing needed today. Mochi says hi.",
-        "Mochi is right where you left him.",
-        "Quiet day. Mochi is thinking of you.",
+        "No pressure. {name} is just here.",
+        "{name} is keeping your spot warm.",
+        "Nothing needed today. {name} says hi.",
+        "{name} is right where you left them.",
+        "Quiet day. {name} is thinking of you.",
     ]
 
     /// Celebrations are the one place emoji is allowed.
     static let celebrationPool = [
-        "Mochi is doing his happy dance! 🎉",
-        "Look at you go. Mochi is beaming.",
-        "Mochi squeaked with joy!",
-        "That streak though. Mochi is so proud. ✨",
-        "Confetti everywhere. Mochi insisted.",
+        "{name} is doing a happy dance! 🎉",
+        "Look at you go. {name} is beaming.",
+        "{name} squeaked with joy!",
+        "That streak though. {name} is so proud. ✨",
+        "Confetti everywhere. {name} insisted.",
     ]
 
     // MARK: - Rendering
@@ -91,6 +109,7 @@ enum NotificationCopy {
     static func moodPing(
         band: MoodBand,
         floorPhase: FloorPhase,
+        petName: String,
         deck: inout CopyDeck
     ) -> Content {
         let (pool, key): ([String], String) = switch band {
@@ -101,19 +120,24 @@ enum NotificationCopy {
         case .anxious: (anxiousPool, "anxious")
         default: (uneasyPool, "uneasy")
         }
-        return Content(title: "Mochi", body: deck.next(from: pool, key: key))
+        return Content(
+            title: petName,
+            body: PetCopyTemplate.render(deck.next(from: pool, key: key), petName: petName)
+        )
     }
 
     /// Reminders name the task - that is their whole job. The opt-in
     /// lock-screen privacy toggle swaps in the nameless variant.
+    /// Promise copy never embeds the pet name (locked rule): a promise is
+    /// never re-laid, so a rename must never need to touch one.
     static func reminder(taskTitle: String?, hideTaskNames: Bool) -> Content {
         guard let taskTitle, !hideTaskNames else {
             return Content(
-                title: "Mochi reminder",
+                title: "Reminder",
                 body: "Something on your list is due now."
             )
         }
-        return Content(title: taskTitle, body: "Due now. Mochi is rooting for you.")
+        return Content(title: taskTitle, body: "Due now. Rooting for you.")
     }
 
     /// Yesterday needs at least this many completions to earn the
@@ -126,12 +150,16 @@ enum NotificationCopy {
     static func rundown(
         taskTitles: [String],
         hideTaskNames: Bool,
+        petName: String,
         crushedYesterday: Bool = false
     ) -> Content {
         guard !taskTitles.isEmpty else {
             return Content(
                 title: crushedYesterday ? "You crushed yesterday" : "A calm day",
-                body: "Nothing due today. Mochi is taking it easy with you."
+                body: PetCopyTemplate.render(
+                    "Nothing due today. {name} is taking it easy with you.",
+                    petName: petName
+                )
             )
         }
         let title = if crushedYesterday {
@@ -153,7 +181,10 @@ enum NotificationCopy {
         return Content(title: title, body: taskTitles.joined(separator: " · "))
     }
 
-    static func celebration(deck: inout CopyDeck) -> Content {
-        Content(title: "Mochi", body: deck.next(from: celebrationPool, key: "celebration"))
+    static func celebration(petName: String, deck: inout CopyDeck) -> Content {
+        Content(
+            title: petName,
+            body: PetCopyTemplate.render(deck.next(from: celebrationPool, key: "celebration"), petName: petName)
+        )
     }
 }

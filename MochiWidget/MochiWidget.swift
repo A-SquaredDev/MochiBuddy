@@ -106,6 +106,12 @@ struct MochiWidgetEntryView: View {
         entry.state?.nextTasks.first
     }
 
+    /// Pet-referential chrome uses the chosen name; the gallery
+    /// displayName/description above stay "Mochi" (brand, not pet).
+    private var petName: String {
+        entry.state?.petDisplayName ?? "Mochi"
+    }
+
     private func taskTitle(_ task: MochiWidgetState.NextTask) -> String {
         entry.state?.hideTaskNames == true ? "A task" : task.title
     }
@@ -151,7 +157,7 @@ struct MochiWidgetEntryView: View {
     private var smallView: some View {
         VStack(spacing: 2) {
             petButton(size: 74)
-            Text("Mochi is \(moodLabel)")
+            Text("\(petName) is \(moodLabel)")
                 .font(.system(size: 11, weight: .bold, design: .rounded))
                 .foregroundStyle(theme.ink)
                 .lineLimit(1)
@@ -164,7 +170,7 @@ struct MochiWidgetEntryView: View {
         HStack(spacing: 14) {
             VStack(spacing: 2) {
                 petButton(size: 78)
-                Text("Mochi is \(moodLabel)")
+                Text("\(petName) is \(moodLabel)")
                     .font(.system(size: 10.5, weight: .bold, design: .rounded))
                     .foregroundStyle(theme.ink)
                     .lineLimit(1)
@@ -179,10 +185,12 @@ struct MochiWidgetEntryView: View {
                         .font(.system(size: 11, weight: .bold, design: .rounded))
                         .foregroundStyle(theme.muted)
                 case .lapsed:
-                    Text("Mochi is napping")
+                    Text("\(petName) is napping")
                         .font(.system(size: 13, weight: .heavy, design: .rounded))
                         .foregroundStyle(theme.ink)
-                    Text("Wake Mochi")
+                        .lineLimit(1)
+                    Text("Wake \(petName)")
+                        .lineLimit(1)
                         .font(.system(size: 11, weight: .heavy, design: .rounded))
                         .foregroundStyle(theme.primaryText)
                 default:
@@ -230,9 +238,10 @@ struct MochiWidgetEntryView: View {
         Group {
             switch entry.state?.displayState {
             case .lapsed:
-                Text("Wake Mochi")
+                Text("Wake \(petName)")
                     .font(.system(size: 9.5, weight: .heavy, design: .rounded))
                     .foregroundStyle(theme.primaryText)
+                    .lineLimit(1)
             case .vacation:
                 Text(vacationBackText)
                     .font(.system(size: 9.5, weight: .bold, design: .rounded))
@@ -245,6 +254,16 @@ struct MochiWidgetEntryView: View {
                         .lineLimit(1)
                 }
             }
+        }
+    }
+
+    /// VoiceOver reads the full name and keeps the two calm states
+    /// distinct: napping (lapsed) vs resting (vacation), never conflated.
+    private var petAccessibilityLabel: String {
+        switch entry.state?.displayState {
+        case .lapsed: "\(petName) is napping"
+        case .vacation: "\(petName) is resting, vacation mode on"
+        default: "\(petName), feeling \(moodLabel)"
         }
     }
 
@@ -261,6 +280,7 @@ struct MochiWidgetEntryView: View {
                 petImage(size: size)
             }
         }
+        .accessibilityLabel(petAccessibilityLabel)
     }
 
     /// Rendered to a static image and marked full-color so mood survives
@@ -294,7 +314,8 @@ struct MochiWidgetEntryView: View {
 
     private var rectangularView: some View {
         VStack(alignment: .leading, spacing: 1) {
-            Text("Mochi is \(moodLabel)")
+            Text("\(petName) is \(moodLabel)")
+                .lineLimit(1)
                 .font(.system(size: 13, weight: .heavy, design: .rounded))
             if let task = nextTask {
                 Text(taskTitle(task))
@@ -308,12 +329,13 @@ struct MochiWidgetEntryView: View {
     }
 
     private var inlineView: some View {
-        // One line, next task only, no Mochi (design doc).
+        // One line, next task only, no pet (design doc). This surface
+        // never shows the name, so the empty fallback stays name-free.
         Group {
             if let task = nextTask {
                 Text("\(taskTitle(task)) · \(dueText(task))")
             } else {
-                Text("Mochi is \(moodLabel)")
+                Text("Feeling \(moodLabel)")
             }
         }
     }

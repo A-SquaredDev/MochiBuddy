@@ -85,8 +85,8 @@ struct HomeView: View {
                 VStack(spacing: 0) {
                     SkeletonBone(height: 9, radius: 4.5)
                     VStack(spacing: 4) {
-                        MochiPetView(mood: .sleeping, size: 128, bobbing: true)
-                        Text("Mochi is snoozing")
+                        MochiPetView(mood: .sleeping, size: 128, bobbing: true, petName: viewModel.mochiName)
+                        Text("\(viewModel.mochiName) is snoozing")
                             .font(MochiFont.display(14, weight: .semibold))
                             .foregroundStyle(theme.ink)
                         MochiLoadingPhrase()
@@ -116,7 +116,7 @@ struct HomeView: View {
         .mochiShimmer()
         .transition(.opacity)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Loading your day. Mochi is snoozing.")
+        .accessibilityLabel("Loading your day. \(viewModel.mochiName) is snoozing.")
     }
 
     // MARK: - Header
@@ -160,7 +160,7 @@ struct HomeView: View {
                     Text("Your payment method needs a refresh")
                         .font(MochiFont.body(12, weight: .heavy))
                         .foregroundStyle(theme.ink)
-                    Text("Mochi's not going anywhere. Tap to update it.")
+                    Text("\(viewModel.mochiName) is not going anywhere. Tap to update it.")
                         .font(MochiFont.body(11, weight: .bold))
                         .foregroundStyle(theme.muted)
                 }
@@ -228,7 +228,7 @@ struct HomeView: View {
     private var vacationCheckIn: some View {
         MochiCard(padding: EdgeInsets(top: 12, leading: 15, bottom: 12, trailing: 15)) {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Still away? Mochi is happy to keep resting.")
+                Text("Still away? \(viewModel.mochiName) is happy to keep resting.")
                     .font(MochiFont.body(12, weight: .heavy))
                     .foregroundStyle(theme.ink)
                 HStack(spacing: 8) {
@@ -351,14 +351,15 @@ struct HomeView: View {
                         mood: viewModel.isSleeping ? .sleeping : MochiMood(vitality: viewModel.displayedMood),
                         size: 128,
                         externalSquishTrigger: viewModel.petSquishTrigger,
-                        onTap: viewModel.isLapsed ? nil : { viewModel.trigger(.petTapped) }
+                        onTap: viewModel.isLapsed ? nil : { viewModel.trigger(.petTapped) },
+                        petName: viewModel.mochiName
                     )
                     .accessibilityLabel(
                         viewModel.isLapsed
-                            ? "Mochi is napping. Membership paused."
+                            ? "\(viewModel.mochiName) is napping. Membership paused."
                             : viewModel.isOnVacation
-                                ? "Mochi is resting. Vacation mode on."
-                                : "Mochi"
+                                ? "\(viewModel.mochiName) is resting. Vacation mode on."
+                                : viewModel.mochiName
                     )
                     Text(viewModel.moodTitle)
                         .font(MochiFont.display(14, weight: .semibold))
@@ -370,15 +371,17 @@ struct HomeView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.top, 6)
                 if viewModel.isLapsed {
-                    MochiButton(title: "Wake Mochi", variant: .primary, size: .md) {
+                    MochiButton(title: viewModel.wakeCtaTitle, variant: .primary, size: .md) {
                         router.wakeMochi()
                     }
+                    .accessibilityLabel("Wake \(viewModel.mochiName)")
                     .padding(.top, 10)
                 } else {
                     HStack(spacing: 8) {
-                        MochiButton(title: "Pet Mochi", variant: .ghost, size: .md) {
+                        MochiButton(title: viewModel.petCtaTitle, variant: .ghost, size: .md) {
                             viewModel.trigger(.petTapped)
                         }
+                        .accessibilityLabel("Pet \(viewModel.mochiName)")
                         MochiButton(title: "Treats", variant: .primary, size: .md) {
                             viewModel.trigger(.treatsTapped)
                         }

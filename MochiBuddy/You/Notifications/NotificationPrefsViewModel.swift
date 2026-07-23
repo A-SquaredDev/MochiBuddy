@@ -22,6 +22,7 @@ final class NotificationPrefsViewModel: StateViewModel<
     // Domain source of truth - UIState is derived from this.
     private var prefs: NotificationPrefs = .standard
     private var bedtime: BedtimeWindow = .standard
+    private var petName = "Mochi"
 
     init(
         authRepository: AuthRepository,
@@ -42,6 +43,7 @@ final class NotificationPrefsViewModel: StateViewModel<
             if let userId, let profile = try? await profileRepository.fetchProfile(userId: userId) {
                 prefs = profile.notificationPrefs
                 bedtime = profile.bedtime
+                petName = profile.mochiName
             }
             let status = await permissionService.authorizationStatus()
             rebuildState(systemDenied: status == .denied)
@@ -80,6 +82,7 @@ final class NotificationPrefsViewModel: StateViewModel<
     private func rebuildState(systemDenied: Bool) {
         setUIState(
             uiState
+                .updating(\.petName, to: petName)
                 .updating(\.taskReminders, to: prefs.taskReminders)
                 .updating(\.morningRundown, to: prefs.morningRundown)
                 .updating(\.moodDips, to: prefs.moodDips)

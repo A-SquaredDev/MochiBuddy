@@ -22,7 +22,7 @@ enum StreakMilestones {
     }
 
     /// The in-app celebration line for a landed milestone.
-    static func celebrationText(days: Int) -> String {
-        "\(days) days in a row! Mochi is so proud."
+    static func celebrationText(days: Int, petName: String = "Mochi") -> String {
+        "\(days) days in a row! \(petName) is so proud."
     }
 }

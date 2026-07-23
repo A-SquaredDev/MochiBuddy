@@ -30,12 +30,14 @@ final class ManageListsViewModel: StateViewModel<
         authRepository: AuthRepository,
         listRepository: ListRepository,
         taskRepository: TaskRepository,
-        membershipSession: MembershipSession
+        membershipSession: MembershipSession,
+        petName: String = "Mochi"
     ) {
         self.authRepository = authRepository
         self.listRepository = listRepository
         self.taskRepository = taskRepository
         var initial = ManageListsBehavior.UIState()
+        initial.petName = petName
         initial.colorChoices = TaskListDefaults.colorChoices.map {
             ManageListsBehavior.ColorChoice(id: $0, color: Color(hexString: $0))
         }

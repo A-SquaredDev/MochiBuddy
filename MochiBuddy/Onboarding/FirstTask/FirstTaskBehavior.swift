@@ -12,6 +12,9 @@ enum FirstTaskBehavior {
         var suggestions: [String] = ["Drink water", "Call mum", "Pay rent"]
         var canAdd = false
         var isSaving = false
+        /// Used on the very next screen after the naming beat - instant
+        /// proof the choice took.
+        var petName = "Mochi"
     }
 
     enum ViewAction {

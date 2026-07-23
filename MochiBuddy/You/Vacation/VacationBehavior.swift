@@ -8,6 +8,8 @@ import Foundation
 enum VacationBehavior {
 
     struct UIState: UpdatableStruct, Equatable {
+        /// The pet's chosen name - "Mochi" until the profile loads.
+        var petName = "Mochi"
         var isOn = false
         var toggleSub = ""
         var autoResume = false

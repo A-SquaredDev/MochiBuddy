@@ -25,11 +25,11 @@ struct NotificationPrimerView: View {
             }
             OnbHeading(
                 eyebrow: "A gentle nudge",
-                title: "Let Mochi give you a little nudge",
-                bodyText: "A soft tap when something needs you, and a warm hello each morning. Never spammy. Mochi goes quiet the moment you're caught up."
+                title: "Let \(viewModel.petName) give you a little nudge",
+                bodyText: "A soft tap when something needs you, and a warm hello each morning. Never spammy. \(viewModel.petName) goes quiet the moment you're caught up."
             )
             MockNotification(
-                title: "Mochi",
+                title: viewModel.petName,
                 message: "Morning! 3 things today. Light one, we've got this.",
                 time: "8:02"
             )

@@ -22,6 +22,11 @@ protocol UserProfileRepository: AnyObject {
     func saveImportedReminderLists(_ ids: [String], userId: String) async throws
     func saveAccountLink(provider: String, displayName: String?, userId: String) async throws
     func saveDisplayName(_ name: String, userId: String) async throws
+    /// Persists the pet's name (sanitized at this boundary).
+    func saveMochiName(_ name: String, userId: String) async throws
+    /// Stamps the write-once adoption date. Client code never overwrites an
+    /// existing value (courtesy); the security rules are the guarantee.
+    func stampAdoptedOn(_ dateString: String, userId: String) async throws
     func saveMembershipMirror(isSubscribed: Bool, trialEndsAt: Date?, userId: String) async throws
     func markOnboardingComplete(userId: String) async throws
     /// Atomic coin adjustment (completions earn, treats spend).
@@ -121,6 +126,15 @@ final class FirestoreUserProfileRepository: UserProfileRepository {
 
     func saveDisplayName(_ name: String, userId: String) async throws {
         try await merge(["displayName": name], userId: userId)
+    }
+
+    func saveMochiName(_ name: String, userId: String) async throws {
+        try await merge(["mochiName": PetNameSanitizer.canonicalName(from: name)], userId: userId)
+    }
+
+    func stampAdoptedOn(_ dateString: String, userId: String) async throws {
+        guard AdoptedOnDate.isValid(dateString) else { return }
+        try await merge(["adoptedOn": dateString], userId: userId)
     }
 
     func saveMembershipMirror(isSubscribed: Bool, trialEndsAt: Date?, userId: String) async throws {

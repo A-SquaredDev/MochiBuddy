@@ -21,7 +21,7 @@ final class FirstTaskViewModel: ObservableStateViewModel<
 
     init(onboardingStore: OnboardingStore) {
         self.onboardingStore = onboardingStore
-        super.init(initialState: FirstTaskBehavior.UIState())
+        super.init(initialState: FirstTaskBehavior.UIState(petName: onboardingStore.petName))
     }
 
     override func triggerAsync(_ action: FirstTaskBehavior.ViewAction) async {

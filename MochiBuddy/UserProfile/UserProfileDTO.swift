@@ -14,6 +14,8 @@ struct UserProfileDTO {
     let displayName: String?
     let authProvider: String?
     let createdAt: Date?
+    let mochiName: String?
+    let adoptedOn: String?
     let timezone: String?
     let bedtimeStart: Int?
     let bedtimeEnd: Int?
@@ -38,6 +40,8 @@ struct UserProfileDTO {
         displayName = data["displayName"] as? String
         authProvider = data["authProvider"] as? String
         createdAt = (data["createdAt"] as? Timestamp)?.dateValue()
+        mochiName = data["mochiName"] as? String
+        adoptedOn = data["adoptedOn"] as? String
         timezone = data["timezone"] as? String
         bedtimeStart = data["bedtimeStart"] as? Int
         bedtimeEnd = data["bedtimeEnd"] as? Int
@@ -66,6 +70,10 @@ enum UserProfileMapper {
             displayName: dto.displayName,
             authProvider: dto.authProvider,
             createdAt: dto.createdAt,
+            // Valid-but-overlong sanitizes and caps; wrong type or empty
+            // after sanitization falls back to "Mochi" - never broken copy.
+            mochiName: PetNameSanitizer.canonicalName(from: dto.mochiName),
+            adoptedOn: dto.adoptedOn.flatMap { AdoptedOnDate.isValid($0) ? $0 : nil },
             timezone: dto.timezone,
             bedtime: BedtimeWindow(
                 startMinutes: dto.bedtimeStart ?? BedtimeWindow.standard.startMinutes,

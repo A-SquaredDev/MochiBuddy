@@ -43,6 +43,7 @@ final class HomeViewModel: StateViewModel<
     private var bedtime: BedtimeWindow = .standard
     private var coins = 0
     private var streak = 0
+    private var petName = PetNameSanitizer.defaultName
     private var hasStartedTimer = false
     /// After submit clears the field, a focused TextField can echo one last
     /// `.quickAddChanged` with the submitted title (autocorrect committing on
@@ -278,6 +279,7 @@ final class HomeViewModel: StateViewModel<
         if let profile {
             coins = profile.coins
             streak = profile.streakCount
+            petName = profile.mochiName
             vacationMode = profile.vacationMode
             vacationResumeAt = profile.vacationResumeAt
             vacationStartedAt = profile.vacationStartedAt
@@ -424,8 +426,15 @@ final class HomeViewModel: StateViewModel<
         // A milestone landed anywhere (this screen, Tasks, a notification
         // action, the widget drain) celebrates here, on Mochi's surface.
         if let milestone = celebrationCenter.consumeMilestone() {
-            next.celebrationText = StreakMilestones.celebrationText(days: milestone)
+            next.celebrationText = StreakMilestones.celebrationText(days: milestone, petName: petName)
         }
+        next.mochiName = petName
+        next.subGreeting = "Let's keep \(petName) happy"
+        // In-app CTA fallback: verb-only when the name is too wide for the
+        // button; VoiceOver keeps the full name at the call sites.
+        let nameFits = NotificationActionTitles.fitsCompactBudget(petName)
+        next.wakeCtaTitle = nameFits ? "Wake \(petName)" : "Wake"
+        next.petCtaTitle = nameFits ? "Pet \(petName)" : "Pet"
         next.isLapsed = lapsed
         next.showBillingBanner = membershipSession.hasBillingIssue
         next.isOnVacation = onVacation && !lapsed
@@ -448,7 +457,7 @@ final class HomeViewModel: StateViewModel<
         next.displayedMood = displayed
         next.isSleeping = sleeping
         (next.moodTitle, next.moodSub) = moodCopy(
-            displayed, sleeping: sleeping, lapsed: lapsed, vacation: onVacation
+            displayed, sleeping: sleeping, lapsed: lapsed, vacation: onVacation, petName: petName
         )
         next.todayDateText = now.formatted(.dateTime.weekday(.wide).day().month(.wide))
         next.todayItems = scoped.map { item(for: $0, now: now) }
@@ -561,21 +570,21 @@ final class HomeViewModel: StateViewModel<
         return "On vacation · back \(end.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)))"
     }
 
-    private func moodCopy(_ value: Double, sleeping: Bool, lapsed: Bool, vacation: Bool) -> (String, String) {
+    private func moodCopy(_ value: Double, sleeping: Bool, lapsed: Bool, vacation: Bool, petName: String) -> (String, String) {
         if lapsed {
-            return ("Mochi is napping", "Wake Mochi to bring everything back")
+            return ("\(petName) is napping", "Wake \(petName) to bring everything back")
         }
         if vacation {
-            return ("Mochi is resting", "Vacation mode · nudges paused")
+            return ("\(petName) is resting", "Vacation mode · nudges paused")
         }
         if sleeping {
-            return ("Mochi is sleeping", "Bedtime · see you in the morning")
+            return ("\(petName) is sleeping", "Bedtime · see you in the morning")
         }
         switch value {
-        case 80...: return ("Mochi is beaming", "You're on a roll")
-        case 50..<80: return ("Mochi feels content", "Clear a task to make it beam")
-        case 25..<50: return ("Mochi's getting sleepy", "A quick win would help")
-        default: return ("Mochi feels low", "Let's clear something overdue")
+        case 80...: return ("\(petName) is beaming", "You're on a roll")
+        case 50..<80: return ("\(petName) feels content", "Clear a task to make it beam")
+        case 25..<50: return ("\(petName) is getting sleepy", "A quick win would help")
+        default: return ("\(petName) feels low", "Let's clear something overdue")
         }
     }
 

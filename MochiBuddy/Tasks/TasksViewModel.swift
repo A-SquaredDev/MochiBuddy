@@ -41,6 +41,7 @@ final class TasksViewModel: ObservableStateViewModel<
     private var remindersBlocked = false
     private var coins = 0
     private var streak = 0
+    private var petName = "Mochi"
 
     init(
         authRepository: AuthRepository,
@@ -139,6 +140,7 @@ final class TasksViewModel: ObservableStateViewModel<
         if let profile = try? await profileRepository.fetchProfile(userId: userId) {
             coins = profile.coins
             streak = profile.streakCount
+            petName = profile.mochiName
             syncedReminderListIds = profile.importedReminderListIds
             onVacation = profile.vacationActive(at: .now)
         }
@@ -239,6 +241,7 @@ final class TasksViewModel: ObservableStateViewModel<
     private func rebuild() {
         let now = Date.now
         var next = uiState
+        next.petName = petName
         next.coins = coins
         next.streakDays = streak
         next.showEmptyCalm = false

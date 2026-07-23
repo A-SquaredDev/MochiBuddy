@@ -52,7 +52,8 @@ final class YouRouter: YouRouting {
             membershipStore: container.membershipStore,
             membershipSession: container.membershipSession,
             themeStore: container.themeStore,
-            relay: container.notificationOrchestrator
+            relay: container.notificationOrchestrator,
+            petIdentityStore: container.petIdentityStore
         )
         return AnyView(YouView(viewModel: viewModel, router: self))
     }
@@ -131,7 +132,8 @@ final class YouRouter: YouRouting {
             authRepository: container.authRepository,
             listRepository: container.listRepository,
             taskRepository: container.taskRepository,
-            membershipSession: container.membershipSession
+            membershipSession: container.membershipSession,
+            petName: container.petIdentityStore.name
         )
         navController.navigate(
             route: AdHocRoute(key: "you.lists"),
@@ -141,6 +143,7 @@ final class YouRouter: YouRouting {
                 taskEditor: { [weak self] task in
                     self.map { AnyView(TaskEditorView(viewModel: TaskEditorViewModel(
                         editingTask: task,
+                        petName: $0.container.petIdentityStore.name,
                         authRepository: $0.container.authRepository,
                         taskRepository: $0.container.taskRepository,
                         listRepository: $0.container.listRepository

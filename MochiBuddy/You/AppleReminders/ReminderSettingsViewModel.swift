@@ -21,6 +21,7 @@ final class ReminderSettingsViewModel: StateViewModel<
     // Domain source of truth.
     private var availableLists: [ReminderList] = []
     private var syncedIds: [String] = []
+    private var petName = "Mochi"
 
     init(
         authRepository: AuthRepository,
@@ -38,6 +39,7 @@ final class ReminderSettingsViewModel: StateViewModel<
         case .load:
             if let userId, let profile = try? await profileRepository.fetchProfile(userId: userId) {
                 syncedIds = profile.importedReminderListIds
+                petName = profile.mochiName
             }
             switch remindersGateway.accessStatus {
             case .granted:
@@ -96,6 +98,7 @@ final class ReminderSettingsViewModel: StateViewModel<
         }
         setUIState(
             uiState
+                .updating(\.petName, to: petName)
                 .updating(\.status, to: status)
                 .updating(\.lists, to: items)
                 .updating(\.syncingCount, to: items.filter(\.isSyncing).count)

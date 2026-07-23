@@ -19,7 +19,7 @@ struct VacationView: View {
             VStack(spacing: 12) {
                 ScreenTopBar(
                     title: "Vacation mode",
-                    subtitle: "Rest easy · Mochi's got you",
+                    subtitle: "Rest easy · \(viewModel.petName) has you covered",
                     onBack: { router.navigateBack() }
                 )
 

@@ -34,8 +34,8 @@ struct LapsedGateView: View {
                         }
                         OnbHeading(
                             eyebrow: "Membership expired",
-                            title: "Let's wake Mochi back up",
-                            bodyText: "Your membership lapsed, so Mochi's dozed off. Reactivate to bring everything back to life. Nothing was deleted."
+                            title: "Let's wake \(viewModel.petName) back up",
+                            bodyText: "Your membership lapsed, so \(viewModel.petName) dozed off. Reactivate to bring everything back to life. Nothing was deleted."
                         )
                     }
 

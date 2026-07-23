@@ -60,6 +60,7 @@ final class AppContainer {
     let recurrenceRoller: RecurrenceRoller
     let notificationScheduler: NotificationScheduling
     let notificationOrchestrator: NotificationOrchestrator
+    let petIdentityStore: PetIdentityStore
     let vacationReentryService: VacationReentryService
     let widgetStateMirror: WidgetStateMirror
     let widgetCompletionDrain: WidgetCompletionDrain
@@ -130,6 +131,25 @@ final class AppContainer {
         notificationDelegate.actionHandler = notificationActionHandler
         UNUserNotificationCenter.current().delegate = notificationDelegate
         NotificationCategories.register()
+
+        petIdentityStore = PetIdentityStore(
+            profileRepository: profileRepository,
+            telemetry: OSLogPetIdentityTelemetry()
+        )
+        // PetIdentityDidChange, steps 2-3: action labels re-register
+        // BEFORE the re-lay so newly laid notifications reference matching
+        // labels; the re-lay rewrites mood pings + rundowns with the new
+        // name (promises carry no name, by the locked rule). Step 4, the
+        // widget mirror, rides the relay's onRelaid hook below.
+        petIdentityStore.onIdentityChanged = { [weak notificationOrchestrator] name in
+            NotificationCategories.register(petName: name)
+            notificationOrchestrator?.requestRelay(.petIdentityChange)
+        }
+        // On every profile load, align labels with a name chosen in a past
+        // session or on another device (cheap, idempotent).
+        petIdentityStore.onLoaded = { name in
+            NotificationCategories.register(petName: name)
+        }
 
         // Every check-off (from any surface) re-lays the schedule.
         taskCompletionStore.onMutation = { [weak notificationOrchestrator] in

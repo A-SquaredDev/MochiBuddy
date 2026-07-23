@@ -24,7 +24,10 @@ final class AppleRemindersViewModel: ObservableStateViewModel<
     init(remindersGateway: RemindersGateway, onboardingStore: OnboardingStore) {
         self.remindersGateway = remindersGateway
         self.onboardingStore = onboardingStore
-        super.init(initialState: AppleRemindersBehavior.UIState())
+        // Seed the name up front - this screen has no load action.
+        var initial = AppleRemindersBehavior.UIState()
+        initial.petName = onboardingStore.petName
+        super.init(initialState: initial)
     }
 
     override func triggerAsync(_ action: AppleRemindersBehavior.ViewAction) async {

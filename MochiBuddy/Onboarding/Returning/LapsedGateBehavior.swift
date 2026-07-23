@@ -15,6 +15,8 @@ enum LapsedGateBehavior {
     }
 
     struct UIState: UpdatableStruct, Equatable {
+        /// The pet's chosen name - "Mochi" until the profile loads.
+        var petName = "Mochi"
         var stats: [Stat] = []
         var plans: [PlanCardModel] = [.yearly, .monthly]
         var selectedPlanId = PlanCardModel.yearly.id

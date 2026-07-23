@@ -14,6 +14,8 @@ enum BedtimeSettingsBehavior {
     }
 
     struct UIState: UpdatableStruct, Equatable {
+        /// The pet's chosen name - "Mochi" until the profile loads.
+        var petName = "Mochi"
         var bedtimeText = ""
         var wakeText = ""
         var bedtimeDate = Date()

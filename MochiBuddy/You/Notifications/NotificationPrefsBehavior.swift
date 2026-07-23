@@ -8,6 +8,8 @@ import Foundation
 enum NotificationPrefsBehavior {
 
     struct UIState: UpdatableStruct, Equatable {
+        /// The pet's chosen name - "Mochi" until the profile loads.
+        var petName = "Mochi"
         var taskReminders = true
         var morningRundown = true
         var moodDips = false

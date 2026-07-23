@@ -110,7 +110,7 @@ struct ReminderSettingsView: View {
                 Text("Already use Reminders?")
                     .font(MochiFont.display(16, weight: .semibold))
                     .foregroundStyle(theme.ink)
-                Text("Bring your lists in so Mochi tracks everything in one place. Checking one off in Mochi marks it done in Apple Reminders too.")
+                Text("Bring your lists in so \(viewModel.petName) tracks everything in one place. Checking one off in Mochi marks it done in Apple Reminders too.")
                     .font(MochiFont.body(12, weight: .bold))
                     .foregroundStyle(theme.muted)
                     .multilineTextAlignment(.center)

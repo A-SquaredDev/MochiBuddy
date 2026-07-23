@@ -19,7 +19,7 @@ struct BedtimeSettingsView: View {
             VStack(spacing: 12) {
                 ScreenTopBar(
                     title: "Bedtime",
-                    subtitle: "Mochi sleeps · nudges pause",
+                    subtitle: "\(viewModel.petName) sleeps · nudges pause",
                     onBack: { router.navigateBack() }
                 )
 
@@ -32,7 +32,7 @@ struct BedtimeSettingsView: View {
                                     .foregroundStyle(theme.primaryText)
                                     .offset(x: 8, y: -8)
                             }
-                        Text("Mochi rests while you do. No anxious pings at night, and a friendly rundown when you both wake up.")
+                        Text("\(viewModel.petName) rests while you do. No anxious pings at night, and a friendly rundown when you both wake up.")
                             .font(MochiFont.body(12, weight: .bold))
                             .foregroundStyle(theme.muted)
                             .multilineTextAlignment(.center)

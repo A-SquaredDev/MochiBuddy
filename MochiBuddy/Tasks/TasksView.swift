@@ -101,7 +101,7 @@ struct TasksView: View {
             SkeletonTodoRow(titleWidth: 186, metaWidth: 110)
             SkeletonTodoRow(titleWidth: 140, metaWidth: 86)
             MochiLoadingPhrase(phrases: [
-                "Mochi is fetching your tasks…",
+                "\(viewModel.petName) is fetching your tasks…",
                 "Sniffing out due dates…",
                 "Sorting the to-dos…",
             ])
@@ -296,7 +296,7 @@ struct TasksView: View {
                 Text("All caught up")
                     .font(MochiFont.display(17, weight: .semibold))
                     .foregroundStyle(theme.ink)
-                Text("Mochi's doing a happy wiggle.")
+                Text("\(viewModel.petName) is doing a happy wiggle.")
                     .font(MochiFont.body(12, weight: .bold))
                     .foregroundStyle(theme.muted)
                 if viewModel.streakDays > 0 {

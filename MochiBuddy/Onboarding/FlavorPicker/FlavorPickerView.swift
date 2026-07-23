@@ -26,8 +26,8 @@ struct FlavorPickerView: View {
             VStack(alignment: .leading, spacing: 16) {
                 OnbHeading(
                     eyebrow: "Make it yours",
-                    title: "Choose Mochi's flavor",
-                    bodyText: "It recolours the whole app and Mochi's world. Switch anytime, they're all included.",
+                    title: "Pick a flavor for \(viewModel.petName)",
+                    bodyText: "It recolours the whole app and the world around \(viewModel.petName). Switch anytime, they're all included.",
                     align: .leading
                 )
                 .padding(.top, 8)

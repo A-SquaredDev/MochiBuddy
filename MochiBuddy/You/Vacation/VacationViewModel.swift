@@ -22,6 +22,7 @@ final class VacationViewModel: StateViewModel<
     private var isOn = false
     private var resumeAt: Date?
     private var startedAt: Date?
+    private var petName = "Mochi"
 
     init(
         authRepository: AuthRepository,
@@ -43,6 +44,7 @@ final class VacationViewModel: StateViewModel<
                 isOn = profile.vacationMode
                 resumeAt = profile.vacationResumeAt
                 startedAt = profile.vacationStartedAt
+                petName = profile.mochiName
             }
             rebuildState()
 
@@ -103,6 +105,7 @@ final class VacationViewModel: StateViewModel<
     private func rebuildState() {
         setUIState(
             uiState
+                .updating(\.petName, to: petName)
                 .updating(\.isOn, to: isOn)
                 .updating(\.toggleSub, to: toggleSub)
                 .updating(\.autoResume, to: resumeAt != nil)

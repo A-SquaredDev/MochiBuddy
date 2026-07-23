@@ -195,7 +195,7 @@ struct TaskEditorView: View {
                 Text(text)
                     .font(MochiFont.display(13, weight: .semibold))
                     .foregroundStyle(theme.danger)
-                Text("Clearing this lifts Mochi the most")
+                Text("Clearing this lifts \(viewModel.petName) the most")
                     .font(MochiFont.body(11, weight: .bold))
                     .foregroundStyle(theme.danger.opacity(0.8))
             }

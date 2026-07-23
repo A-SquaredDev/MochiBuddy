@@ -146,7 +146,11 @@ struct PaywallTests {
             authRepository: StubAuthRepository(),
             profileRepository: profileRepo,
             taskRepository: StubTaskRepository(),
-            themeStore: ThemeStore(defaults: UserDefaults(suiteName: "mochi-tests-\(UUID())")!)
+            themeStore: ThemeStore(defaults: UserDefaults(suiteName: "mochi-tests-\(UUID())")!),
+            petIdentityStore: PetIdentityStore(
+                profileRepository: profileRepo,
+                defaults: UserDefaults(suiteName: "mochi-tests-\(UUID())")!
+            )
         )
         let vm = PaywallViewModel(membershipStore: membership, onboardingStore: onboardingStore)
         return (vm, membership, profileRepo)

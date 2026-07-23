@@ -88,6 +88,14 @@ struct UserProfile: Equatable {
     var displayName: String?
     var authProvider: String?
     var createdAt: Date?
+    /// The pet's name (default "Mochi"). Sanitized at every persistence
+    /// boundary; replaces "Mochi" in pet-referential copy only, never brand.
+    var mochiName: String = PetNameSanitizer.defaultName
+    /// Date-only YYYY-MM-DD stamped when the naming beat completes - the
+    /// literal "day you met", distinct from `createdAt`. Write-once,
+    /// enforced by Firestore security rules; rendered verbatim (no timezone
+    /// math can ever shift it).
+    var adoptedOn: String? = nil
     var timezone: String?
     var bedtime: BedtimeWindow
     var themeId: String?

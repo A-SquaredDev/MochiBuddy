@@ -46,6 +46,9 @@ enum TaskEditorBehavior {
 
     struct UIState: UpdatableStruct, Equatable {
         var isEditing = false
+        /// The pet's chosen name - construction sites that can't reach the
+        /// pet identity keep the "Mochi" default.
+        var petName = "Mochi"
         var title = ""
         var canSave = false
         /// "Overdue by 2 days" - edit mode only.

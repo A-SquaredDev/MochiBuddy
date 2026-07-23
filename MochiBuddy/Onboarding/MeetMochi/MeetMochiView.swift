@@ -14,6 +14,7 @@ struct MeetMochiView: View {
     let router: any OnboardingRouting
 
     @Environment(\.mochiTheme) private var theme
+    @State private var nameFocused = false
 
     private var backAction: (() -> Void)? {
         guard viewModel.canGoBack else { return nil }
@@ -51,9 +52,18 @@ struct MeetMochiView: View {
                     .padding(.horizontal, 6)
                     .transition(.opacity)
             }
+            if viewModel.page.isNamingBeat {
+                nameInput
+                    .transition(.opacity)
+            }
         } footer: {
-            MochiButton(title: viewModel.page.cta) {
+            MochiButton(title: viewModel.page.cta, isLoading: viewModel.isSaving) {
                 viewModel.trigger(.continueTapped)
+            }
+            if viewModel.page.isNamingBeat {
+                MochiTextLink(title: "Mochi is perfect") {
+                    viewModel.trigger(.keepDefaultTapped)
+                }
             }
         }
         .animation(MochiMotion.mood, value: viewModel.pageIndex)
@@ -63,5 +73,30 @@ struct MeetMochiView: View {
                 router.navigateToFirstTask()
             }
         }
+    }
+
+    /// Same silhouette as the first-task input; the field itself owns the
+    /// live 16-grapheme cap and IME safety.
+    private var nameInput: some View {
+        HStack(spacing: 7) {
+            Image(systemName: "pencil")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(theme.muted)
+            PetNameTextField(
+                text: viewModel.collectBinding(for: \.nameDraft, action: { .nameDraftChanged($0) }),
+                textColor: UIColor(theme.ink),
+                onSubmit: { viewModel.trigger(.continueTapped) },
+                onEditingChanged: { nameFocused = $0 }
+            )
+            .frame(height: 22)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(theme.surface, in: RoundedRectangle(cornerRadius: MochiRadius.md))
+        .overlay(
+            RoundedRectangle(cornerRadius: MochiRadius.md)
+                .stroke(nameFocused ? theme.primary : theme.line, lineWidth: 2)
+        )
+        .animation(MochiMotion.soft, value: nameFocused)
     }
 }

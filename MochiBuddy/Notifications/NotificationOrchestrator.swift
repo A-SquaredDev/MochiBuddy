@@ -25,6 +25,9 @@ enum RelayTrigger: String {
     case entitlementChange
     case notificationAction
     case timezoneChange
+    /// A rename: mood pings + rundowns rewritten with the new name;
+    /// promises untouched (they contain no name, by the locked rule).
+    case petIdentityChange
 }
 
 @MainActor
@@ -109,6 +112,9 @@ final class NotificationOrchestrator {
         let prefs: NotificationPrefs
         let bedtime: BedtimeWindow
         let lapsed: Bool
+        /// The pet's name at plan time - dresses mood pings and rundowns,
+        /// and rides into the widget mirror so both stay in step.
+        let petName: String
     }
 
     func makeContext(now: Date = .now) async -> RelayContext? {
@@ -139,7 +145,8 @@ final class NotificationOrchestrator {
             ),
             prefs: profile?.notificationPrefs ?? .standard,
             bedtime: profile?.bedtime ?? .standard,
-            lapsed: lapsed
+            lapsed: lapsed,
+            petName: profile?.mochiName ?? PetNameSanitizer.defaultName
         )
     }
 
@@ -192,6 +199,7 @@ final class NotificationOrchestrator {
                 completionTimes: completions,
                 floorPhase: floorPhase,
                 hideTaskNames: prefs.hideTaskNames,
+                petName: context.petName,
                 deck: &deck,
                 calendar: calendar
             )

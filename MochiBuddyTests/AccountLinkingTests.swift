@@ -21,7 +21,11 @@ private func makeAccountVM(
         authRepository: auth,
         profileRepository: profileRepo,
         taskRepository: StubTaskRepository(),
-        themeStore: ThemeStore(defaults: UserDefaults(suiteName: "mochi-tests-\(UUID())")!)
+        themeStore: ThemeStore(defaults: UserDefaults(suiteName: "mochi-tests-\(UUID())")!),
+        petIdentityStore: PetIdentityStore(
+            profileRepository: profileRepo,
+            defaults: UserDefaults(suiteName: "mochi-tests-\(UUID())")!
+        )
     )
     let vm = AccountViewModel(
         authRepository: auth,

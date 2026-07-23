@@ -19,6 +19,7 @@ final class BedtimeSettingsViewModel: StateViewModel<
 
     // Domain source of truth - wall-clock minutes, not instants.
     private var window: BedtimeWindow = .standard
+    private var petName = "Mochi"
 
     init(
         authRepository: AuthRepository,
@@ -36,6 +37,7 @@ final class BedtimeSettingsViewModel: StateViewModel<
         case .load:
             if let userId, let profile = try? await profileRepository.fetchProfile(userId: userId) {
                 window = profile.bedtime
+                petName = profile.mochiName
             }
             rebuildState(editing: .none)
 
@@ -69,6 +71,7 @@ final class BedtimeSettingsViewModel: StateViewModel<
     private func rebuildState(editing: BedtimeSettingsBehavior.EditTarget) {
         setUIState(
             uiState
+                .updating(\.petName, to: petName)
                 .updating(\.bedtimeText, to: Self.format(minutes: window.startMinutes))
                 .updating(\.wakeText, to: Self.format(minutes: window.endMinutes))
                 .updating(\.bedtimeDate, to: Self.date(from: window.startMinutes))

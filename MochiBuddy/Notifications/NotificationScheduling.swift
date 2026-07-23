@@ -66,6 +66,7 @@ enum NotificationRequestBuilder {
         completionTimes: [Date] = [],
         floorPhase: NotificationCopy.FloorPhase,
         hideTaskNames: Bool,
+        petName: String = PetNameSanitizer.defaultName,
         deck: inout CopyDeck,
         calendar: Calendar = .current
     ) -> ScheduledNotificationRequest {
@@ -96,7 +97,8 @@ enum NotificationRequestBuilder {
             return ScheduledNotificationRequest(
                 plan: plan,
                 content: NotificationCopy.moodPing(
-                    band: plan.band ?? .uneasy, floorPhase: floorPhase, deck: &deck
+                    band: plan.band ?? .uneasy, floorPhase: floorPhase,
+                    petName: petName, deck: &deck
                 ),
                 urgency: .passive,
                 categoryId: NotificationCategoryID.moodPing,
@@ -118,6 +120,7 @@ enum NotificationRequestBuilder {
                 content: NotificationCopy.rundown(
                     taskTitles: top.map(\.title),
                     hideTaskNames: hideTaskNames,
+                    petName: petName,
                     crushedYesterday: yesterdayCount >= NotificationCopy.crushedYesterdayThreshold
                 ),
                 urgency: .active,
@@ -130,7 +133,9 @@ enum NotificationRequestBuilder {
             // pure presence, no ask, safe at any staleness.
             return ScheduledNotificationRequest(
                 plan: plan,
-                content: NotificationCopy.moodPing(band: .verySad, floorPhase: .chronic, deck: &deck),
+                content: NotificationCopy.moodPing(
+                    band: .verySad, floorPhase: .chronic, petName: petName, deck: &deck
+                ),
                 urgency: .passive,
                 categoryId: NotificationCategoryID.moodPing,
                 threadId: "mochi.mood"

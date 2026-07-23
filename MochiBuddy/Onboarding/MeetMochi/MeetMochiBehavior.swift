@@ -16,6 +16,10 @@ enum MeetMochiBehavior {
         let glow: Bool
         let meterValue: Double?
         let showsCoinBadge: Bool
+        /// The closing beat: naming card with the text field and the
+        /// quiet keep-the-default secondary. Part of *meeting*, not a new
+        /// step (Personal Layer, Feature 1).
+        var isNamingBeat = false
     }
 
     static let pages: [Page] = [
@@ -43,11 +47,22 @@ enum MeetMochiBehavior {
             eyebrow: nil,
             title: "Every task you finish lifts Mochi back up.",
             body: "Check one off and watch the mood rise, plus a few coins to spoil Mochi with. Helping Mochi is really just helping you.",
-            cta: "Let's begin",
+            cta: "Next",
             vitality: 82,
             glow: true,
             meterValue: 82,
             showsCoinBadge: true
+        ),
+        Page(
+            eyebrow: nil,
+            title: "They need a name. What will you call them?",
+            body: "This little one is yours now. Pick any name you like, or keep the classic.",
+            cta: "Let's begin",
+            vitality: 90,
+            glow: true,
+            meterValue: nil,
+            showsCoinBadge: false,
+            isNamingBeat: true
         ),
     ]
 
@@ -55,11 +70,18 @@ enum MeetMochiBehavior {
         var pageIndex = 0
         var page: Page = MeetMochiBehavior.pages[0]
         var canGoBack = false
+        /// Live draft in the naming field; committed graphemes only, cap
+        /// enforced by the field itself.
+        var nameDraft = ""
+        var isSaving = false
     }
 
     enum ViewAction {
         case continueTapped
         case backTapped
+        case nameDraftChanged(String)
+        /// The quiet "Mochi is perfect" secondary - keeps the default.
+        case keepDefaultTapped
     }
 
     enum NavigationEvent {

@@ -270,8 +270,9 @@
 
 ## Implementation status
 
-> 🛠 **As of July 19 2026 (v0.6.1).** Everything the changelog resolved through v0.6, plus
-> the v0.6.1 hardening pass, is built and covered by the automated suite: **379 tests,
+> 🛠 **As of July 23 2026 (v0.7 · Feature 1).** Everything the changelog resolved through
+> v0.6.1, plus Personal Layer Feature 1 (the first stop in the pinned build order
+> 1 → 4 → 3 → 2 → 5 → 6), is built and covered by the automated suite: **428 tests,
 > 0 failures** (`MochiBuddyTests`, Swift Testing, app-hosted; one deliberately-skipped
 > icon-export harness).
 
@@ -291,6 +292,7 @@
 | Widgets (v0.6) | ✅ Implemented + tested | `MochiWidgetExtension` target + `MochiShared/` sources compiled by both targets (in place of a framework); `MochiWidgetState` contract in the App Group (`MochiShared/WidgetState.swift`), mirrored by the app after every re-lay (`WidgetStateMirror`); timeline = stored baseline curve + live shared comfort buffer; small/medium + all three lock families; Pet + Complete intents; state variants active/lapsed/vacation |
 | Remote Config | ✅ Wired + published | `Tuning/RemoteTuning.swift`: `TuningSource` protocol over Firebase, pure `ResolvedTuning.resolve` with range clamping (a console typo degrades to the shipped default, never a broken invariant). Applied **before `AppContainer` is built** (the app awaits activate+apply, then constructs the container), so nothing ever computes on pre-apply values and mood(t) is strictly deterministic per session; the background fetch lands next launch. Skipped entirely under tests. All 24 parameters are published in the console and pinned by tests (`consoleKeysMatch`, `everyKeyDecodes`); hours/days→seconds conversions live in pure `ResolvedTuning` derived properties with their own non-default tests |
 | Celebrations (in-app) | ✅ Implemented + tested (v0.6.1) | `Rewards/CelebrationCenter.swift` + `TaskCompletionStore.onMilestone`: every completion surface (Home, Tasks tab, notification Complete action, widget drain) posts a landed sparse milestone (7 / 30 / then every 50) through the one center; Home shows the banner (`celebrationText`, dismissible, fires only on the completion that reaches the milestone). No push celebration class exists **by design** — see deltas |
+| Personal Layer · Feature 1: Name your Mochi + adoption date (v0.7) | ✅ Implemented + tested | `PetIdentity/`: `PetNameSanitizer` (Unicode-precise: controls/bidi stripped, banned whitespace becomes a separator, ZWJ/variation selectors never touched, 16-grapheme cap on boundaries) + pure `PetNameFieldPolicy` behind a UIKit-backed `PetNameTextField` (marked text never blocked, cap on commit) · `AdoptedOnDate` (date-only YYYY-MM-DD, strict round-trip validation, zone-free display) · `PetIdentityStore` (@Observable; one-time persisted migration backfills `mochiName`/`adoptedOn` from `createdAt` with a per-UID flag, doubles as the interrupted-onboarding backstop at `enteredHome`; `PetIdentityDidChange` pipeline: sanitize+persist → action-label re-registration (`NotificationActionTitles`, verb+~12-char compact budget, width-estimated) → `petIdentityChange` re-lay (mood pings + rundowns rewritten; **promises pet-name-free by construction** — the old "Mochi is rooting for you" promise body was removed as a spec violation) → widget mirror (`mochiName` optional in `MochiWidgetState`, stale snapshots decode and fall back) → live UI). Naming beat closes Meet Mochi (skippable, both buttons stamp write-once `adoptedOn`, name used on the very next screen); "Your Mochi" group + rename sheet in "You" (available in every state incl. lapsed); brand-vs-pet audit swept every surface (mood/rundown pools are `{name}` templates through the one `PetCopyTemplate` helper, they/them pronouns; Home/Tasks/editor/You sub-screens/onboarding-post-beat/returning flow/widget incl. VoiceOver); deletion screen lists name + adoption date factually. `firestore.rules` enforces `adoptedOn` write-once server-side (**needs deploy**). Instrumentation: `pet_named` (custom bool) / `pet_renamed` (count), never the string |
 
 ### Remote Config parameters (published July 19 2026)
 
@@ -369,6 +371,14 @@ widget-mirror horizon tracks `notif_horizon_days`.
 - Snooze targets: tonight = 19:00 (or an hour out if already evening), tomorrow = 09:00.
 - Trial expiry mid-session is caught at flow entry / You-tab refresh, not by a live
   listener; consistent with "trial expiry is not an auth event."
+- **Feature 1 (v0.7):** the `adoptedOn` write-once **rules-emulator test** is not in the
+  suite — the repo has no Firestore-emulator harness yet; the rule itself is written in
+  `firestore.rules` and must be **deployed** (`firebase deploy --only firestore:rules`).
+  Client-side write-once is covered by tests. Also: `RestoreSuccessView`'s "Mochi's
+  beaming again" line stays literal (that screen has no profile access pre-restore);
+  the rename surface is a small sheet from the "Your Mochi" card per spec, and the
+  one-time migration flag is device-local per-UID (a fresh device simply re-runs the
+  idempotent presence-check backfill, same outcome).
 
 ---
 

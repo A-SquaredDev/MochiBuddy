@@ -45,7 +45,7 @@ struct NotificationPrefsView: View {
                         .padding(.vertical, 13)
                         MochiDashedDivider()
                         MochiToggleRow(
-                            title: "Mochi's mood dips",
+                            title: "When \(viewModel.petName) feels low",
                             subtitle: "Only when it really needs you",
                             isOn: viewModel.collectBinding(for: \.moodDips, action: { .setMoodDips($0) })
                         )
@@ -71,7 +71,7 @@ struct NotificationPrefsView: View {
                     Image(systemName: "moon.fill")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(theme.muted)
-                    Text("Reminders are capped so Mochi never floods your lock screen.")
+                    Text("Reminders are capped so \(viewModel.petName) never floods your lock screen.")
                         .font(MochiFont.body(11, weight: .bold))
                         .foregroundStyle(theme.muted)
                 }
@@ -94,7 +94,7 @@ struct NotificationPrefsView: View {
                     Text("Notifications are off in Settings")
                         .font(MochiFont.body(13, weight: .heavy))
                         .foregroundStyle(theme.warn)
-                    Text("Mochi can't nudge you until they're allowed again.")
+                    Text("\(viewModel.petName) can't nudge you until they're allowed again.")
                         .font(MochiFont.body(11, weight: .bold))
                         .foregroundStyle(theme.muted)
                 }

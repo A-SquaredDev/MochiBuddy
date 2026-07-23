@@ -51,6 +51,9 @@ struct MochiPetView: View {
     var externalSquishTrigger = 0
     /// Fires on tap regardless of squishOnTap - hosts hook petting here.
     var onTap: (() -> Void)?
+    /// VoiceOver always gets the full chosen name, whatever compact
+    /// chrome had to do (Personal Layer, Feature 1).
+    var petName = "Mochi"
 
     @Environment(\.mochiTheme) private var theme
     @State private var squishTrigger = 0
@@ -63,7 +66,8 @@ struct MochiPetView: View {
         bobbing: Bool = false,
         showsSparkles: Bool = true,
         externalSquishTrigger: Int = 0,
-        onTap: (() -> Void)? = nil
+        onTap: (() -> Void)? = nil,
+        petName: String = "Mochi"
     ) {
         self.init(
             mood: MochiMood(vitality: vitality),
@@ -72,7 +76,8 @@ struct MochiPetView: View {
             bobbing: bobbing,
             showsSparkles: showsSparkles,
             externalSquishTrigger: externalSquishTrigger,
-            onTap: onTap
+            onTap: onTap,
+            petName: petName
         )
     }
 
@@ -83,7 +88,8 @@ struct MochiPetView: View {
         bobbing: Bool = false,
         showsSparkles: Bool = true,
         externalSquishTrigger: Int = 0,
-        onTap: (() -> Void)? = nil
+        onTap: (() -> Void)? = nil,
+        petName: String = "Mochi"
     ) {
         self.mood = mood
         self.size = size
@@ -92,6 +98,7 @@ struct MochiPetView: View {
         self.showsSparkles = showsSparkles
         self.externalSquishTrigger = externalSquishTrigger
         self.onTap = onTap
+        self.petName = petName
     }
 
     private var faceInk: Color { Color(hex: 0x3A2B33) }
@@ -146,7 +153,7 @@ struct MochiPetView: View {
             Haptics.impact(.soft)
             squishTrigger += 1
         }
-        .accessibilityLabel("Mochi, feeling \(accessibilityMood)")
+        .accessibilityLabel("\(petName), feeling \(accessibilityMood)")
     }
 
     private var accessibilityMood: String {

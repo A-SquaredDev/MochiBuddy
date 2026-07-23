@@ -54,6 +54,8 @@ enum TasksBehavior {
     struct UIState: UpdatableStruct, Equatable {
         /// True until the first Firestore fetch lands - drives the skeleton.
         var isLoading = true
+        /// The pet's chosen name - "Mochi" until the profile loads.
+        var petName = "Mochi"
         /// Lapsed: existing tasks stay completable/editable, but new-task
         /// capture is removed ("Wake Mochi" lives on Home).
         var isLapsed = false

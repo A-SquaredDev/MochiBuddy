@@ -33,6 +33,7 @@ final class TaskEditorViewModel: ObservableStateViewModel<
         editingTask: TaskItem?,
         draftTitle: String? = nil,
         draftListId: String? = nil,
+        petName: String = "Mochi",
         authRepository: AuthRepository,
         taskRepository: TaskRepository,
         listRepository: ListRepository
@@ -63,6 +64,7 @@ final class TaskEditorViewModel: ObservableStateViewModel<
         // Seed the fields the View reads before `.load` finishes - the
         // onLoad focus check consults `isEditing` synchronously.
         var initial = TaskEditorBehavior.UIState()
+        initial.petName = petName
         initial.isEditing = editingTask != nil
         initial.title = draft.title
         initial.canSave = !draft.title.trimmingCharacters(in: .whitespaces).isEmpty

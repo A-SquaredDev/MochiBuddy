@@ -34,6 +34,9 @@ enum ManageListsBehavior {
     }
 
     struct UIState: UpdatableStruct, Equatable {
+        /// The pet's chosen name - construction sites that can't reach the
+        /// pet identity keep the "Mochi" default.
+        var petName = "Mochi"
         var lists: [ListUIItem] = []
         var colorChoices: [ColorChoice] = []
         var selectedColorId = ""

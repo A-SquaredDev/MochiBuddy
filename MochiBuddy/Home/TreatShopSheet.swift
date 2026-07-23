@@ -40,7 +40,7 @@ struct TreatShopSheet: View {
                             treatCard(treat)
                         }
                     }
-                    Text("Treats lift Mochi \(Text("now").font(MochiFont.body(11, weight: .heavy)).foregroundColor(theme.ink)). Finishing tasks is the real cure.")
+                    Text("Treats lift \(viewModel.mochiName) \(Text("now").font(MochiFont.body(11, weight: .heavy)).foregroundColor(theme.ink)). Finishing tasks is the real cure.")
                         .font(MochiFont.body(11, weight: .bold))
                         .foregroundStyle(theme.muted)
                         .multilineTextAlignment(.center)
@@ -57,7 +57,7 @@ struct TreatShopSheet: View {
     private var bufferCard: some View {
         MochiCard(padding: EdgeInsets(top: 12, leading: 15, bottom: 12, trailing: 15)) {
             HStack(spacing: 12) {
-                MochiPetView(vitality: viewModel.displayedMood, size: 54, squishOnTap: false)
+                MochiPetView(vitality: viewModel.displayedMood, size: 54, squishOnTap: false, petName: viewModel.mochiName)
                 VStack(alignment: .leading, spacing: 1) {
                     HStack(alignment: .firstTextBaseline) {
                         Text("Comfort buffer")
@@ -108,7 +108,7 @@ struct TreatShopSheet: View {
                     .background(theme.primarySoft, in: Capsule())
             }
             .buttonStyle(SquishButtonStyle())
-            .accessibilityLabel("Pet Mochi, free")
+            .accessibilityLabel("Pet \(viewModel.mochiName), free")
         }
         .padding(EdgeInsets(top: 11, leading: 13, bottom: 11, trailing: 13))
         .background(theme.surface2, in: RoundedRectangle(cornerRadius: MochiRadius.md))

@@ -35,6 +35,7 @@ final class FlavorPickerViewModel: ObservableStateViewModel<
             }
             setUIState(
                 uiState
+                    .updating(\.petName, to: onboardingStore.petName)
                     .updating(\.flavors, to: items)
                     .updating(\.selectedId, to: onboardingStore.selectedThemeId)
             )

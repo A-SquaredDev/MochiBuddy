@@ -21,7 +21,10 @@ final class NotificationPrimerViewModel: ObservableStateViewModel<
     init(permissionService: NotificationPermissionService, onboardingStore: OnboardingStore) {
         self.permissionService = permissionService
         self.onboardingStore = onboardingStore
-        super.init(initialState: NotificationPrimerBehavior.UIState())
+        // Seed the name up front - this screen has no load action.
+        var initial = NotificationPrimerBehavior.UIState()
+        initial.petName = onboardingStore.petName
+        super.init(initialState: initial)
     }
 
     override func triggerAsync(_ action: NotificationPrimerBehavior.ViewAction) async {
