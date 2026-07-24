@@ -34,6 +34,8 @@ struct UserProfileDTO {
     let vacationResumeAt: Date?
     let vacationStartedAt: Date?
     let importedReminderListIds: [String]?
+    let observationIntervals: [[String: Any]]?
+    let observationLogSince: Date?
 
     init(id: String, data: [String: Any]) {
         self.id = id
@@ -60,6 +62,8 @@ struct UserProfileDTO {
         vacationResumeAt = (data["vacationResumeAt"] as? Timestamp)?.dateValue()
         vacationStartedAt = (data["vacationStartedAt"] as? Timestamp)?.dateValue()
         importedReminderListIds = data["importedReminderListIds"] as? [String]
+        observationIntervals = data["observationIntervals"] as? [[String: Any]]
+        observationLogSince = (data["observationLogSince"] as? Timestamp)?.dateValue()
     }
 }
 
@@ -93,8 +97,21 @@ enum UserProfileMapper {
             vacationMode: dto.vacationMode ?? false,
             vacationResumeAt: dto.vacationResumeAt,
             vacationStartedAt: dto.vacationStartedAt,
-            importedReminderListIds: dto.importedReminderListIds ?? []
+            importedReminderListIds: dto.importedReminderListIds ?? [],
+            observationIntervals: observationIntervals(from: dto.observationIntervals),
+            observationLogSince: dto.observationLogSince
         )
+    }
+
+    private static func observationIntervals(from data: [[String: Any]]?) -> [ObservationInterval] {
+        (data ?? []).compactMap { entry in
+            guard let kind = ObservationInterval.Kind(rawValue: entry["kind"] as? String ?? ""),
+                  let start = (entry["start"] as? Timestamp)?.dateValue()
+            else { return nil }
+            return ObservationInterval(
+                kind: kind, start: start, end: (entry["end"] as? Timestamp)?.dateValue()
+            )
+        }
     }
 
     private static func notificationPrefs(from data: [String: Any]?) -> NotificationPrefs {

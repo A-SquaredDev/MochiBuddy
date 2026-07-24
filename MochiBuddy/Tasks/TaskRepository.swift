@@ -9,16 +9,70 @@
 import Foundation
 import FirebaseFirestore
 
-/// The slice of a completed task the stats screen needs.
+/// One completion as a fact about the user's behavior - the stats screen
+/// and the observation engine (Personal Layer, Feature 4) both read this.
+/// Local context is captured at completion time; rows that predate the
+/// capture are re-interpreted under the current zone and honestly marked
+/// `localContextDerived` (the documented fallback, which decays out of
+/// the observation window naturally).
 struct CompletedTaskStat: Equatable {
-    let completedAt: Date
-    let dueAt: Date?
-    let listId: String?
 
-    init(completedAt: Date, dueAt: Date?, listId: String? = nil) {
+    enum Source: String {
+        case mochi
+        case apple
+    }
+
+    /// Internal id; enables diversity gates, never leaves the device.
+    let taskId: String
+    /// Stable across a recurring task's occurrences (first occurrence's id).
+    let seriesId: String?
+    let completedAt: Date
+    /// YYYY-MM-DD in the zone where completed.
+    let completedLocalDate: String
+    /// Minutes since local midnight in the zone where completed, 0...1439.
+    let completedLocalMinute: Int
+    /// IANA id of the zone at completion.
+    let completionTimeZone: String
+    /// True when the local fields were back-derived under the current zone
+    /// rather than stamped at completion.
+    let localContextDerived: Bool
+    let dueAt: Date?
+    let hasTime: Bool
+    let listId: String?
+    let isRecurring: Bool
+    let source: Source
+    /// nil = unknown (never treated as 0; 0 means known-unmoved).
+    let rescheduleCount: Int?
+
+    init(
+        taskId: String = "",
+        seriesId: String? = nil,
+        completedAt: Date,
+        dueAt: Date?,
+        listId: String? = nil,
+        hasTime: Bool = false,
+        isRecurring: Bool = false,
+        source: Source = .mochi,
+        rescheduleCount: Int? = nil,
+        localContext: CompletionLocalContext? = nil,
+        localContextDerived: Bool = false
+    ) {
+        self.taskId = taskId
+        self.seriesId = seriesId
         self.completedAt = completedAt
         self.dueAt = dueAt
         self.listId = listId
+        self.hasTime = hasTime
+        self.isRecurring = isRecurring
+        self.source = source
+        self.rescheduleCount = rescheduleCount
+        // No stored context: interpret under the current zone, marked
+        // derived - the documented fallback for legacy rows.
+        let context = localContext ?? .capture(at: completedAt)
+        self.completedLocalDate = context.localDate
+        self.completedLocalMinute = context.localMinute
+        self.completionTimeZone = context.timeZoneId
+        self.localContextDerived = localContext == nil || localContextDerived
     }
 }
 
@@ -34,7 +88,10 @@ protocol TaskRepository: AnyObject {
     func completedTasks(limit: Int, userId: String) async throws -> [TaskItem]
     /// Completions on/after `since`, newest first.
     func completedTasks(since: Date, userId: String) async throws -> [TaskItem]
-    func setCompleted(taskId: String, completed: Bool, userId: String) async throws
+    /// `localContext` is the completion-time local stamp; nil means "the
+    /// completion is happening right now" and the repository captures it.
+    /// Widget-drained completions pass the context stamped at tap time.
+    func setCompleted(taskId: String, completed: Bool, localContext: CompletionLocalContext?, userId: String) async throws
     /// Rewrites the editable fields from the domain model.
     func updateTask(_ task: TaskItem, userId: String) async throws
     /// Pushes the due date and increments the procrastination counter.
@@ -87,6 +144,9 @@ final class FirestoreTaskRepository: TaskRepository {
         }
         if let rule = draft.repeatRule {
             fields["repeatRule"] = Self.repeatRuleFields(rule)
+        }
+        if let seriesId = draft.seriesId {
+            fields["seriesId"] = seriesId
         }
         // Not awaited: offline persistence applies the write to the local
         // cache instantly; awaiting would block until a server ack.
@@ -162,14 +222,27 @@ final class FirestoreTaskRepository: TaskRepository {
         return snapshot.documents.map(Self.taskItem(from:))
     }
 
-    func setCompleted(taskId: String, completed: Bool, userId: String) async throws {
+    func setCompleted(taskId: String, completed: Bool, localContext: CompletionLocalContext?, userId: String) async throws {
         var fields: [String: Any] = [
             "completed": completed,
             "updatedAt": FieldValue.serverTimestamp(),
         ]
-        // Client time, not serverTimestamp - the mood engine and stats read
-        // it from the local cache immediately.
-        fields["completedAt"] = completed ? Timestamp(date: .now) : FieldValue.delete()
+        if completed {
+            // Client time, not serverTimestamp - the mood engine and stats
+            // read it from the local cache immediately.
+            fields["completedAt"] = Timestamp(date: .now)
+            // Completion-local context, stamped at the source (Personal
+            // Layer, Feature 4): the day/minute/zone the user acted in.
+            let context = localContext ?? .capture()
+            fields["completedLocalDate"] = context.localDate
+            fields["completedLocalMinute"] = context.localMinute
+            fields["completionTimeZone"] = context.timeZoneId
+        } else {
+            fields["completedAt"] = FieldValue.delete()
+            fields["completedLocalDate"] = FieldValue.delete()
+            fields["completedLocalMinute"] = FieldValue.delete()
+            fields["completionTimeZone"] = FieldValue.delete()
+        }
         tasks(userId).document(taskId).setData(fields, merge: true, completion: nil)
     }
 
@@ -209,7 +282,8 @@ final class FirestoreTaskRepository: TaskRepository {
             repeatRule: Self.repeatRule(from: data["repeatRule"] as? [String: Any]),
             completed: data["completed"] as? Bool ?? false,
             completedAt: (data["completedAt"] as? Timestamp)?.dateValue(),
-            createdAt: (data["createdAt"] as? Timestamp)?.dateValue()
+            createdAt: (data["createdAt"] as? Timestamp)?.dateValue(),
+            seriesId: data["seriesId"] as? String
         )
     }
 
@@ -238,10 +312,28 @@ final class FirestoreTaskRepository: TaskRepository {
             guard let completedAt = (data["completedAt"] as? Timestamp)?.dateValue() else {
                 return nil
             }
+            // Stored completion-time context when present; rows predating
+            // the stamp fall back to derivation under the current zone in
+            // the CompletedTaskStat initializer, marked derived.
+            var context: CompletionLocalContext?
+            if let localDate = data["completedLocalDate"] as? String,
+               let localMinute = data["completedLocalMinute"] as? Int,
+               let zone = data["completionTimeZone"] as? String {
+                context = CompletionLocalContext(
+                    localDate: localDate, localMinute: localMinute, timeZoneId: zone
+                )
+            }
             return CompletedTaskStat(
+                taskId: document.documentID,
+                seriesId: data["seriesId"] as? String,
                 completedAt: completedAt,
                 dueAt: (data["dueAt"] as? Timestamp)?.dateValue(),
-                listId: data["listId"] as? String
+                listId: data["listId"] as? String,
+                hasTime: data["hasTime"] as? Bool ?? false,
+                isRecurring: data["repeatRule"] != nil || data["seriesId"] != nil,
+                source: CompletedTaskStat.Source(rawValue: data["source"] as? String ?? "") ?? .mochi,
+                rescheduleCount: data["rescheduleCount"] as? Int,
+                localContext: context
             )
         }
     }

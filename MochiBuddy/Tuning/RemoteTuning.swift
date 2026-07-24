@@ -68,6 +68,31 @@ struct ResolvedTuning: Equatable {
     // Rewards
     var coinsPerTask = 10
     var streakMilestones = Milestones(fixed: [7, 30], thenEvery: 50)
+    // Observations (Personal Layer, Feature 4)
+    var obsWindowDays = 42
+    var obsReplayDays = 90
+    var obsDayCap = 3
+    var obsWeekdayMin = 15
+    var obsWeekdayWeeks = 3
+    var obsWeekdayShare = 0.30
+    var obsTimeOfDayMin = 20
+    var obsTimeOfDayDates = 5
+    var obsTimeOfDayWeeks = 3
+    var obsTimeOfDayShare = 0.40
+    var obsMarginRatio = 1.5
+    var obsTrendHalfMin = 10
+    var obsTrendRatio = 1.3
+    var obsTrendMinDelta = 0.2
+    var obsTrendCooldownDays = 7
+    var obsReturnQuietDays = 14
+    var obsReturnHistoryMin = 5
+    var obsComebackMin = 8
+    var obsComebackDates = 3
+    var obsComebackTasks = 3
+    var obsComebackHours = 24.0
+    var obsComebackP75Hours = 48.0
+    var obsStickyDays = 14
+    var obsRundownWeeklyCap = 2
 
     static let defaults = ResolvedTuning()
 
@@ -139,6 +164,31 @@ struct ResolvedTuning: Equatable {
         count("vacation_max_days", 1...365, into: &tuning.vacationMaxDays)
 
         count("coins_per_task", 1...1000, into: &tuning.coinsPerTask)
+
+        count("obs_window_days", 7...180, into: &tuning.obsWindowDays)
+        count("obs_replay_days", 14...365, into: &tuning.obsReplayDays)
+        count("obs_day_cap", 1...24, into: &tuning.obsDayCap)
+        count("obs_weekday_min", 1...500, into: &tuning.obsWeekdayMin)
+        count("obs_weekday_weeks", 1...26, into: &tuning.obsWeekdayWeeks)
+        number("obs_weekday_share", 0...1, into: &tuning.obsWeekdayShare)
+        count("obs_timeofday_min", 1...500, into: &tuning.obsTimeOfDayMin)
+        count("obs_timeofday_dates", 1...100, into: &tuning.obsTimeOfDayDates)
+        count("obs_timeofday_weeks", 1...26, into: &tuning.obsTimeOfDayWeeks)
+        number("obs_timeofday_share", 0...1, into: &tuning.obsTimeOfDayShare)
+        number("obs_margin_ratio", 1...10, into: &tuning.obsMarginRatio)
+        count("obs_trend_half_min", 1...500, into: &tuning.obsTrendHalfMin)
+        number("obs_trend_ratio", 1...10, into: &tuning.obsTrendRatio)
+        number("obs_trend_min_delta", 0...10, into: &tuning.obsTrendMinDelta)
+        count("obs_trend_cooldown_days", 1...60, into: &tuning.obsTrendCooldownDays)
+        count("obs_return_quiet_days", 2...120, into: &tuning.obsReturnQuietDays)
+        count("obs_return_history_min", 1...100, into: &tuning.obsReturnHistoryMin)
+        count("obs_comeback_min", 1...100, into: &tuning.obsComebackMin)
+        count("obs_comeback_dates", 1...50, into: &tuning.obsComebackDates)
+        count("obs_comeback_tasks", 1...50, into: &tuning.obsComebackTasks)
+        number("obs_comeback_hours", 1...336, into: &tuning.obsComebackHours)
+        number("obs_comeback_p75_hours", 1...336, into: &tuning.obsComebackP75Hours)
+        count("obs_sticky_days", 1...90, into: &tuning.obsStickyDays)
+        count("obs_rundown_weekly_cap", 0...14, into: &tuning.obsRundownWeeklyCap)
         if let data = source.json("streak_milestones"),
            let parsed = try? JSONDecoder().decode(Milestones.self, from: data),
            !parsed.fixed.isEmpty, parsed.fixed.allSatisfy({ $0 > 0 }), parsed.thenEvery > 0 {
@@ -174,6 +224,30 @@ enum RemoteTuning {
         "vacation_checkin_days",
         "vacation_max_days",
         "coins_per_task",
+        "obs_window_days",
+        "obs_replay_days",
+        "obs_day_cap",
+        "obs_weekday_min",
+        "obs_weekday_weeks",
+        "obs_weekday_share",
+        "obs_timeofday_min",
+        "obs_timeofday_dates",
+        "obs_timeofday_weeks",
+        "obs_timeofday_share",
+        "obs_margin_ratio",
+        "obs_trend_half_min",
+        "obs_trend_ratio",
+        "obs_trend_min_delta",
+        "obs_trend_cooldown_days",
+        "obs_return_quiet_days",
+        "obs_return_history_min",
+        "obs_comeback_min",
+        "obs_comeback_dates",
+        "obs_comeback_tasks",
+        "obs_comeback_hours",
+        "obs_comeback_p75_hours",
+        "obs_sticky_days",
+        "obs_rundown_weekly_cap",
     ]
     static let jsonKeys: [String] = [
         "notif_floor_taper",
@@ -217,6 +291,34 @@ enum RemoteTuning {
         RewardsStore.coinsPerTask = tuning.coinsPerTask
         StreakMilestones.fixed = tuning.streakMilestones.fixed
         StreakMilestones.thenEvery = tuning.streakMilestones.thenEvery
+
+        // Observations: thresholds re-evaluate deterministically on the
+        // next computation - stability is replayed, never stored, so no
+        // ledger intervention accompanies a tuning change.
+        ObservationConstants.windowDays = tuning.obsWindowDays
+        ObservationConstants.replayDays = tuning.obsReplayDays
+        ObservationConstants.dayCap = tuning.obsDayCap
+        ObservationConstants.weekdayMin = tuning.obsWeekdayMin
+        ObservationConstants.weekdayWeeks = tuning.obsWeekdayWeeks
+        ObservationConstants.weekdayShare = tuning.obsWeekdayShare
+        ObservationConstants.timeOfDayMin = tuning.obsTimeOfDayMin
+        ObservationConstants.timeOfDayDates = tuning.obsTimeOfDayDates
+        ObservationConstants.timeOfDayWeeks = tuning.obsTimeOfDayWeeks
+        ObservationConstants.timeOfDayShare = tuning.obsTimeOfDayShare
+        ObservationConstants.marginRatio = tuning.obsMarginRatio
+        ObservationConstants.trendHalfMin = tuning.obsTrendHalfMin
+        ObservationConstants.trendRatio = tuning.obsTrendRatio
+        ObservationConstants.trendMinDelta = tuning.obsTrendMinDelta
+        ObservationConstants.trendCooldownDays = tuning.obsTrendCooldownDays
+        ObservationConstants.returnQuietDays = tuning.obsReturnQuietDays
+        ObservationConstants.returnHistoryMin = tuning.obsReturnHistoryMin
+        ObservationConstants.comebackMin = tuning.obsComebackMin
+        ObservationConstants.comebackDates = tuning.obsComebackDates
+        ObservationConstants.comebackTasks = tuning.obsComebackTasks
+        ObservationConstants.comebackHours = tuning.obsComebackHours
+        ObservationConstants.comebackP75Hours = tuning.obsComebackP75Hours
+        ObservationConstants.stickyDays = tuning.obsStickyDays
+        ObservationConstants.rundownWeeklyCap = tuning.obsRundownWeeklyCap
     }
 
     /// Activate whatever last session fetched, apply it, then fetch in

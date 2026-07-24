@@ -61,6 +61,9 @@ final class AppContainer {
     let notificationScheduler: NotificationScheduling
     let notificationOrchestrator: NotificationOrchestrator
     let petIdentityStore: PetIdentityStore
+    let observationIntervalRecorder: ObservationIntervalRecorder
+    let observationLedger = ObservationLedger()
+    let observationService: ObservationService
     let vacationReentryService: VacationReentryService
     let widgetStateMirror: WidgetStateMirror
     let widgetCompletionDrain: WidgetCompletionDrain
@@ -113,11 +116,24 @@ final class AppContainer {
             telemetry: telemetry,
             calendar: .autoupdatingCurrent
         )
+        observationIntervalRecorder = ObservationIntervalRecorder(
+            authRepository: authRepository,
+            profileRepository: profileRepository
+        )
+        observationService = ObservationService(
+            authRepository: authRepository,
+            profileRepository: profileRepository,
+            taskRepository: taskRepository,
+            listRepository: listRepository,
+            ledger: observationLedger,
+            telemetry: OSLogObservationTelemetry()
+        )
         vacationReentryService = VacationReentryService(
             profileRepository: profileRepository,
             taskRepository: taskRepository,
             bufferStore: comfortBufferStore,
-            relay: notificationOrchestrator
+            relay: notificationOrchestrator,
+            intervalRecorder: observationIntervalRecorder
         )
         notificationActionHandler = NotificationActionHandler(
             authRepository: authRepository,
@@ -163,9 +179,16 @@ final class AppContainer {
             celebrationCenter?.post(milestone: milestone)
         }
         // A lapse or reactivation reshapes the whole plan (promises-only
-        // vs the full set) the moment it's learned.
-        membershipSession.onChange = { [weak notificationOrchestrator] in
+        // vs the full set) the moment it's learned - and lands in the
+        // observation interval log (Feature 4: momentum eligibility).
+        membershipSession.onChange = { [weak notificationOrchestrator, weak membershipSession,
+                                        weak observationIntervalRecorder] in
             notificationOrchestrator?.requestRelay(.entitlementChange)
+            guard let membershipSession else { return }
+            let isLapsed = membershipSession.isLapsed
+            Task { @MainActor in
+                await observationIntervalRecorder?.membershipChanged(isLapsed: isLapsed)
+            }
         }
 
         widgetStateMirror = WidgetStateMirror(themeStore: themeStore, calendar: .autoupdatingCurrent)

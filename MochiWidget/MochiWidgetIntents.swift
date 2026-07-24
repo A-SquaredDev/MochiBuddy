@@ -42,7 +42,12 @@ struct CompleteTaskIntent: AppIntent {
 
     func perform() async throws -> some IntentResult {
         let defaults = MochiAppGroup.defaults
-        WidgetStateStore.enqueueCompletion(taskId: taskId, defaults: defaults)
+        // Local context is stamped NOW, in the zone the tap happened in -
+        // the app-side drain may run days later or a continent away
+        // (Personal Layer, Feature 4: behavior never rewrites).
+        WidgetStateStore.enqueueCompletion(
+            taskId: taskId, context: .capture(), defaults: defaults
+        )
         // Optimistic: drop the row now; the app-side drain persists it
         // (coins included) on next open and re-mirrors the truth.
         if var state = WidgetStateStore.load(defaults: defaults) {

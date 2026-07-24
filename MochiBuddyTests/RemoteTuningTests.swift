@@ -83,7 +83,8 @@ struct RemoteTuningTests {
     @Test("the canonical key set matches the published console parameters, one to one")
     @MainActor
     func consoleKeysMatch() {
-        // The exact list published in the Firebase console on Jul 19 2026.
+        // The exact list for the Firebase console: the Jul 19 2026 set
+        // plus the 24 obs_* observation keys (Personal Layer, Feature 4).
         let published: Set<String> = [
             "mood_anchor", "mood_lateness_cap_hours", "mood_base_sting",
             "mood_stress_saturation", "mood_momentum_max", "mood_momentum_saturation",
@@ -95,12 +96,22 @@ struct RemoteTuningTests {
             "vacation_default_days", "vacation_grace_wake", "vacation_grace_decay_hours",
             "vacation_checkin_days", "vacation_max_days",
             "coins_per_task", "streak_milestones",
+            "obs_window_days", "obs_replay_days", "obs_day_cap",
+            "obs_weekday_min", "obs_weekday_weeks", "obs_weekday_share",
+            "obs_timeofday_min", "obs_timeofday_dates", "obs_timeofday_weeks",
+            "obs_timeofday_share", "obs_margin_ratio",
+            "obs_trend_half_min", "obs_trend_ratio", "obs_trend_min_delta",
+            "obs_trend_cooldown_days",
+            "obs_return_quiet_days", "obs_return_history_min",
+            "obs_comeback_min", "obs_comeback_dates", "obs_comeback_tasks",
+            "obs_comeback_hours", "obs_comeback_p75_hours",
+            "obs_sticky_days", "obs_rundown_weekly_cap",
         ]
         #expect(Set(RemoteTuning.allKeys) == published)
-        #expect(RemoteTuning.allKeys.count == 24, "no duplicates")
+        #expect(RemoteTuning.allKeys.count == 48, "no duplicates")
     }
 
-    @Test("EVERY published key is consumed with its declared type - override all 24, every field moves")
+    @Test("EVERY published key is consumed with its declared type - override all 48, every field moves")
     @MainActor
     func everyKeyDecodes() {
         let source = StubTuningSource(
@@ -124,6 +135,30 @@ struct RemoteTuningTests {
                 "vacation_checkin_days": 10,
                 "vacation_max_days": 21,
                 "coins_per_task": 12,
+                "obs_window_days": 28,
+                "obs_replay_days": 60,
+                "obs_day_cap": 2,
+                "obs_weekday_min": 12,
+                "obs_weekday_weeks": 2,
+                "obs_weekday_share": 0.35,
+                "obs_timeofday_min": 18,
+                "obs_timeofday_dates": 4,
+                "obs_timeofday_weeks": 2,
+                "obs_timeofday_share": 0.45,
+                "obs_margin_ratio": 1.8,
+                "obs_trend_half_min": 8,
+                "obs_trend_ratio": 1.5,
+                "obs_trend_min_delta": 0.3,
+                "obs_trend_cooldown_days": 10,
+                "obs_return_quiet_days": 21,
+                "obs_return_history_min": 6,
+                "obs_comeback_min": 9,
+                "obs_comeback_dates": 4,
+                "obs_comeback_tasks": 4,
+                "obs_comeback_hours": 12,
+                "obs_comeback_p75_hours": 36,
+                "obs_sticky_days": 10,
+                "obs_rundown_weekly_cap": 1,
             ],
             jsons: [
                 "notif_floor_taper": "[5,4,3,2,1]",
@@ -151,7 +186,17 @@ struct RemoteTuningTests {
             vacationDefaultDays: 5, vacationGraceWake: 60,
             vacationGraceDecayHours: 12, vacationCheckinDays: 10, vacationMaxDays: 21,
             coinsPerTask: 12,
-            streakMilestones: .init(fixed: [10], thenEvery: 30)
+            streakMilestones: .init(fixed: [10], thenEvery: 30),
+            obsWindowDays: 28, obsReplayDays: 60, obsDayCap: 2,
+            obsWeekdayMin: 12, obsWeekdayWeeks: 2, obsWeekdayShare: 0.35,
+            obsTimeOfDayMin: 18, obsTimeOfDayDates: 4, obsTimeOfDayWeeks: 2,
+            obsTimeOfDayShare: 0.45, obsMarginRatio: 1.8,
+            obsTrendHalfMin: 8, obsTrendRatio: 1.5, obsTrendMinDelta: 0.3,
+            obsTrendCooldownDays: 10,
+            obsReturnQuietDays: 21, obsReturnHistoryMin: 6,
+            obsComebackMin: 9, obsComebackDates: 4, obsComebackTasks: 4,
+            obsComebackHours: 12, obsComebackP75Hours: 36,
+            obsStickyDays: 10, obsRundownWeeklyCap: 1
         )
         #expect(tuning == expected, "every parameter must land in exactly one field")
     }
@@ -210,5 +255,10 @@ struct RemoteTuningTests {
         #expect(VacationConstants.maxDays == 30)
         #expect(RewardsStore.coinsPerTask == 10)
         #expect(StreakMilestones.isMilestone(80))
+        #expect(ObservationConstants.windowDays == 42)
+        #expect(ObservationConstants.weekdayMin == 15)
+        #expect(ObservationConstants.marginRatio == 1.5)
+        #expect(ObservationConstants.stickyDays == 14)
+        #expect(ObservationConstants.rundownWeeklyCap == 2)
     }
 }

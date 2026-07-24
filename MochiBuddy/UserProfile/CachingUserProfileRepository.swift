@@ -135,6 +135,21 @@ final class CachingUserProfileRepository: UserProfileRepository {
         }
     }
 
+    func saveObservationIntervals(_ intervals: [ObservationInterval], userId: String) async throws {
+        try await wrapped.saveObservationIntervals(intervals, userId: userId)
+        mutate(userId) { $0.observationIntervals = intervals }
+    }
+
+    func stampObservationLogSince(_ date: Date, userId: String) async throws {
+        try await wrapped.stampObservationLogSince(date, userId: userId)
+        // Set-once: the cache honors an existing value like the writers do.
+        mutate(userId) {
+            if $0.observationLogSince == nil {
+                $0.observationLogSince = date
+            }
+        }
+    }
+
     func saveMembershipMirror(isSubscribed: Bool, trialEndsAt: Date?, userId: String) async throws {
         try await wrapped.saveMembershipMirror(isSubscribed: isSubscribed, trialEndsAt: trialEndsAt, userId: userId)
         mutate(userId) {

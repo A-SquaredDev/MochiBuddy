@@ -96,7 +96,9 @@ func makeProfile(
     importedReminderListIds: [String] = [],
     createdAt: Date? = nil,
     mochiName: String = "Mochi",
-    adoptedOn: String? = nil
+    adoptedOn: String? = nil,
+    observationIntervals: [ObservationInterval] = [],
+    observationLogSince: Date? = nil
 ) -> UserProfile {
     UserProfile(
         id: "user1", displayName: "Alex Rivera", authProvider: nil, createdAt: createdAt,
@@ -108,7 +110,48 @@ func makeProfile(
         notificationPrefs: notificationPrefs, soundEnabled: false,
         vacationMode: vacationMode, vacationResumeAt: vacationResumeAt,
         vacationStartedAt: vacationStartedAt,
-        importedReminderListIds: importedReminderListIds
+        importedReminderListIds: importedReminderListIds,
+        observationIntervals: observationIntervals,
+        observationLogSince: observationLogSince
+    )
+}
+
+/// A completion record with explicit local context - the observation
+/// engine's currency. `localDate`/`localMinute` name the moment in the
+/// completion's own zone; `completedAt` defaults to the matching UTC-ish
+/// instant (exact instants only matter for comeback lateness, which
+/// passes them explicitly).
+func makeStat(
+    taskId: String = UUID().uuidString,
+    seriesId: String? = nil,
+    localDate: String,
+    localMinute: Int = 600,
+    timeZoneId: String = "America/Chicago",
+    completedAt: Date? = nil,
+    dueAt: Date? = nil,
+    listId: String? = nil,
+    hasTime: Bool = false,
+    isRecurring: Bool = false,
+    source: CompletedTaskStat.Source = .mochi,
+    rescheduleCount: Int? = 0
+) -> CompletedTaskStat {
+    let day = CivilDay(localDate)!
+    let instant = completedAt ?? Date(
+        timeIntervalSince1970: TimeInterval(day.dayNumber) * 86_400 + TimeInterval(localMinute * 60)
+    )
+    return CompletedTaskStat(
+        taskId: taskId,
+        seriesId: seriesId,
+        completedAt: instant,
+        dueAt: dueAt,
+        listId: listId,
+        hasTime: hasTime,
+        isRecurring: isRecurring,
+        source: source,
+        rescheduleCount: rescheduleCount,
+        localContext: CompletionLocalContext(
+            localDate: localDate, localMinute: localMinute, timeZoneId: timeZoneId
+        )
     )
 }
 
@@ -292,6 +335,22 @@ final class StubProfileRepository: UserProfileRepository {
     func saveMembershipMirror(isSubscribed: Bool, trialEndsAt: Date?, userId: String) async throws {
         membershipMirrors.append((isSubscribed, trialEndsAt, userId))
     }
+    private(set) var savedIntervalLogs: [[ObservationInterval]] = []
+    func saveObservationIntervals(_ intervals: [ObservationInterval], userId: String) async throws {
+        savedIntervalLogs.append(intervals)
+        if var profile {
+            profile.observationIntervals = intervals
+            self.profile = profile
+        }
+    }
+    private(set) var stampedLogSinces: [Date] = []
+    func stampObservationLogSince(_ date: Date, userId: String) async throws {
+        stampedLogSinces.append(date)
+        if var profile, profile.observationLogSince == nil {
+            profile.observationLogSince = date
+            self.profile = profile
+        }
+    }
     func markOnboardingComplete(userId: String) async throws {}
 
     func incrementCoins(by delta: Int, userId: String) async throws {
@@ -321,6 +380,7 @@ final class StubTaskRepository: TaskRepository {
 
     private(set) var addedDrafts: [TaskDraft] = []
     private(set) var setCompletedCalls: [(taskId: String, completed: Bool)] = []
+    private(set) var setCompletedContexts: [CompletionLocalContext?] = []
     private(set) var updatedTasks: [TaskItem] = []
     private(set) var snoozeCalls: [(id: String, newDueAt: Date)] = []
     private(set) var rollForwardCalls: [(id: String, newDueAt: Date, missed: Int)] = []
@@ -339,8 +399,9 @@ final class StubTaskRepository: TaskRepository {
     func completedTasks(since: Date, userId: String) async throws -> [TaskItem] {
         completed.filter { ($0.completedAt ?? .distantPast) >= since }
     }
-    func setCompleted(taskId: String, completed: Bool, userId: String) async throws {
+    func setCompleted(taskId: String, completed: Bool, localContext: CompletionLocalContext?, userId: String) async throws {
         setCompletedCalls.append((taskId, completed))
+        setCompletedContexts.append(localContext)
     }
     func updateTask(_ task: TaskItem, userId: String) async throws { updatedTasks.append(task) }
     func snoozeTask(id: String, to newDueAt: Date, userId: String) async throws {

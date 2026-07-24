@@ -25,6 +25,7 @@ final class VacationReentryService {
     private let taskRepository: TaskRepository
     private let bufferStore: ComfortBufferStore
     private let relay: NotificationRelaying
+    private let intervalRecorder: ObservationIntervalRecorder?
     private let defaults: UserDefaults
     private let calendar: Calendar
 
@@ -33,6 +34,7 @@ final class VacationReentryService {
         taskRepository: TaskRepository,
         bufferStore: ComfortBufferStore,
         relay: NotificationRelaying,
+        intervalRecorder: ObservationIntervalRecorder? = nil,
         defaults: UserDefaults = .standard,
         calendar: Calendar = .current
     ) {
@@ -40,6 +42,7 @@ final class VacationReentryService {
         self.taskRepository = taskRepository
         self.bufferStore = bufferStore
         self.relay = relay
+        self.intervalRecorder = intervalRecorder
         self.defaults = defaults
         self.calendar = calendar
     }
@@ -110,6 +113,11 @@ final class VacationReentryService {
             resumeAt: profile.vacationResumeAt
         )
         let end = min(scheduledEnd ?? now, now)
+
+        // The observation log records the interval this vacation TRULY
+        // covered - a trip that expired days ago closes at its scheduled
+        // end, not at this open (Feature 4: momentum eligibility).
+        await intervalRecorder?.vacationEnded(at: end)
 
         // The bucket: one-off dated tasks overdue as of the end - both the
         // ones that crossed during the trip and anything already overdue

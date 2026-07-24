@@ -53,13 +53,19 @@ final class TaskCompletionStore {
         self.membershipSession = membershipSession
     }
 
+    /// `localContext` carries a completion-time local stamp for completions
+    /// that happened earlier than this call (the widget drain); live
+    /// check-offs leave it nil and the repository stamps "now".
     func setCompleted(
         _ task: TaskItem,
         completed: Bool,
         currentCoins: Int,
-        userId: String
+        userId: String,
+        localContext: CompletionLocalContext? = nil
     ) async -> ToggleOutcome {
-        try? await taskRepository.setCompleted(taskId: task.id, completed: completed, userId: userId)
+        try? await taskRepository.setCompleted(
+            taskId: task.id, completed: completed, localContext: localContext, userId: userId
+        )
         defer { onMutation?() }
 
         // Lapsed: completing stays allowed ("finish what you started") but
@@ -83,6 +89,9 @@ final class TaskCompletionStore {
         var spawned: TaskItem?
         if let rule = task.repeatRule, let due = task.dueAt {
             let nextDue = rule.nextOccurrence(after: due)
+            // Every occurrence of one habit shares one series identity -
+            // the first occurrence's id, inherited down the spawn chain.
+            let seriesId = task.seriesId ?? task.id
             let draft = TaskDraft(
                 title: task.title,
                 notes: task.notes,
@@ -90,14 +99,16 @@ final class TaskCompletionStore {
                 hasTime: task.hasTime,
                 priority: task.priority,
                 listId: task.listId,
-                repeatRule: rule
+                repeatRule: rule,
+                seriesId: seriesId
             )
             if let id = try? await taskRepository.addTask(draft, userId: userId) {
                 spawned = TaskItem(
                     id: id, title: task.title, notes: task.notes,
                     dueAt: nextDue, hasTime: task.hasTime, priority: task.priority,
                     listId: task.listId, repeatRule: rule,
-                    completed: false, completedAt: nil, createdAt: .now
+                    completed: false, completedAt: nil, createdAt: .now,
+                    seriesId: seriesId
                 )
                 spawnByCompletedTaskId[task.id] = id
             }

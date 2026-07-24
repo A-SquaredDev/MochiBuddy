@@ -17,6 +17,7 @@ final class VacationViewModel: StateViewModel<
     private let profileRepository: UserProfileRepository
     private let relay: NotificationRelaying
     private let reentryService: VacationReentryService
+    private let intervalRecorder: ObservationIntervalRecorder?
 
     // Domain source of truth.
     private var isOn = false
@@ -28,12 +29,14 @@ final class VacationViewModel: StateViewModel<
         authRepository: AuthRepository,
         profileRepository: UserProfileRepository,
         relay: NotificationRelaying,
-        reentryService: VacationReentryService
+        reentryService: VacationReentryService,
+        intervalRecorder: ObservationIntervalRecorder? = nil
     ) {
         self.authRepository = authRepository
         self.profileRepository = profileRepository
         self.relay = relay
         self.reentryService = reentryService
+        self.intervalRecorder = intervalRecorder
         super.init(initialState: VacationBehavior.UIState())
     }
 
@@ -61,6 +64,11 @@ final class VacationViewModel: StateViewModel<
             rebuildState()
             if on {
                 await persist()
+                // Feature 4's momentum eligibility: the trip's days leave
+                // the observation window from its true start.
+                if let startedAt {
+                    await intervalRecorder?.vacationStarted(at: startedAt)
+                }
             } else {
                 await endThroughReentry()
             }

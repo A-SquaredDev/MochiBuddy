@@ -109,6 +109,11 @@ struct TaskItem: Equatable, Identifiable {
     var completed: Bool
     var completedAt: Date?
     var createdAt: Date?
+    /// Stable across a recurring task's occurrences: the first occurrence's
+    /// id, inherited by every spawn (Personal Layer, Feature 4 - lets the
+    /// comeback diversity gate see one habit as one identity). Nil on the
+    /// first occurrence and on one-off tasks.
+    var seriesId: String? = nil
 }
 
 /// What the user provides when capturing a task.
@@ -120,4 +125,6 @@ struct TaskDraft {
     var priority: TaskPriority = .med
     var listId: String?
     var repeatRule: TaskRepeat?
+    /// Set only when spawning the next occurrence of a recurring task.
+    var seriesId: String? = nil
 }

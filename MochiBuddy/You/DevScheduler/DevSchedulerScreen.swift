@@ -91,6 +91,8 @@ enum DevSchedulerBehavior {
         var scrubText = ""
         var timeTravelHours: Double = 0
         var timeTravelText = ""
+        var observations = DevObservationInspector.Model()
+        var expandedObservationId: String? = nil
 
         /// Right edge of the visible chart window.
         var displayEnd: Date {
@@ -104,6 +106,7 @@ enum DevSchedulerBehavior {
         case timeTravelChanged(Double)
         case rangeChanged(Int)
         case rowTapped(String)
+        case observationRowTapped(String?)
         case scrubbed(Date?)
         /// Local dev store only: restart the 7-day trial so the horizon
         /// uncaps without re-onboarding.
@@ -120,19 +123,28 @@ final class DevSchedulerViewModel: StateViewModel<
     private let scheduler: NotificationScheduling
     private let membershipStore: MembershipStore
     private let membershipSession: MembershipSession
+    private let observationService: ObservationService?
+    private let observationLedger: ObservationLedger?
 
     private var context: NotificationOrchestrator.RelayContext?
+    /// Cached once per rebuild; the engine is pure, so time travel just
+    /// re-evaluates these at a shifted "now".
+    private var observationInputs: ObservationEngine.Inputs?
 
     init(
         orchestrator: NotificationOrchestrator,
         scheduler: NotificationScheduling,
         membershipStore: MembershipStore,
-        membershipSession: MembershipSession
+        membershipSession: MembershipSession,
+        observationService: ObservationService? = nil,
+        observationLedger: ObservationLedger? = nil
     ) {
         self.orchestrator = orchestrator
         self.scheduler = scheduler
         self.membershipStore = membershipStore
         self.membershipSession = membershipSession
+        self.observationService = observationService
+        self.observationLedger = observationLedger
         super.init(initialState: DevSchedulerBehavior.UIState())
     }
 
@@ -157,6 +169,9 @@ final class DevSchedulerViewModel: StateViewModel<
 
         case .rowTapped(let id):
             state.expandedRowId = uiState.expandedRowId == id ? nil : id
+
+        case .observationRowTapped(let id):
+            state.expandedObservationId = id
 
         case .scrubbed(let date):
             rebuildScrub(at: date)
@@ -274,12 +289,29 @@ final class DevSchedulerViewModel: StateViewModel<
                 ? "all \(moodPings) mood pings match the live forecast"
                 : "\(violations) INVARIANT VIOLATION\(violations == 1 ? "" : "S")"
         setUIState(next)
+        observationInputs = await observationService?.engineInputs(now: now)
         rebuildTimeTravel()
+    }
+
+    /// Re-evaluate the pure observation engine at a (possibly time-
+    /// traveled) instant on the cached inputs.
+    private func rebuildObservations(at now: Date) {
+        guard var inputs = observationInputs,
+              let ledger = observationLedger,
+              let userId = observationService?.currentUserId
+        else { return }
+        inputs.now = now
+        state.observations = DevObservationInspector.model(
+            from: ObservationEngine.evaluate(inputs),
+            ledgerState: ledger.state(userId: userId),
+            at: now
+        )
     }
 
     private func rebuildTimeTravel() {
         guard let snapshot = context?.snapshot else { return }
         let t = Date.now.addingTimeInterval(uiState.timeTravelHours * 3600)
+        rebuildObservations(at: t)
         let value = MoodForecast.displayed(at: t, snapshot: snapshot)
         var text = String(
             format: "+%.0fh · %@ · %.1f · %@",
@@ -453,6 +485,13 @@ struct DevSchedulerView: View {
                     header
                     chart
                     timeTravel
+                    DevObservationSection(
+                        model: viewModel.observations,
+                        expandedRowId: viewModel.collectBinding(
+                            for: \.expandedObservationId,
+                            action: { .observationRowTapped($0) }
+                        )
+                    )
                     pendingList
                 }
             }

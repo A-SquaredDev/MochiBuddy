@@ -98,16 +98,34 @@ struct WidgetStateStoreTests {
                 "an older widget must ignore a newer contract, not misread it")
     }
 
-    @Test("the completion queue dedupes and drains to empty")
+    @Test("the completion queue dedupes, keeps tap-time context, and drains to empty")
     func completionQueue() {
         let defaults = freshDefaults()
-        WidgetStateStore.enqueueCompletion(taskId: "a", defaults: defaults)
-        WidgetStateStore.enqueueCompletion(taskId: "b", defaults: defaults)
-        WidgetStateStore.enqueueCompletion(taskId: "a", defaults: defaults)
+        let evening = CompletionLocalContext(
+            localDate: "2026-07-07", localMinute: 22 * 60, timeZoneId: "America/Chicago"
+        )
+        WidgetStateStore.enqueueCompletion(taskId: "a", context: evening, defaults: defaults)
+        WidgetStateStore.enqueueCompletion(taskId: "b", context: .capture(), defaults: defaults)
+        WidgetStateStore.enqueueCompletion(taskId: "a", context: .capture(), defaults: defaults)
 
-        #expect(WidgetStateStore.pendingCompletions(defaults: defaults) == ["a", "b"])
-        #expect(WidgetStateStore.drainCompletions(defaults: defaults) == ["a", "b"])
+        let pending = WidgetStateStore.pendingCompletions(defaults: defaults)
+        #expect(pending.map(\.taskId) == ["a", "b"])
+        // The context stamped at TAP time survives verbatim - an overnight
+        // drain cannot shift evening behavior into morning.
+        #expect(pending.first?.context == evening)
+        #expect(WidgetStateStore.drainCompletions(defaults: defaults) == pending)
         #expect(WidgetStateStore.pendingCompletions(defaults: defaults).isEmpty)
+    }
+
+    @Test("a pre-context string-array queue still drains, with context honestly absent")
+    func completionQueueLegacyFormat() {
+        let defaults = freshDefaults()
+        defaults.set(["old1", "old2"], forKey: WidgetStateStore.completionQueueKey)
+
+        let drained = WidgetStateStore.drainCompletions(defaults: defaults)
+        #expect(drained.map(\.taskId) == ["old1", "old2"])
+        #expect(drained.allSatisfy { $0.context == nil },
+                "legacy entries must fall back to derived context, never fake a stamp")
     }
 
     @Test("the comfort buffer migrates from standard defaults into the group once")
@@ -247,14 +265,19 @@ struct WidgetCompletionDrainTests {
             ),
             defaults: defaults
         )
-        WidgetStateStore.enqueueCompletion(taskId: "t1", defaults: defaults)
-        WidgetStateStore.enqueueCompletion(taskId: "done", defaults: defaults)
-        WidgetStateStore.enqueueCompletion(taskId: "ghost", defaults: defaults)
+        let tapContext = CompletionLocalContext(
+            localDate: "2026-07-07", localMinute: 21 * 60 + 30, timeZoneId: "America/Chicago"
+        )
+        WidgetStateStore.enqueueCompletion(taskId: "t1", context: tapContext, defaults: defaults)
+        WidgetStateStore.enqueueCompletion(taskId: "done", context: .capture(), defaults: defaults)
+        WidgetStateStore.enqueueCompletion(taskId: "ghost", context: .capture(), defaults: defaults)
 
         let landed = await drain.drain()
 
         #expect(landed == 1)
         #expect(taskRepo.setCompletedCalls.map(\.taskId) == ["t1"])
+        #expect(taskRepo.setCompletedContexts == [tapContext],
+                "the drain must persist the context stamped at tap time")
         #expect(profileRepo.coinDeltas == [RewardsStore.coinsPerTask])
         #expect(WidgetStateStore.pendingCompletions(defaults: defaults).isEmpty)
 

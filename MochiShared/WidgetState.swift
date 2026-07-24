@@ -21,6 +21,32 @@ enum MochiAppGroup {
     }
 }
 
+/// Where in their own day the user completed a task, captured at the
+/// moment of completion (Personal Layer, Feature 4). Behavior is a fact
+/// about the day it happened in; re-deriving it later from the UTC
+/// instant plus the device's CURRENT zone would let travel rewrite
+/// history. Lives in MochiShared so a widget completion stamps its
+/// context at tap time, not at next-open drain time.
+struct CompletionLocalContext: Codable, Equatable {
+    /// YYYY-MM-DD in the zone where completed.
+    let localDate: String
+    /// Minutes since local midnight, 0...1439.
+    let localMinute: Int
+    /// IANA identifier of the zone at completion.
+    let timeZoneId: String
+
+    static func capture(at instant: Date = .now, timeZone: TimeZone = .current) -> CompletionLocalContext {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        let parts = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: instant)
+        return CompletionLocalContext(
+            localDate: String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0),
+            localMinute: (parts.hour ?? 0) * 60 + (parts.minute ?? 0),
+            timeZoneId: timeZone.identifier
+        )
+    }
+}
+
 struct MochiWidgetState: Codable, Equatable {
 
     enum DisplayState: String, Codable {
@@ -123,23 +149,51 @@ enum WidgetStateStore {
 
     // MARK: - Complete-from-widget queue
 
-    /// A widget completion queues here (and optimistically updates the
-    /// snapshot); the app drains it into the source of truth on next open.
-    static func enqueueCompletion(taskId: String, defaults: UserDefaults = MochiAppGroup.defaults) {
-        var queue = defaults.stringArray(forKey: completionQueueKey) ?? []
-        guard !queue.contains(taskId) else { return }
-        queue.append(taskId)
-        defaults.set(queue, forKey: completionQueueKey)
+    /// One queued widget completion, local context stamped at tap time so
+    /// an overnight drain can never shift evening behavior into morning.
+    /// Context is nil only for entries queued by a pre-context app version;
+    /// the drain then falls back to derived context, honestly marked.
+    struct PendingCompletion: Codable, Equatable {
+        let taskId: String
+        let context: CompletionLocalContext?
     }
 
-    static func pendingCompletions(defaults: UserDefaults = MochiAppGroup.defaults) -> [String] {
-        defaults.stringArray(forKey: completionQueueKey) ?? []
+    /// A widget completion queues here (and optimistically updates the
+    /// snapshot); the app drains it into the source of truth on next open.
+    static func enqueueCompletion(
+        taskId: String,
+        context: CompletionLocalContext,
+        defaults: UserDefaults = MochiAppGroup.defaults
+    ) {
+        var queue = decodedQueue(defaults: defaults)
+        guard !queue.contains(where: { $0.taskId == taskId }) else { return }
+        queue.append(PendingCompletion(taskId: taskId, context: context))
+        defaults.set(try? JSONEncoder().encode(queue), forKey: completionQueueKey)
+    }
+
+    static func pendingCompletions(defaults: UserDefaults = MochiAppGroup.defaults) -> [PendingCompletion] {
+        decodedQueue(defaults: defaults)
     }
 
     /// Read-and-clear, for the app-side drain.
-    static func drainCompletions(defaults: UserDefaults = MochiAppGroup.defaults) -> [String] {
+    static func drainCompletions(defaults: UserDefaults = MochiAppGroup.defaults) -> [PendingCompletion] {
         let queue = pendingCompletions(defaults: defaults)
         defaults.removeObject(forKey: completionQueueKey)
+        return queue
+    }
+
+    /// Current queue plus any entries from the pre-context string-array
+    /// format (an update can land between a tap and the next open); legacy
+    /// ids carry no context and fall back at drain time.
+    private static func decodedQueue(defaults: UserDefaults) -> [PendingCompletion] {
+        if let legacy = defaults.stringArray(forKey: completionQueueKey) {
+            return legacy.map {
+                PendingCompletion(taskId: $0, context: nil)
+            }
+        }
+        guard let data = defaults.data(forKey: completionQueueKey),
+              let queue = try? JSONDecoder().decode([PendingCompletion].self, from: data)
+        else { return [] }
         return queue
     }
 }

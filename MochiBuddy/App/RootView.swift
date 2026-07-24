@@ -36,6 +36,12 @@ struct RootView: View {
                let profile = try? await container.profileRepository.fetchProfile(userId: userId) {
                 await container.petIdentityStore.load(profile: profile)
             }
+            // Observation interval log backstop: stamp the log start once
+            // and realign open vacation/lapse intervals with transitions
+            // this device never witnessed (Feature 4).
+            await container.observationIntervalRecorder.reconcile(
+                isLapsed: container.membershipSession.isLapsed
+            )
             container.notificationOrchestrator.requestRelay(.appForeground)
         }
     }

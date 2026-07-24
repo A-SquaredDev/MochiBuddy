@@ -43,12 +43,15 @@ final class WidgetCompletionDrain {
         }
         let coins = (try? await profileRepository.fetchProfile(userId: userId))?.coins ?? 0
         var landed = 0
-        for taskId in queue {
-            guard let task = (try? await taskRepository.task(id: taskId, userId: userId)) ?? nil,
+        for pending in queue {
+            guard let task = (try? await taskRepository.task(id: pending.taskId, userId: userId)) ?? nil,
                   !task.completed
             else { continue }
+            // The local context was stamped at tap time in the widget - an
+            // overnight drain must not shift evening behavior into morning.
             _ = await completionStore.setCompleted(
-                task, completed: true, currentCoins: coins, userId: userId
+                task, completed: true, currentCoins: coins, userId: userId,
+                localContext: pending.context
             )
             landed += 1
         }

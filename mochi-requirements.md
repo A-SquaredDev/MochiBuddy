@@ -1,7 +1,7 @@
 # Mochi — Requirements
 
 *Working title. A companion-driven reminders & todo app.*
-*Status: living draft — v0.7 · implementation current through v0.6.1 (see Implementation status)*
+*Status: living draft — v0.7 · implementation current through v0.7 Features 1 + 4 (see Implementation status)*
 
 ---
 
@@ -270,11 +270,11 @@
 
 ## Implementation status
 
-> 🛠 **As of July 23 2026 (v0.7 · Feature 1).** Everything the changelog resolved through
-> v0.6.1, plus Personal Layer Feature 1 (the first stop in the pinned build order
-> 1 → 4 → 3 → 2 → 5 → 6), is built and covered by the automated suite: **428 tests,
-> 0 failures** (`MochiBuddyTests`, Swift Testing, app-hosted; one deliberately-skipped
-> icon-export harness).
+> 🛠 **As of July 23 2026 (v0.7 · Features 1 + 4).** Everything the changelog resolved
+> through v0.6.1, plus Personal Layer Features 1 and 4 (the first two stops in the pinned
+> build order 1 → 4 → 3 → 2 → 5 → 6), is built and covered by the automated suite:
+> **485 tests, 0 failures** (`MochiBuddyTests`, Swift Testing, app-hosted; one
+> deliberately-skipped icon-export harness).
 
 | Spec section | Status | Where it lives (code) |
 |---|---|---|
@@ -294,7 +294,9 @@
 | Celebrations (in-app) | ✅ Implemented + tested (v0.6.1) | `Rewards/CelebrationCenter.swift` + `TaskCompletionStore.onMilestone`: every completion surface (Home, Tasks tab, notification Complete action, widget drain) posts a landed sparse milestone (7 / 30 / then every 50) through the one center; Home shows the banner (`celebrationText`, dismissible, fires only on the completion that reaches the milestone). No push celebration class exists **by design** — see deltas |
 | Personal Layer · Feature 1: Name your Mochi + adoption date (v0.7) | ✅ Implemented + tested | `PetIdentity/`: `PetNameSanitizer` (Unicode-precise: controls/bidi stripped, banned whitespace becomes a separator, ZWJ/variation selectors never touched, 16-grapheme cap on boundaries) + pure `PetNameFieldPolicy` behind a UIKit-backed `PetNameTextField` (marked text never blocked, cap on commit) · `AdoptedOnDate` (date-only YYYY-MM-DD, strict round-trip validation, zone-free display) · `PetIdentityStore` (@Observable; one-time persisted migration backfills `mochiName`/`adoptedOn` from `createdAt` with a per-UID flag, doubles as the interrupted-onboarding backstop at `enteredHome`; `PetIdentityDidChange` pipeline: sanitize+persist → action-label re-registration (`NotificationActionTitles`, verb+~12-char compact budget, width-estimated) → `petIdentityChange` re-lay (mood pings + rundowns rewritten; **promises pet-name-free by construction** — the old "Mochi is rooting for you" promise body was removed as a spec violation) → widget mirror (`mochiName` optional in `MochiWidgetState`, stale snapshots decode and fall back) → live UI). Naming beat closes Meet Mochi (skippable, both buttons stamp write-once `adoptedOn`, name used on the very next screen); "Your Mochi" group + rename sheet in "You" (available in every state incl. lapsed); brand-vs-pet audit swept every surface (mood/rundown pools are `{name}` templates through the one `PetCopyTemplate` helper, they/them pronouns; Home/Tasks/editor/You sub-screens/onboarding-post-beat/returning flow/widget incl. VoiceOver); deletion screen lists name + adoption date factually. `firestore.rules` enforces `adoptedOn` write-once server-side (**needs deploy**). Instrumentation: `pet_named` (custom bool) / `pet_renamed` (count), never the string |
 
-### Remote Config parameters (published July 19 2026)
+| Personal Layer · Feature 4: Mochi's observations (v0.7) | ✅ Implemented + tested (no production surface yet, by build order) | `Observations/`: pure `ObservationEngine` (all five v1 types with their evidence floors, spread gates incl. the per-day cap, and margin gates; weekday from one-off completions only; bands + histograms as derived views over canonical minutes; momentum eligibility from the synced interval log with the honest pre-log silence rule; list return as an after-action event; comeback with median + p75 gates; 14-day deterministic-replay hysteresis with switch AND retire; explicit calendar/now parameters, zero clock reads, determinism + current-zone-independence pinned by tests) · `ObservationCandidate`/`QualifiedObservation` type split enforced at compile time · `DistributionResult` with explicit `scopeUsed` provenance + circular minute math (Feature 5's contract, ready) · per-UID `ObservationLedger` (surfacing cadence ONLY: rundown weekly cap, same-week letter/rundown dedup, momentum cooldown, list-return once-per-event, copy rotation, algorithm/schema version gate, cleared on account deletion) · `ObservationCopy` pools (qualitative by locked rule, `{name}` templated, night band affirming) · `observation_evaluated` (≤1/type/day) + `observation_shown` os_log telemetry, never a conclusion payload · `ObservationService` orchestrator (fetch horizon = replay 90 + window 42 days). Inputs: `CompletedTaskStat` extended with task/series ids + completion-local date/minute/zone stamped at the source (Firestore write, widget queue stamps at TAP time; legacy rows re-interpret under the current zone, honestly marked derived); recurring spawns inherit `seriesId`; `users/{uid}.observationIntervals` + `observationLogSince` synced, maintained by `ObservationIntervalRecorder` (vacation entry, TRUE vacation end via re-entry, lapse via the membership hook, reconcile backstop at home entry). DEBUG observation inspector in the DevScheduler tab (gate-by-gate evidence, replay glyph timeline, ledger state, shared time travel). Consumers arrive with Features 3/2/6; 24 `obs_*` Remote Config keys wired + test-pinned (**console publish pending**) |
+
+### Remote Config parameters (published July 19 2026 · obs_* pending)
 
 The console holds exactly these keys, all currently set to the shipped defaults (so
 behavior is unchanged until a deliberate tuning pass). The canonical list lives in
@@ -312,6 +314,15 @@ behavior is unchanged until a deliberate tuning pass). The canonical list lives 
   `vacation_grace_decay_hours` 24 · `vacation_checkin_days` 14 · `vacation_max_days` 30
 - **Rewards:** `coins_per_task` 10 · `streak_milestones`
   `{"fixed":[7,30],"thenEvery":50}` (JSON)
+- **Observations (Number · wired July 23 2026, NOT yet created in the console -
+  shipped defaults apply until published):** `obs_window_days` 42 · `obs_replay_days` 90 ·
+  `obs_day_cap` 3 · `obs_weekday_min` 15 · `obs_weekday_weeks` 3 · `obs_weekday_share`
+  0.30 · `obs_timeofday_min` 20 · `obs_timeofday_dates` 5 · `obs_timeofday_weeks` 3 ·
+  `obs_timeofday_share` 0.40 · `obs_margin_ratio` 1.5 · `obs_trend_half_min` 10 ·
+  `obs_trend_ratio` 1.3 · `obs_trend_min_delta` 0.2 · `obs_trend_cooldown_days` 7 ·
+  `obs_return_quiet_days` 14 · `obs_return_history_min` 5 · `obs_comeback_min` 8 ·
+  `obs_comeback_dates` 3 · `obs_comeback_tasks` 3 · `obs_comeback_hours` 24 ·
+  `obs_comeback_p75_hours` 48 · `obs_sticky_days` 14 · `obs_rundown_weekly_cap` 2
 
 **Deliberately not remote-tunable:** the buffer cap and treat/pet values (the widget
 evaluates them without Firebase) and the 64-slot pending-notification cap (an iOS

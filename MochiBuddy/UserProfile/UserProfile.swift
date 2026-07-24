@@ -117,6 +117,14 @@ struct UserProfile: Equatable {
     /// cap, the long-run check-in, and the re-entry bucket window.
     var vacationStartedAt: Date?
     var importedReminderListIds: [String]
+    /// Append-only log of vacation + lapse intervals (Personal Layer,
+    /// Feature 4) - momentum eligibility. Synced because deterministic
+    /// hysteresis needs identical inputs on every device.
+    var observationIntervals: [ObservationInterval] = []
+    /// When the interval log began for this profile; days before it have
+    /// unknown eligibility (the honest-fallback rule keeps momentum silent
+    /// over them).
+    var observationLogSince: Date? = nil
 
     /// Vacation with auto-expiry applied - use this, not the raw flag.
     func vacationActive(at now: Date) -> Bool {

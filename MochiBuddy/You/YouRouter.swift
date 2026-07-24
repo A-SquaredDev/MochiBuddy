@@ -68,7 +68,9 @@ final class YouRouter: YouRouting {
             orchestrator: container.notificationOrchestrator,
             scheduler: container.notificationScheduler,
             membershipStore: container.membershipStore,
-            membershipSession: container.membershipSession
+            membershipSession: container.membershipSession,
+            observationService: container.observationService,
+            observationLedger: container.observationLedger
         )
         navController.navigate(
             route: AdHocRoute(key: "you.devScheduler"),
@@ -119,7 +121,8 @@ final class YouRouter: YouRouting {
             authRepository: container.authRepository,
             profileRepository: container.profileRepository,
             relay: container.notificationOrchestrator,
-            reentryService: container.vacationReentryService
+            reentryService: container.vacationReentryService,
+            intervalRecorder: container.observationIntervalRecorder
         )
         navController.navigate(
             route: AdHocRoute(key: "you.vacation"),
@@ -191,7 +194,8 @@ final class YouRouter: YouRouting {
     func navigateToDeleteConfirm() {
         let viewModel = DeleteConfirmViewModel(
             authRepository: container.authRepository,
-            accountEraser: container.accountEraser
+            accountEraser: container.accountEraser,
+            observationLedger: container.observationLedger
         )
         navController.navigate(
             route: AdHocRoute(key: "you.deleteConfirm"),

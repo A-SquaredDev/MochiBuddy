@@ -28,6 +28,13 @@ protocol UserProfileRepository: AnyObject {
     /// existing value (courtesy); the security rules are the guarantee.
     func stampAdoptedOn(_ dateString: String, userId: String) async throws
     func saveMembershipMirror(isSubscribed: Bool, trialEndsAt: Date?, userId: String) async throws
+    /// Rewrites the observation interval log (append/close discipline is
+    /// the recorder's job; the log stays small - entries only accrue on
+    /// vacation/lapse transitions).
+    func saveObservationIntervals(_ intervals: [ObservationInterval], userId: String) async throws
+    /// Stamps when the interval log began. Set-once: client code never
+    /// overwrites an existing value (days before it are honestly unknown).
+    func stampObservationLogSince(_ date: Date, userId: String) async throws
     func markOnboardingComplete(userId: String) async throws
     /// Atomic coin adjustment (completions earn, treats spend).
     func incrementCoins(by delta: Int, userId: String) async throws
@@ -135,6 +142,25 @@ final class FirestoreUserProfileRepository: UserProfileRepository {
     func stampAdoptedOn(_ dateString: String, userId: String) async throws {
         guard AdoptedOnDate.isValid(dateString) else { return }
         try await merge(["adoptedOn": dateString], userId: userId)
+    }
+
+    func saveObservationIntervals(_ intervals: [ObservationInterval], userId: String) async throws {
+        try await merge([
+            "observationIntervals": intervals.map { interval in
+                var fields: [String: Any] = [
+                    "kind": interval.kind.rawValue,
+                    "start": Timestamp(date: interval.start),
+                ]
+                if let end = interval.end {
+                    fields["end"] = Timestamp(date: end)
+                }
+                return fields
+            },
+        ], userId: userId)
+    }
+
+    func stampObservationLogSince(_ date: Date, userId: String) async throws {
+        try await merge(["observationLogSince": Timestamp(date: date)], userId: userId)
     }
 
     func saveMembershipMirror(isSubscribed: Bool, trialEndsAt: Date?, userId: String) async throws {
