@@ -95,6 +95,15 @@ enum NotificationCopy {
         "Quiet day. {name} is thinking of you.",
     ]
 
+    /// The weekly-letter invitation (Feature 3): never the letter itself,
+    /// never a count - just a warm knock. The letter arrives in-app.
+    static let letterInvitationPool = [
+        "{name} wrote you a letter about the week. It's waiting whenever you are.",
+        "There's a letter from {name} on the mat. No rush at all.",
+        "{name} put the week into words. Come read when it suits you.",
+        "A little envelope from {name} is waiting inside.",
+    ]
+
     /// Celebrations are the one place emoji is allowed.
     static let celebrationPool = [
         "{name} is doing a happy dance! 🎉",
@@ -179,6 +188,15 @@ enum NotificationCopy {
             )
         }
         return Content(title: title, body: taskTitles.joined(separator: " · "))
+    }
+
+    static func letterInvitation(petName: String, deck: inout CopyDeck) -> Content {
+        Content(
+            title: "A letter from \(petName)",
+            body: PetCopyTemplate.render(
+                deck.next(from: letterInvitationPool, key: "letter-invite"), petName: petName
+            )
+        )
     }
 
     static func celebration(petName: String, deck: inout CopyDeck) -> Content {

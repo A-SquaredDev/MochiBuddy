@@ -27,6 +27,7 @@ final class HomeViewModel: StateViewModel<
     private let relay: NotificationRelaying
     private let reentryService: VacationReentryService
     private let celebrationCenter: CelebrationCenter
+    private let letterService: LetterCompositionService?
 
     // Domain source of truth - UIState is derived from these.
     /// Incomplete tasks only; completions move to `completedToday`.
@@ -62,7 +63,8 @@ final class HomeViewModel: StateViewModel<
         recurrenceRoller: RecurrenceRoller,
         relay: NotificationRelaying,
         reentryService: VacationReentryService,
-        celebrationCenter: CelebrationCenter
+        celebrationCenter: CelebrationCenter,
+        letterService: LetterCompositionService? = nil
     ) {
         self.authRepository = authRepository
         self.profileRepository = profileRepository
@@ -76,8 +78,12 @@ final class HomeViewModel: StateViewModel<
         self.relay = relay
         self.reentryService = reentryService
         self.celebrationCenter = celebrationCenter
+        self.letterService = letterService
         super.init(initialState: HomeBehavior.UIState())
     }
+
+    /// The envelope impression logs once per session, not per rebuild.
+    private var letterImpressionLogged = false
 
     override func triggerAsync(_ action: HomeBehavior.ViewAction) async {
         switch action {
@@ -146,6 +152,15 @@ final class HomeViewModel: StateViewModel<
             state.editingTask = nil
             await refresh()
             relay.requestRelay(.taskChange)
+
+        case .letterEnvelopeTapped:
+            if let unread = letterService?.unreadLetter {
+                state.presentedLetter = HomeBehavior.PresentedLetter(letter: unread, source: .home)
+            }
+
+        case .letterDismissed:
+            state.presentedLetter = nil
+            rebuildDerivedState()
 
         case .dismissCelebration:
             state.celebrationText = nil
@@ -312,6 +327,16 @@ final class HomeViewModel: StateViewModel<
             state.showTriage = true
         }
 
+        // A tapped letter invitation routes straight to its letter.
+        if let letterService, let pendingId = letterService.pendingNotificationOpen {
+            letterService.pendingNotificationOpen = nil
+            if let letter = await letterService.letter(id: pendingId) {
+                state.presentedLetter = HomeBehavior.PresentedLetter(
+                    letter: letter, source: .notification
+                )
+            }
+        }
+
         rebuildDerivedState()
     }
 
@@ -436,6 +461,15 @@ final class HomeViewModel: StateViewModel<
         next.wakeCtaTitle = nameFits ? "Wake \(petName)" : "Wake"
         next.petCtaTitle = nameFits ? "Pet \(petName)" : "Pet"
         next.isLapsed = lapsed
+        // The quiet envelope: an unread letter waits near Mochi. Never
+        // shown lapsed (letters pause; the archive stays reachable in You).
+        let unreadLetter = lapsed ? nil : letterService?.unreadLetter
+        next.showLetterEnvelope = unreadLetter != nil
+        next.letterEnvelopeText = "A letter from \(petName)"
+        if unreadLetter != nil, !letterImpressionLogged {
+            letterImpressionLogged = true
+            letterService?.logIndicatorShown()
+        }
         next.showBillingBanner = membershipSession.hasBillingIssue
         next.isOnVacation = onVacation && !lapsed
         next.vacationBanner = next.isOnVacation ? vacationBannerText() : nil

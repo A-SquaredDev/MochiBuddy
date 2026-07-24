@@ -17,6 +17,8 @@ enum NotificationPrefsBehavior {
         var bedtimeSilenceSub = ""
         /// Opt-in lock-screen privacy: hide task names from notifications.
         var hideTaskNames = false
+        /// The Sunday letter invitation (Feature 3).
+        var weeklyLetter = true
         /// Notifications denied at the OS level - show the Settings hint.
         var systemDenied = false
     }
@@ -28,5 +30,6 @@ enum NotificationPrefsBehavior {
         case setMoodDips(Bool)
         case setBedtimeSilence(Bool)
         case setHideTaskNames(Bool)
+        case setWeeklyLetter(Bool)
     }
 }

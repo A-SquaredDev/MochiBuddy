@@ -140,6 +140,17 @@ enum NotificationRequestBuilder {
                 categoryId: NotificationCategoryID.moodPing,
                 threadId: "mochi.mood"
             )
+
+        case .letter:
+            // The invitation, never the delivery - the letter itself
+            // arrives in-app on the next eligible foreground.
+            return ScheduledNotificationRequest(
+                plan: plan,
+                content: NotificationCopy.letterInvitation(petName: petName, deck: &deck),
+                urgency: .active,
+                categoryId: nil,
+                threadId: nil
+            )
         }
     }
 }

@@ -11,6 +11,10 @@ import FirebaseFirestore
 
 protocol UserProfileRepository: AnyObject {
     func fetchProfile(userId: String) async throws -> UserProfile?
+    /// Server-backed fetch for the letter composition barrier ONLY -
+    /// period identity must come from the synced profile timezone, not a
+    /// possibly-stale cache.
+    func fetchProfileFromServer(userId: String) async throws -> UserProfile?
     /// Creates the profile document on first launch (no-op when it exists).
     func ensureProfile(for account: AuthAccount) async throws
     func saveThemeId(_ themeId: String, userId: String) async throws
@@ -60,6 +64,13 @@ final class FirestoreUserProfileRepository: UserProfileRepository {
         return UserProfileMapper.map(UserProfileDTO(id: userId, data: data))
     }
 
+    func fetchProfileFromServer(userId: String) async throws -> UserProfile? {
+        FirestoreReadLog.record(Self.self)
+        let snapshot = try await document(userId).getDocument(source: .server)
+        guard snapshot.exists, let data = snapshot.data() else { return nil }
+        return UserProfileMapper.map(UserProfileDTO(id: userId, data: data))
+    }
+
     func ensureProfile(for account: AuthAccount) async throws {
         FirestoreReadLog.record(Self.self)
         let snapshot = try await document(account.uid).getDocument()
@@ -104,6 +115,7 @@ final class FirestoreUserProfileRepository: UserProfileRepository {
                 "moodDips": prefs.moodDips,
                 "bedtimeSilence": prefs.bedtimeSilence,
                 "hideTaskNames": prefs.hideTaskNames,
+                "weeklyLetter": prefs.weeklyLetter,
             ],
         ], userId: userId)
     }

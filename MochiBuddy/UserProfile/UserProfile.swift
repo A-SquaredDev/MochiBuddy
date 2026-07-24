@@ -79,6 +79,9 @@ struct NotificationPrefs: Equatable {
     /// Opt-in lock-screen privacy: task names show by default (normal for
     /// a reminders app); on, reminders and rundowns go nameless.
     var hideTaskNames = false
+    /// The Sunday letter invitation (Feature 3). Reading never depends on
+    /// it - the letter always arrives in-app.
+    var weeklyLetter = true
 
     static let standard = NotificationPrefs()
 }

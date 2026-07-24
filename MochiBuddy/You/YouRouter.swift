@@ -15,6 +15,8 @@ protocol YouRouting: BackRouting {
     func navigateToNotifications()
     func navigateToAppleReminders()
     func navigateToVacation()
+    func navigateToLetters()
+    func navigateToLetter(_ letter: Letter, source: LetterOpenSource)
     func navigateToManageLists()
     func navigateToStats()
     func navigateToDeleteWarn()
@@ -70,7 +72,8 @@ final class YouRouter: YouRouting {
             membershipStore: container.membershipStore,
             membershipSession: container.membershipSession,
             observationService: container.observationService,
-            observationLedger: container.observationLedger
+            observationLedger: container.observationLedger,
+            letterService: container.letterCompositionService
         )
         navController.navigate(
             route: AdHocRoute(key: "you.devScheduler"),
@@ -127,6 +130,33 @@ final class YouRouter: YouRouting {
         navController.navigate(
             route: AdHocRoute(key: "you.vacation"),
             view: AnyView(VacationView(viewModel: viewModel, router: self))
+        )
+    }
+
+    func navigateToLetters() {
+        let viewModel = LetterArchiveViewModel(
+            authRepository: container.authRepository,
+            letterRepository: container.letterRepository,
+            petIdentityStore: container.petIdentityStore
+        )
+        navController.navigate(
+            route: AdHocRoute(key: "you.letters"),
+            view: AnyView(LetterArchiveView(viewModel: viewModel, router: self))
+        )
+    }
+
+    func navigateToLetter(_ letter: Letter, source: LetterOpenSource) {
+        let viewModel = LetterDetailViewModel(
+            letter: letter,
+            source: source,
+            letterService: container.letterCompositionService,
+            adoptedOn: container.petIdentityStore.adoptedOn
+        )
+        navController.navigate(
+            route: AdHocRoute(key: "you.letter.\(letter.id)"),
+            view: AnyView(LetterDetailView(viewModel: viewModel, onBack: { [weak self] in
+                self?.navigateBack()
+            }))
         )
     }
 

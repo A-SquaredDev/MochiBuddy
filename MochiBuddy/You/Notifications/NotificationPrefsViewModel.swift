@@ -67,6 +67,10 @@ final class NotificationPrefsViewModel: StateViewModel<
         case .setHideTaskNames(let isOn):
             prefs.hideTaskNames = isOn
             await applyChange()
+
+        case .setWeeklyLetter(let isOn):
+            prefs.weeklyLetter = isOn
+            await applyChange()
         }
     }
 
@@ -89,6 +93,7 @@ final class NotificationPrefsViewModel: StateViewModel<
                 .updating(\.bedtimeSilence, to: prefs.bedtimeSilence)
                 .updating(\.bedtimeSilenceSub, to: "No pings \(Self.window(bedtime))")
                 .updating(\.hideTaskNames, to: prefs.hideTaskNames)
+                .updating(\.weeklyLetter, to: prefs.weeklyLetter)
                 .updating(\.systemDenied, to: systemDenied)
         )
     }

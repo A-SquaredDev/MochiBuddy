@@ -106,12 +106,14 @@ struct RemoteTuningTests {
             "obs_comeback_min", "obs_comeback_dates", "obs_comeback_tasks",
             "obs_comeback_hours", "obs_comeback_p75_hours",
             "obs_sticky_days", "obs_rundown_weekly_cap",
+            "letter_send_weekday", "letter_send_hour", "letter_max_beats",
+            "letter_quiet_max", "letter_rough_overdue_days", "letter_great_ratio",
         ]
         #expect(Set(RemoteTuning.allKeys) == published)
-        #expect(RemoteTuning.allKeys.count == 48, "no duplicates")
+        #expect(RemoteTuning.allKeys.count == 54, "no duplicates")
     }
 
-    @Test("EVERY published key is consumed with its declared type - override all 48, every field moves")
+    @Test("EVERY published key is consumed with its declared type - override all 54, every field moves")
     @MainActor
     func everyKeyDecodes() {
         let source = StubTuningSource(
@@ -159,6 +161,12 @@ struct RemoteTuningTests {
                 "obs_comeback_p75_hours": 36,
                 "obs_sticky_days": 10,
                 "obs_rundown_weekly_cap": 1,
+                "letter_send_weekday": 7,
+                "letter_send_hour": 18,
+                "letter_max_beats": 2,
+                "letter_quiet_max": 3,
+                "letter_rough_overdue_days": 5,
+                "letter_great_ratio": 2,
             ],
             jsons: [
                 "notif_floor_taper": "[5,4,3,2,1]",
@@ -196,7 +204,9 @@ struct RemoteTuningTests {
             obsReturnQuietDays: 21, obsReturnHistoryMin: 6,
             obsComebackMin: 9, obsComebackDates: 4, obsComebackTasks: 4,
             obsComebackHours: 12, obsComebackP75Hours: 36,
-            obsStickyDays: 10, obsRundownWeeklyCap: 1
+            obsStickyDays: 10, obsRundownWeeklyCap: 1,
+            letterSendWeekday: 7, letterSendHour: 18, letterMaxBeats: 2,
+            letterQuietMax: 3, letterRoughOverdueDays: 5, letterGreatRatio: 2
         )
         #expect(tuning == expected, "every parameter must land in exactly one field")
     }
@@ -260,5 +270,11 @@ struct RemoteTuningTests {
         #expect(ObservationConstants.marginRatio == 1.5)
         #expect(ObservationConstants.stickyDays == 14)
         #expect(ObservationConstants.rundownWeeklyCap == 2)
+        #expect(LetterConstants.sendWeekday == 1)
+        #expect(LetterConstants.sendHour == 19)
+        #expect(LetterConstants.maxBeats == 3)
+        #expect(LetterConstants.quietMax == 2)
+        #expect(LetterConstants.roughOverdueDays == 4)
+        #expect(LetterConstants.greatRatio == 1.5)
     }
 }

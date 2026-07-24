@@ -27,6 +27,10 @@ final class FirestoreAccountEraser: AccountEraser {
         let userDocument = firestore.collection("users").document(userId)
         try await deleteAllDocuments(in: userDocument.collection("tasks"))
         try await deleteAllDocuments(in: userDocument.collection("lists"))
+        // Personal Layer: letters and engagement markers ride the account
+        // and are destroyed with it (Feature 3, edge case 23).
+        try await deleteAllDocuments(in: userDocument.collection("letters"))
+        try await deleteAllDocuments(in: userDocument.collection("activityWeeks"))
         try await userDocument.delete()
     }
 

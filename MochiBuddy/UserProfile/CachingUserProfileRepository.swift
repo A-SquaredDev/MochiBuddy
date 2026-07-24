@@ -57,6 +57,17 @@ final class CachingUserProfileRepository: UserProfileRepository {
         cached = profile
     }
 
+    /// Barrier fetch: always hits the source; refreshes the cache with
+    /// what the server said (it is by definition the freshest truth).
+    func fetchProfileFromServer(userId: String) async throws -> UserProfile? {
+        let profile = try await wrapped.fetchProfileFromServer(userId: userId)
+        if let profile {
+            version += 1
+            cached = profile
+        }
+        return profile
+    }
+
     func ensureProfile(for account: AuthAccount) async throws {
         try await wrapped.ensureProfile(for: account)
     }

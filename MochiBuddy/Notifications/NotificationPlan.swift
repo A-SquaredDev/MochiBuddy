@@ -20,6 +20,18 @@ enum NotificationClass: String, Equatable {
     case rundown
     /// The repeating safety net for dormant users past the horizon.
     case backstop
+    /// The weekly-letter invitation (Feature 3) - never the delivery; the
+    /// letter itself arrives in-app on the next eligible foreground.
+    case letter
+}
+
+/// Weekly letter (Feature 3): the current period's identity + cutoff,
+/// handed to the planner only once the period is already NON-DORMANT -
+/// the scheduling invariant that never queues a Sunday invitation for
+/// someone who may then vanish all week.
+struct LetterNotificationInput: Equatable {
+    let periodStartDate: String
+    let fireAt: Date
 }
 
 struct PlannedNotification: Equatable {
@@ -41,9 +53,22 @@ enum NotificationID {
     static let duePrefix = "due-"
     static let rundownPrefix = "rundown-"
     static let backstop = "backstop"
+    /// Letter ids equal the letter DOCUMENT id ("letter-2026-07-20") so a
+    /// tap resolves straight to its archive entry.
+    static let letterPrefix = "letter-"
 
     static func due(taskId: String) -> String {
         "\(duePrefix)\(taskId)"
+    }
+
+    static func letter(periodStartDate: String) -> String {
+        "\(letterPrefix)\(periodStartDate)"
+    }
+
+    /// The letter document id a tapped letter notification names, nil for
+    /// every other id.
+    static func parseLetter(_ id: String) -> String? {
+        id.hasPrefix(letterPrefix) ? id : nil
     }
 
     static func mood(band: MoodBand, fireAt: Date) -> String {

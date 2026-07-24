@@ -105,6 +105,14 @@ protocol TaskRepository: AnyObject {
     func incompleteTaskCount(userId: String) async throws -> Int
     func totalTaskCount(userId: String) async throws -> Int
     func completedTaskStats(since: Date, userId: String) async throws -> [CompletedTaskStat]
+
+    // Server-backed variants for the letter composition barrier ONLY
+    // (Personal Layer, Feature 3): composing over stale cache would
+    // deterministically write the wrong letter and win the race. Every
+    // other read in the app stays cache-friendly.
+    func completedTaskStatsFromServer(since: Date, userId: String) async throws -> [CompletedTaskStat]
+    func completedTasksFromServer(since: Date, userId: String) async throws -> [TaskItem]
+    func incompleteTasksFromServer(userId: String) async throws -> [TaskItem]
 }
 
 final class FirestoreTaskRepository: TaskRepository {
@@ -301,12 +309,39 @@ final class FirestoreTaskRepository: TaskRepository {
     }
 
     func completedTaskStats(since: Date, userId: String) async throws -> [CompletedTaskStat] {
+        try await completedTaskStats(since: since, userId: userId, source: .default)
+    }
+
+    func completedTaskStatsFromServer(since: Date, userId: String) async throws -> [CompletedTaskStat] {
+        try await completedTaskStats(since: since, userId: userId, source: .server)
+    }
+
+    func completedTasksFromServer(since: Date, userId: String) async throws -> [TaskItem] {
+        FirestoreReadLog.record(Self.self)
+        let snapshot = try await tasks(userId)
+            .whereField("completedAt", isGreaterThanOrEqualTo: Timestamp(date: since))
+            .order(by: "completedAt", descending: true)
+            .getDocuments(source: .server)
+        return snapshot.documents.map(Self.taskItem(from:))
+    }
+
+    func incompleteTasksFromServer(userId: String) async throws -> [TaskItem] {
+        FirestoreReadLog.record(Self.self)
+        let snapshot = try await tasks(userId)
+            .whereField("completed", isEqualTo: false)
+            .getDocuments(source: .server)
+        return snapshot.documents.map(Self.taskItem(from:))
+    }
+
+    private func completedTaskStats(
+        since: Date, userId: String, source: FirestoreSource
+    ) async throws -> [CompletedTaskStat] {
         FirestoreReadLog.record(Self.self)
         // Range on completedAt alone (no composite index needed) - the field
         // only exists on completed tasks.
         let snapshot = try await tasks(userId)
             .whereField("completedAt", isGreaterThanOrEqualTo: Timestamp(date: since))
-            .getDocuments()
+            .getDocuments(source: source)
         return snapshot.documents.compactMap { document in
             let data = document.data()
             guard let completedAt = (data["completedAt"] as? Timestamp)?.dateValue() else {

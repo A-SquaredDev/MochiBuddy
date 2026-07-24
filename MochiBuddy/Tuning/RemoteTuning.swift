@@ -93,6 +93,13 @@ struct ResolvedTuning: Equatable {
     var obsComebackP75Hours = 48.0
     var obsStickyDays = 14
     var obsRundownWeeklyCap = 2
+    // Weekly letter (Personal Layer, Feature 3)
+    var letterSendWeekday = 1
+    var letterSendHour = 19
+    var letterMaxBeats = 3
+    var letterQuietMax = 2
+    var letterRoughOverdueDays = 4
+    var letterGreatRatio = 1.5
 
     static let defaults = ResolvedTuning()
 
@@ -189,6 +196,13 @@ struct ResolvedTuning: Equatable {
         number("obs_comeback_p75_hours", 1...336, into: &tuning.obsComebackP75Hours)
         count("obs_sticky_days", 1...90, into: &tuning.obsStickyDays)
         count("obs_rundown_weekly_cap", 0...14, into: &tuning.obsRundownWeeklyCap)
+
+        count("letter_send_weekday", 1...7, into: &tuning.letterSendWeekday)
+        count("letter_send_hour", 0...23, into: &tuning.letterSendHour)
+        count("letter_max_beats", 1...5, into: &tuning.letterMaxBeats)
+        count("letter_quiet_max", 0...20, into: &tuning.letterQuietMax)
+        count("letter_rough_overdue_days", 1...7, into: &tuning.letterRoughOverdueDays)
+        number("letter_great_ratio", 1...10, into: &tuning.letterGreatRatio)
         if let data = source.json("streak_milestones"),
            let parsed = try? JSONDecoder().decode(Milestones.self, from: data),
            !parsed.fixed.isEmpty, parsed.fixed.allSatisfy({ $0 > 0 }), parsed.thenEvery > 0 {
@@ -248,6 +262,12 @@ enum RemoteTuning {
         "obs_comeback_p75_hours",
         "obs_sticky_days",
         "obs_rundown_weekly_cap",
+        "letter_send_weekday",
+        "letter_send_hour",
+        "letter_max_beats",
+        "letter_quiet_max",
+        "letter_rough_overdue_days",
+        "letter_great_ratio",
     ]
     static let jsonKeys: [String] = [
         "notif_floor_taper",
@@ -319,6 +339,15 @@ enum RemoteTuning {
         ObservationConstants.comebackP75Hours = tuning.obsComebackP75Hours
         ObservationConstants.stickyDays = tuning.obsStickyDays
         ObservationConstants.rundownWeeklyCap = tuning.obsRundownWeeklyCap
+
+        // Letters: constants land at compose time and are baked into the
+        // stored letter; a tuning pass changes future letters only.
+        LetterConstants.sendWeekday = tuning.letterSendWeekday
+        LetterConstants.sendHour = tuning.letterSendHour
+        LetterConstants.maxBeats = tuning.letterMaxBeats
+        LetterConstants.quietMax = tuning.letterQuietMax
+        LetterConstants.roughOverdueDays = tuning.letterRoughOverdueDays
+        LetterConstants.greatRatio = tuning.letterGreatRatio
     }
 
     /// Activate whatever last session fetched, apply it, then fetch in

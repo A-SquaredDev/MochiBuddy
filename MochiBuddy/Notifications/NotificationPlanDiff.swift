@@ -26,6 +26,7 @@ enum NotificationPlanDiffer {
         id.hasPrefix(NotificationID.duePrefix)
             || id.hasPrefix(NotificationID.moodPrefix)
             || id.hasPrefix(NotificationID.rundownPrefix)
+            || id.hasPrefix(NotificationID.letterPrefix)
             || id == NotificationID.backstop
     }
 

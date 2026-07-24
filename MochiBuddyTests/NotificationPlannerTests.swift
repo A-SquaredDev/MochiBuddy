@@ -393,7 +393,7 @@ struct PlannerBudgetTests {
             switch item.kind {
             case .moodPing, .backstop:
                 #expect(NotificationID.isMoodManaged(item.id), "\(item.id) must be wipeable")
-            case .promise, .rundown:
+            case .promise, .rundown, .letter:
                 #expect(!NotificationID.isMoodManaged(item.id), "\(item.id) must never be wiped by a re-lay")
             }
         }

@@ -43,6 +43,24 @@ service cloud.firestore {
         allow read, write: if isOwner(uid);
       }
 
+      // Letters are immutable postcards (Personal Layer, Feature 3):
+      // created exactly once (first composer wins via the client
+      // transaction; create-only here is the guarantee), then readAt is
+      // the ONE mutable field. Delete stays open for account erasure -
+      // the app offers no per-letter delete UI.
+      match /letters/{letterId} {
+        allow read, create, delete: if isOwner(uid);
+        allow update: if isOwner(uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readAt']);
+      }
+
+      // Weekly engagement markers (Feature 3's dormancy arbiter):
+      // create-only facts - a marker can never be edited into existence
+      // after the fact or reworded. Delete stays open for erasure.
+      match /activityWeeks/{periodId} {
+        allow read, create, delete: if isOwner(uid);
+      }
+
       // Future subcollections stay closed until explicitly opened:
       // no match, no access.
     }

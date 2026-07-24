@@ -52,6 +52,13 @@ struct NotificationPrefsView: View {
                         .padding(.vertical, 13)
                         MochiDashedDivider()
                         MochiToggleRow(
+                            title: "Weekly letter",
+                            subtitle: "A Sunday note from \(viewModel.petName)",
+                            isOn: viewModel.collectBinding(for: \.weeklyLetter, action: { .setWeeklyLetter($0) })
+                        )
+                        .padding(.vertical, 13)
+                        MochiDashedDivider()
+                        MochiToggleRow(
                             title: "Silence during bedtime",
                             subtitle: viewModel.bedtimeSilenceSub,
                             isOn: viewModel.collectBinding(for: \.bedtimeSilence, action: { .setBedtimeSilence($0) })

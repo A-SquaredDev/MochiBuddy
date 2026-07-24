@@ -42,6 +42,11 @@ struct RootView: View {
             await container.observationIntervalRecorder.reconcile(
                 isLapsed: container.membershipSession.isLapsed
             )
+            // Letters (Feature 3): stamp this period's engagement marker
+            // and compose the previous period if it earned one - a
+            // USER-VISIBLE foreground path, which is what keeps the
+            // dormancy marker truthful.
+            await container.letterCompositionService.handleUserForeground()
             container.notificationOrchestrator.requestRelay(.appForeground)
         }
     }
@@ -91,6 +96,9 @@ struct RootView: View {
             if phase == .active, container.session.phase == .home {
                 Task { @MainActor in
                     await container.widgetCompletionDrain.drain()
+                    // After the drain, so the composition barrier's flush
+                    // sees widget completions already durable.
+                    await container.letterCompositionService.handleUserForeground()
                     container.notificationOrchestrator.requestRelay(.appForeground)
                 }
             }

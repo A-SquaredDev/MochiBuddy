@@ -80,6 +80,7 @@ enum YouBehavior {
         case notificationsTapped
         case remindersTapped
         case vacationTapped
+        case lettersTapped
         case manageListsTapped
         case deleteAccountTapped
         case wakeMochiTapped
@@ -98,6 +99,7 @@ enum YouBehavior {
         case showNotifications
         case showReminders
         case showVacation
+        case showLetters
         case showManageLists
         case startDeleteFlow
         case signedOut

@@ -64,6 +64,8 @@ final class AppContainer {
     let observationIntervalRecorder: ObservationIntervalRecorder
     let observationLedger = ObservationLedger()
     let observationService: ObservationService
+    let letterRepository: LetterRepository
+    let letterCompositionService: LetterCompositionService
     let vacationReentryService: VacationReentryService
     let widgetStateMirror: WidgetStateMirror
     let widgetCompletionDrain: WidgetCompletionDrain
@@ -128,6 +130,28 @@ final class AppContainer {
             ledger: observationLedger,
             telemetry: OSLogObservationTelemetry()
         )
+        letterRepository = FirestoreLetterRepository(firestore: firestore)
+        letterCompositionService = LetterCompositionService(
+            authRepository: authRepository,
+            profileRepository: profileRepository,
+            taskRepository: taskRepository,
+            listRepository: listRepository,
+            letterRepository: letterRepository,
+            observationLedger: observationLedger,
+            membershipSession: membershipSession,
+            relay: notificationOrchestrator,
+            telemetry: OSLogLetterTelemetry()
+        )
+        // The scheduling invariant: the planner hears about a letter only
+        // once its period is already non-dormant - the letter service owns
+        // that judgment (it owns the marker).
+        notificationOrchestrator.letterInputProvider = { [weak letterCompositionService] now in
+            await letterCompositionService?.plannedLetterInput(now: now)
+        }
+        // A tapped invitation routes Home straight to the letter.
+        notificationDelegate.onLetterTap = { [weak letterCompositionService] letterId in
+            letterCompositionService?.pendingNotificationOpen = letterId
+        }
         vacationReentryService = VacationReentryService(
             profileRepository: profileRepository,
             taskRepository: taskRepository,

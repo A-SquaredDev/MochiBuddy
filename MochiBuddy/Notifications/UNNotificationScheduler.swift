@@ -140,14 +140,24 @@ final class MochiNotificationDelegate: NSObject, UNUserNotificationCenterDelegat
 
     /// Set by the container once the handler graph exists.
     var actionHandler: NotificationActionHandler?
+    /// A letter-invitation tap carries the letter DOCUMENT id (Feature 3);
+    /// the container wires this to route Home straight to the letter.
+    var onLetterTap: ((String) -> Void)?
 
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse
     ) async {
+        let notificationId = response.notification.request.identifier
+        if response.actionIdentifier == UNNotificationDefaultActionIdentifier,
+           let letterId = NotificationID.parseLetter(notificationId) {
+            await MainActor.run {
+                onLetterTap?(letterId)
+            }
+        }
         await actionHandler?.handle(
             actionId: response.actionIdentifier,
-            notificationId: response.notification.request.identifier
+            notificationId: notificationId
         )
     }
 

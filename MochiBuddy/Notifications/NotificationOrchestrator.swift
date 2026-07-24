@@ -28,6 +28,9 @@ enum RelayTrigger: String {
     /// A rename: mood pings + rundowns rewritten with the new name;
     /// promises untouched (they contain no name, by the locked rule).
     case petIdentityChange
+    /// A letter composed, or its period turned non-dormant, or the
+    /// weekly-letter toggle moved (Feature 3).
+    case letterChange
 }
 
 @MainActor
@@ -66,6 +69,12 @@ final class NotificationOrchestrator {
     /// widget mirror hangs here so the App Group snapshot and the pending
     /// queue always come from the same world.
     var onRelaid: ((RelayContext) -> Void)?
+
+    /// Weekly letter (Feature 3): supplies the current period's identity
+    /// and cutoff ONLY once the period is already non-dormant - wired by
+    /// AppContainer to the letter service so the scheduling invariant
+    /// lives with the marker's owner.
+    var letterInputProvider: ((Date) async -> LetterNotificationInput?)?
 
     init(
         authRepository: AuthRepository,
@@ -115,6 +124,8 @@ final class NotificationOrchestrator {
         /// The pet's name at plan time - dresses mood pings and rundowns,
         /// and rides into the widget mirror so both stay in step.
         let petName: String
+        /// The weekly-letter invitation input, when its period qualifies.
+        var letter: LetterNotificationInput? = nil
     }
 
     func makeContext(now: Date = .now) async -> RelayContext? {
@@ -146,7 +157,8 @@ final class NotificationOrchestrator {
             prefs: profile?.notificationPrefs ?? .standard,
             bedtime: profile?.bedtime ?? .standard,
             lapsed: lapsed,
-            petName: profile?.mochiName ?? PetNameSanitizer.defaultName
+            petName: profile?.mochiName ?? PetNameSanitizer.defaultName,
+            letter: await letterInputProvider?(now)
         )
     }
 
@@ -178,6 +190,7 @@ final class NotificationOrchestrator {
                 lapsed: context.lapsed,
                 shhUntil: shhUntil(now: now),
                 consecutiveFloorDays: floorDays,
+                letter: context.letter,
                 horizon: horizon
             ),
             calendar: calendar

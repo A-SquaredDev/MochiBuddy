@@ -26,6 +26,9 @@ struct HomeView: View {
                     loadingSkeleton
                 } else {
                     header
+                    if viewModel.showLetterEnvelope {
+                        letterEnvelope
+                    }
                     if let celebration = viewModel.celebrationText {
                         celebrationBanner(celebration)
                     }
@@ -64,6 +67,38 @@ struct HomeView: View {
         .sheet(isPresented: viewModel.collectBinding(for: \.showTriage, action: .triageLater)) {
             triageSheet
         }
+        .sheet(
+            item: viewModel.collectBinding(for: \.presentedLetter, action: { _ in .letterDismissed })
+        ) { presented in
+            router.letterDetail(letter: presented.letter, source: presented.source) {
+                viewModel.trigger(.letterDismissed)
+            }
+        }
+    }
+
+    /// The quiet envelope: an unread letter waits, never a badge-red
+    /// demand. Tapping opens the letter as a sheet.
+    private var letterEnvelope: some View {
+        Button {
+            viewModel.trigger(.letterEnvelopeTapped)
+        } label: {
+            MochiCard(padding: EdgeInsets(top: 11, leading: 15, bottom: 11, trailing: 15)) {
+                HStack(spacing: 10) {
+                    Image(systemName: "envelope.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(theme.primary)
+                    Text(viewModel.letterEnvelopeText)
+                        .font(MochiFont.body(12.5, weight: .heavy))
+                        .foregroundStyle(theme.ink)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(theme.muted)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(viewModel.letterEnvelopeText). Unread. Opens the letter.")
     }
 
     // MARK: - Loading skeleton

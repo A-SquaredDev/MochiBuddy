@@ -93,6 +93,8 @@ enum DevSchedulerBehavior {
         var timeTravelText = ""
         var observations = DevObservationInspector.Model()
         var expandedObservationId: String? = nil
+        /// Feature 3 force-compose result line, DEBUG pipeline check.
+        var letterComposeText = ""
 
         /// Right edge of the visible chart window.
         var displayEnd: Date {
@@ -107,6 +109,7 @@ enum DevSchedulerBehavior {
         case rangeChanged(Int)
         case rowTapped(String)
         case observationRowTapped(String?)
+        case composeLetterNow
         case scrubbed(Date?)
         /// Local dev store only: restart the 7-day trial so the horizon
         /// uncaps without re-onboarding.
@@ -125,6 +128,7 @@ final class DevSchedulerViewModel: StateViewModel<
     private let membershipSession: MembershipSession
     private let observationService: ObservationService?
     private let observationLedger: ObservationLedger?
+    private let letterService: LetterCompositionService?
 
     private var context: NotificationOrchestrator.RelayContext?
     /// Cached once per rebuild; the engine is pure, so time travel just
@@ -137,7 +141,8 @@ final class DevSchedulerViewModel: StateViewModel<
         membershipStore: MembershipStore,
         membershipSession: MembershipSession,
         observationService: ObservationService? = nil,
-        observationLedger: ObservationLedger? = nil
+        observationLedger: ObservationLedger? = nil,
+        letterService: LetterCompositionService? = nil
     ) {
         self.orchestrator = orchestrator
         self.scheduler = scheduler
@@ -145,6 +150,7 @@ final class DevSchedulerViewModel: StateViewModel<
         self.membershipSession = membershipSession
         self.observationService = observationService
         self.observationLedger = observationLedger
+        self.letterService = letterService
         super.init(initialState: DevSchedulerBehavior.UIState())
     }
 
@@ -172,6 +178,12 @@ final class DevSchedulerViewModel: StateViewModel<
 
         case .observationRowTapped(let id):
             state.expandedObservationId = id
+
+        case .composeLetterNow:
+            guard let letterService else { return }
+            state.letterComposeText = "composing..."
+            state.letterComposeText = await letterService.debugForceCompose()
+            await rebuild()
 
         case .scrubbed(let date):
             rebuildScrub(at: date)
@@ -397,6 +409,7 @@ final class DevSchedulerViewModel: StateViewModel<
         if id.hasPrefix(NotificationID.duePrefix) { return "promise" }
         if id.hasPrefix(NotificationID.moodPrefix) { return "mood" }
         if id.hasPrefix(NotificationID.rundownPrefix) { return "rundown" }
+        if id.hasPrefix(NotificationID.letterPrefix) { return "letter" }
         if id == NotificationID.backstop { return "backstop" }
         return "other"
     }
@@ -407,6 +420,7 @@ final class DevSchedulerViewModel: StateViewModel<
         case "mood": "predicted off the forecast curve, band baked into the id"
         case "rundown": "morning briefing at wake time"
         case "backstop": "repeating weekly safety net for dormant users"
+        case "letter": "Sunday letter invitation, laid only for a non-dormant period"
         default: "unrecognized id"
         }
     }
@@ -529,6 +543,17 @@ struct DevSchedulerView: View {
                     .font(MochiFont.body(11, weight: .heavy))
                     .foregroundStyle(theme.primaryText)
                     .padding(.top, 4)
+                }
+                Button("Compose last week's letter now (ignores gates)") {
+                    viewModel.trigger(.composeLetterNow)
+                }
+                .font(MochiFont.body(11, weight: .heavy))
+                .foregroundStyle(theme.primaryText)
+                .padding(.top, 4)
+                if !viewModel.letterComposeText.isEmpty {
+                    Text(viewModel.letterComposeText)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(theme.muted)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

@@ -27,6 +27,9 @@ struct NotificationPlanInput {
     /// Completed consecutive days at the floor before capture - the taper
     /// state the orchestrator persists across lays.
     var consecutiveFloorDays = 0
+    /// Weekly-letter invitation (Feature 3), provided only once the
+    /// current period is already non-dormant. Nil plans nothing.
+    var letter: LetterNotificationInput? = nil
     /// Requested planning horizon (the forecast further caps this at
     /// entitlement expiry for everything except promises).
     var horizon: Date
@@ -75,13 +78,17 @@ enum NotificationPlanner {
         // indefinitely, and gets nothing else - the winback IS the app
         // staying useful. No mood, no rundown, no backstop, no guilt.
         guard !input.lapsed else {
-            return budget(promises: promises, backstop: [], moodPings: [], rundowns: [])
+            return budget(promises: promises, backstop: [], moodPings: [], rundowns: [], letter: [])
         }
 
         let moodPings = planMoodPings(input, calendar: calendar)
         let rundowns = planRundowns(input, calendar: calendar)
         let backstop = planBackstop(input)
-        return budget(promises: promises, backstop: backstop, moodPings: moodPings, rundowns: rundowns)
+        let letter = planLetter(input)
+        return budget(
+            promises: promises, backstop: backstop, moodPings: moodPings,
+            rundowns: rundowns, letter: letter
+        )
     }
 
     // MARK: - Promises
@@ -271,6 +278,30 @@ enum NotificationPlanner {
         return rundowns
     }
 
+    // MARK: - Letter (Feature 3)
+
+    /// One invitation at the current period's cutoff. The input exists
+    /// only when the period is already non-dormant (the scheduling
+    /// invariant lives at the input boundary, so it is structural here).
+    /// Vacation silences it entirely; it never counts against the
+    /// mood-ping cap; the entitlement-capped horizon applies (a letter
+    /// never invites past expiry - lapsed users get no letters).
+    private static func planLetter(_ input: NotificationPlanInput) -> [PlannedNotification] {
+        guard input.prefs.weeklyLetter,
+              let letter = input.letter,
+              letter.fireAt > input.snapshot.capturedAt,
+              letter.fireAt <= MoodForecast.horizonEnd(
+                  requested: input.horizon, snapshot: input.snapshot
+              ),
+              !vacationCovers(letter.fireAt, input: input)
+        else { return [] }
+        return [PlannedNotification(
+            id: NotificationID.letter(periodStartDate: letter.periodStartDate),
+            kind: .letter,
+            fireAt: letter.fireAt
+        )]
+    }
+
     // MARK: - Backstop
 
     /// The repeating safety net so a dormant user past the horizon still
@@ -287,18 +318,20 @@ enum NotificationPlanner {
     // MARK: - Budget
 
     /// Priority over the 64 slots: promises by nearest due, the reserved
-    /// backstop, mood pings, then rundowns. Under promise pressure mood
-    /// pings degrade to zero (the widget carries) - a reminder is never
-    /// the thing dropped.
+    /// backstop, mood pings, rundowns, then the letter. Under promise
+    /// pressure mood pings degrade to zero (the widget carries) - a
+    /// reminder is never the thing dropped; the letter drops FIRST (it
+    /// alone has a full in-app backstop).
     private static func budget(
         promises: [PlannedNotification],
         backstop: [PlannedNotification],
         moodPings: [PlannedNotification],
-        rundowns: [PlannedNotification]
+        rundowns: [PlannedNotification],
+        letter: [PlannedNotification]
     ) -> [PlannedNotification] {
         var slots = Constants.slotCap - backstop.count
         var out: [PlannedNotification] = []
-        for group in [promises, moodPings, rundowns] {
+        for group in [promises, moodPings, rundowns, letter] {
             let take = min(slots, group.count)
             out += group.sorted { $0.fireAt < $1.fireAt }.prefix(take)
             slots -= take

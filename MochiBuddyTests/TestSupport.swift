@@ -286,6 +286,14 @@ final class StubProfileRepository: UserProfileRepository {
         if let fetchError { throw fetchError }
         return profile
     }
+    /// Barrier fetch: a distinct server truth when set, else the profile.
+    var serverProfile: UserProfile?
+    private(set) var serverProfileFetches = 0
+    func fetchProfileFromServer(userId: String) async throws -> UserProfile? {
+        if let fetchError { throw fetchError }
+        serverProfileFetches += 1
+        return serverProfile ?? profile
+    }
     func ensureProfile(for account: AuthAccount) async throws { ensuredAccounts.append(account) }
     func saveThemeId(_ themeId: String, userId: String) async throws {}
     func saveBedtime(_ bedtime: BedtimeWindow, userId: String) async throws {}
@@ -416,6 +424,65 @@ final class StubTaskRepository: TaskRepository {
     func completedTaskStats(since: Date, userId: String) async throws -> [CompletedTaskStat] {
         completedStats.filter { $0.completedAt >= since }
     }
+    func completedTaskStatsFromServer(since: Date, userId: String) async throws -> [CompletedTaskStat] {
+        completedStats.filter { $0.completedAt >= since }
+    }
+    func completedTasksFromServer(since: Date, userId: String) async throws -> [TaskItem] {
+        completed.filter { ($0.completedAt ?? .distantPast) >= since }
+    }
+    func incompleteTasksFromServer(userId: String) async throws -> [TaskItem] { incomplete }
+}
+
+/// In-memory letters + activityWeeks with an ordered call log so the
+/// composition barrier's sequencing (flush before server reads before
+/// create) is assertable.
+final class StubLetterRepository: LetterRepository {
+    var stored: [Letter] = []
+    var markers: Set<String> = []
+    var flushError: Error?
+    private(set) var callLog: [String] = []
+
+    func letters(userId: String) async throws -> [Letter] {
+        stored.sorted { $0.periodStart > $1.periodStart }
+    }
+    func lettersFromServer(userId: String) async throws -> [Letter] {
+        callLog.append("serverArchive")
+        return stored.sorted { $0.periodStart > $1.periodStart }
+    }
+    func createLetterIfAbsent(_ letter: Letter, userId: String) async throws -> Letter {
+        callLog.append("create:\(letter.id)")
+        if let winner = stored.first(where: { $0.id == letter.id }) {
+            return winner
+        }
+        stored.append(letter)
+        return letter
+    }
+    func markRead(letterId: String, at readAt: Date, userId: String) async throws {
+        callLog.append("markRead:\(letterId)")
+        if let index = stored.firstIndex(where: { $0.id == letterId }) {
+            stored[index].readAt = readAt
+        }
+    }
+    func ensureActivityMarker(periodId: String, userId: String) async throws {
+        callLog.append("marker:\(periodId)")
+        markers.insert(periodId)
+    }
+    func hasActivityMarker(periodId: String, userId: String) async throws -> Bool {
+        markers.contains(periodId)
+    }
+    func hasActivityMarkerFromServer(periodId: String, userId: String) async throws -> Bool {
+        callLog.append("serverMarker:\(periodId)")
+        return markers.contains(periodId)
+    }
+    func flushPendingWrites() async throws {
+        if let flushError { throw flushError }
+        callLog.append("flush")
+    }
+}
+
+final class RecordingLetterTelemetry: LetterTelemetry {
+    private(set) var events: [LetterTelemetryEvent] = []
+    func log(_ event: LetterTelemetryEvent) { events.append(event) }
 }
 
 final class StubListRepository: ListRepository {

@@ -96,6 +96,7 @@ struct YouView: View {
             case .showNotifications: router.navigateToNotifications()
             case .showReminders: router.navigateToAppleReminders()
             case .showVacation: router.navigateToVacation()
+            case .showLetters: router.navigateToLetters()
             case .showManageLists: router.navigateToManageLists()
             case .startDeleteFlow: router.navigateToDeleteWarn()
             case .signedOut: router.exitToOnboarding()
@@ -348,6 +349,12 @@ struct YouView: View {
                 MochiListRow(title: "Vacation mode", subtitle: viewModel.vacationSub) {
                     viewModel.trigger(.vacationTapped)
                 }
+            }
+            // The archive belongs to the Personal Layer; this row is its
+            // temporary home until the Journal tab (Feature 6) takes over.
+            // Readable in every state incl. lapsed - the letters are theirs.
+            MochiListRow(title: "\(viewModel.mochiName)'s letters", subtitle: "The Sunday archive") {
+                viewModel.trigger(.lettersTapped)
             }
             MochiListRow(title: "Manage lists", subtitle: viewModel.listsSub) {
                 viewModel.trigger(.manageListsTapped)

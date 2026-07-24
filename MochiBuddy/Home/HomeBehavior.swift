@@ -52,6 +52,14 @@ enum HomeBehavior {
         let meta: String
     }
 
+    /// A letter presented from Home (envelope tap or notification tap) -
+    /// Identifiable wrapper so the detail presents via sheet(item:).
+    struct PresentedLetter: Equatable, Identifiable {
+        let letter: Letter
+        let source: LetterOpenSource
+        var id: String { letter.id }
+    }
+
     struct UIState: UpdatableStruct, Equatable {
         /// True until the first Firestore fetch lands - drives the skeleton.
         var isLoading = true
@@ -90,6 +98,12 @@ enum HomeBehavior {
         /// Sparse streak-milestone banner (7 / 30 / then every 50) - the
         /// in-app celebration surface; nil hides it.
         var celebrationText: String?
+        /// An unread letter waits: the quiet envelope near Mochi (never a
+        /// badge-red demand). Feature 3.
+        var showLetterEnvelope = false
+        var letterEnvelopeText = ""
+        /// The letter being read from Home, sheet-presented.
+        var presentedLetter: PresentedLetter?
         var petSquishTrigger = 0
         var quickAddText = ""
         var todayDateText = ""
@@ -124,6 +138,8 @@ enum HomeBehavior {
         case taskTapped(String)
         case editorDismissed
         case dismissCelebration
+        case letterEnvelopeTapped
+        case letterDismissed
         // Vacation surfaces.
         case endVacationTapped
         case vacationKeepResting

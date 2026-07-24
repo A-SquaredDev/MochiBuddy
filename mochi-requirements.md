@@ -1,7 +1,7 @@
 # Mochi — Requirements
 
 *Working title. A companion-driven reminders & todo app.*
-*Status: living draft — v0.7 · implementation current through v0.7 Features 1 + 4 (see Implementation status)*
+*Status: living draft — v0.7 · implementation current through v0.7 Features 1 + 4 + 3 (see Implementation status)*
 
 ---
 
@@ -270,11 +270,13 @@
 
 ## Implementation status
 
-> 🛠 **As of July 23 2026 (v0.7 · Features 1 + 4).** Everything the changelog resolved
-> through v0.6.1, plus Personal Layer Features 1 and 4 (the first two stops in the pinned
-> build order 1 → 4 → 3 → 2 → 5 → 6), is built and covered by the automated suite:
-> **485 tests, 0 failures** (`MochiBuddyTests`, Swift Testing, app-hosted; one
-> deliberately-skipped icon-export harness).
+> 🛠 **As of July 23 2026 (v0.7 · Features 1 + 4 + 3).** Everything the changelog resolved
+> through v0.6.1, plus Personal Layer Features 1, 4, and 3 (the first three stops in the
+> pinned build order 1 → 4 → 3 → 2 → 5 → 6), is built and covered by the automated suite:
+> **529 tests, 0 failures** (`MochiBuddyTests`, Swift Testing, app-hosted; one
+> deliberately-skipped icon-export harness). ⚠️ Live letter composition is blocked until
+> `firestore.rules` is deployed (the console still denies the `letters`/`activityWeeks`
+> subcollections; sim-verified that the barrier refuses honestly and retries later).
 
 | Spec section | Status | Where it lives (code) |
 |---|---|---|
@@ -296,7 +298,9 @@
 
 | Personal Layer · Feature 4: Mochi's observations (v0.7) | ✅ Implemented + tested (no production surface yet, by build order) | `Observations/`: pure `ObservationEngine` (all five v1 types with their evidence floors, spread gates incl. the per-day cap, and margin gates; weekday from one-off completions only; bands + histograms as derived views over canonical minutes; momentum eligibility from the synced interval log with the honest pre-log silence rule; list return as an after-action event; comeback with median + p75 gates; 14-day deterministic-replay hysteresis with switch AND retire; explicit calendar/now parameters, zero clock reads, determinism + current-zone-independence pinned by tests) · `ObservationCandidate`/`QualifiedObservation` type split enforced at compile time · `DistributionResult` with explicit `scopeUsed` provenance + circular minute math (Feature 5's contract, ready) · per-UID `ObservationLedger` (surfacing cadence ONLY: rundown weekly cap, same-week letter/rundown dedup, momentum cooldown, list-return once-per-event, copy rotation, algorithm/schema version gate, cleared on account deletion) · `ObservationCopy` pools (qualitative by locked rule, `{name}` templated, night band affirming) · `observation_evaluated` (≤1/type/day) + `observation_shown` os_log telemetry, never a conclusion payload · `ObservationService` orchestrator (fetch horizon = replay 90 + window 42 days). Inputs: `CompletedTaskStat` extended with task/series ids + completion-local date/minute/zone stamped at the source (Firestore write, widget queue stamps at TAP time; legacy rows re-interpret under the current zone, honestly marked derived); recurring spawns inherit `seriesId`; `users/{uid}.observationIntervals` + `observationLogSince` synced, maintained by `ObservationIntervalRecorder` (vacation entry, TRUE vacation end via re-entry, lapse via the membership hook, reconcile backstop at home entry). DEBUG observation inspector in the DevScheduler tab (gate-by-gate evidence, replay glyph timeline, ledger state, shared time travel). Consumers arrive with Features 3/2/6; 24 `obs_*` Remote Config keys wired + test-pinned (**console publish pending**) |
 
-### Remote Config parameters (published July 19 2026 · obs_* pending)
+| Personal Layer · Feature 3: Weekly letter from Mochi (v0.7) | ✅ Implemented + tested (live compose pending rules deploy) | `Letters/`: `LetterSchedule`/`LetterPeriod` (Monday start, send-hour cutoff with the bedtime clamp moving the cutoff, plain-date ids, attribution window owning the post-cutoff tail, authoritative-zone parameterization; first consumer of the synced `profile.timezone`) · pure `LetterComposer` over `PeriodSummary` (classification table with precedence incl. vacation-partial > rough; two-phase beat selection with structural beats first; insight-family XOR cap; rough letters draw ONLY from the structurally restricted pools, asserted by test, numeral scan as backstop; both share variants composed from beat data, never string surgery; FNV-1a hash rotation with don't-repeat-last-N vs the synced archive, no stored rotation state) · `FirestoreLetterRepository` (archive reads cache-friendly; first composition = the app's ONE fire-and-forget exception: `waitForPendingWrites`, server-backed reads, `runTransaction` create with existence precondition, first writer wins, loser displays the winner) · `LetterCompositionService` on user-visible foreground only (stamps the create-only `activityWeeks/{periodId}` marker - notification taps count via foregrounding, background work structurally can't; gates: first-full-period after `adoptedOn`, dormant skip, full-vacation skip, lapse skip, active-vacation defers late-never-wrong; no backfill) · letter notification class (id = letter doc id, budget order promises → mood → rundowns → LETTER, laid only for a non-dormant period via `letterInputProvider`, vacation/lapse/toggle suppressed, `.active`, invitation-only copy; tap deep-links Home → detail) · `weeklyLetter` pref + toggle row · UI: temporary "Mochi's letters" You row → `LetterArchiveView`/`LetterDetailView` (readAt on open, synced), Home quiet-envelope indicator, `ImageRenderer` share card (private default, full per-share opt-in, rough never offers full; placeholder wordmark) · diagnostic telemetry (composed/indicator_shown/opened-with-source/shared, no text ever) · `letters` + `activityWeeks` rules blocks (create-only + readAt-only update; **deploy pending**) · AccountEraser covers both subcollections · DEBUG force-compose in the DevScheduler. Known gaps: anniversary references in the milestone beat wait for Feature 2; rules immutability untested client-side (no emulator harness); Home envelope/detail/share not yet sim-driven (needs a composed letter → the rules deploy) |
+
+### Remote Config parameters (published July 19 2026 · obs_* + letter_* pending)
 
 The console holds exactly these keys, all currently set to the shipped defaults (so
 behavior is unchanged until a deliberate tuning pass). The canonical list lives in
@@ -323,6 +327,9 @@ behavior is unchanged until a deliberate tuning pass). The canonical list lives 
   `obs_return_quiet_days` 14 · `obs_return_history_min` 5 · `obs_comeback_min` 8 ·
   `obs_comeback_dates` 3 · `obs_comeback_tasks` 3 · `obs_comeback_hours` 24 ·
   `obs_comeback_p75_hours` 48 · `obs_sticky_days` 14 · `obs_rundown_weekly_cap` 2
+- **Weekly letter (Number · wired July 23 2026, NOT yet created in the console):**
+  `letter_send_weekday` 1 · `letter_send_hour` 19 · `letter_max_beats` 3 ·
+  `letter_quiet_max` 2 · `letter_rough_overdue_days` 4 · `letter_great_ratio` 1.5
 
 **Deliberately not remote-tunable:** the buffer cap and treat/pet values (the widget
 evaluates them without Firebase) and the 64-slot pending-notification cap (an iOS
