@@ -61,6 +61,32 @@ service cloud.firestore {
         allow read, create, delete: if isOwner(uid);
       }
 
+      // Journal moments (Personal Layer, Feature 6): create-only records
+      // whose natural id identifies an event. Rules validate more than
+      // create-only - type enum, schema version, required fields, and an
+      // id prefix consistent with the declared type (create-only prevents
+      // edits; this prevents fabricated or malformed documents). Delete
+      // stays open for account erasure - no per-moment delete UI exists.
+      match /moments/{momentId} {
+        allow read, delete: if isOwner(uid);
+        allow create: if isOwner(uid)
+          && request.resource.data.schemaVersion == 1
+          && request.resource.data.keys().hasAll(['type', 'occurredOn',
+               'renderedTextSnapshot', 'accessibilityTextSnapshot',
+               'localeIdentifier', 'copyDeckVersion', 'schemaVersion',
+               'createdAt'])
+          && ((request.resource.data.type == 'adoption'
+                 && momentId.matches('adoption-.*'))
+              || (request.resource.data.type == 'anniversary'
+                 && momentId.matches('anniversary-.*'))
+              || (request.resource.data.type == 'streakMilestone'
+                 && momentId.matches('streak-milestone-.*'))
+              || (request.resource.data.type == 'vacationReturn'
+                 && momentId.matches('vacation-return-.*'))
+              || (request.resource.data.type == 'listReturn'
+                 && momentId.matches('list-return-.*')));
+      }
+
       // Future subcollections stay closed until explicitly opened:
       // no match, no access.
     }

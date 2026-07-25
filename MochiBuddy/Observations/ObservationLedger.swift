@@ -194,6 +194,22 @@ final class ObservationLedger {
         return line
     }
 
+    /// The same line `nextLine` would render, WITHOUT rotating or saving -
+    /// the lapsed Journal card renders its frozen conclusions through
+    /// here so a read-only surface never advances cadence state
+    /// (Feature 6: nothing composes during lapse).
+    func peekLine(
+        for conclusion: ObservationConclusion,
+        petName: String,
+        listName: String? = nil,
+        userId: String
+    ) -> String? {
+        var deck = state(userId: userId).deck
+        return ObservationCopy.line(
+            for: conclusion, petName: petName, listName: listName, deck: &deck
+        )
+    }
+
     // MARK: - Momentum cooldown
 
     /// After momentum surfaces, it stays quiet for the cooldown window

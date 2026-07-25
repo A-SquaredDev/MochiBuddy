@@ -29,6 +29,7 @@ final class HomeViewModel: StateViewModel<
     private let celebrationCenter: CelebrationCenter
     private let letterService: LetterCompositionService?
     private let memoriesService: MemoriesService?
+    private let journalCoordinator: TabCoordinator?
 
     // Domain source of truth - UIState is derived from these.
     /// Incomplete tasks only; completions move to `completedToday`.
@@ -66,7 +67,8 @@ final class HomeViewModel: StateViewModel<
         reentryService: VacationReentryService,
         celebrationCenter: CelebrationCenter,
         letterService: LetterCompositionService? = nil,
-        memoriesService: MemoriesService? = nil
+        memoriesService: MemoriesService? = nil,
+        journalCoordinator: TabCoordinator? = nil
     ) {
         self.authRepository = authRepository
         self.profileRepository = profileRepository
@@ -82,6 +84,7 @@ final class HomeViewModel: StateViewModel<
         self.celebrationCenter = celebrationCenter
         self.letterService = letterService
         self.memoriesService = memoriesService
+        self.journalCoordinator = journalCoordinator
         super.init(initialState: HomeBehavior.UIState())
     }
 
@@ -157,13 +160,11 @@ final class HomeViewModel: StateViewModel<
             relay.requestRelay(.taskChange)
 
         case .letterEnvelopeTapped:
+            // Feature 6: the envelope routes into the Journal's letter
+            // view via the stable id - the Journal is the letters' home.
             if let unread = letterService?.unreadLetter {
-                state.presentedLetter = HomeBehavior.PresentedLetter(letter: unread, source: .home)
+                journalCoordinator?.openLetterInJournal(unread.id, source: .envelope)
             }
-
-        case .letterDismissed:
-            state.presentedLetter = nil
-            rebuildDerivedState()
 
         case .dismissCelebration:
             state.celebrationText = nil
@@ -328,16 +329,6 @@ final class HomeViewModel: StateViewModel<
         }
         if !triageTaskIds.isEmpty {
             state.showTriage = true
-        }
-
-        // A tapped letter invitation routes straight to its letter.
-        if let letterService, let pendingId = letterService.pendingNotificationOpen {
-            letterService.pendingNotificationOpen = nil
-            if let letter = await letterService.letter(id: pendingId) {
-                state.presentedLetter = HomeBehavior.PresentedLetter(
-                    letter: letter, source: .notification
-                )
-            }
         }
 
         // Today's anniversary banner, if any, lands in the celebration

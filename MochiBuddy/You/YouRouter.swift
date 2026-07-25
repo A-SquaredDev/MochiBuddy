@@ -15,10 +15,7 @@ protocol YouRouting: BackRouting {
     func navigateToNotifications()
     func navigateToAppleReminders()
     func navigateToVacation()
-    func navigateToLetters()
-    func navigateToLetter(_ letter: Letter, source: LetterOpenSource)
     func navigateToManageLists()
-    func navigateToStats()
     func navigateToDeleteWarn()
     func navigateToDeleteSubscriptionWarning()
     func navigateToDeleteConfirm()
@@ -135,32 +132,6 @@ final class YouRouter: YouRouting {
         )
     }
 
-    func navigateToLetters() {
-        let viewModel = LetterArchiveViewModel(
-            authRepository: container.authRepository,
-            letterRepository: container.letterRepository,
-            petIdentityStore: container.petIdentityStore
-        )
-        navController.navigate(
-            route: AdHocRoute(key: "you.letters"),
-            view: AnyView(LetterArchiveView(viewModel: viewModel, router: self))
-        )
-    }
-
-    func navigateToLetter(_ letter: Letter, source: LetterOpenSource) {
-        let viewModel = LetterDetailViewModel(
-            letter: letter,
-            source: source,
-            letterService: container.letterCompositionService,
-            adoptedOn: container.petIdentityStore.adoptedOn
-        )
-        navController.navigate(
-            route: AdHocRoute(key: "you.letter.\(letter.id)"),
-            view: AnyView(LetterDetailView(viewModel: viewModel, onBack: { [weak self] in
-                self?.navigateBack()
-            }))
-        )
-    }
 
     func navigateToManageLists() {
         let viewModel = ManageListsViewModel(
@@ -186,19 +157,6 @@ final class YouRouter: YouRouting {
                     ))) } ?? AnyView(EmptyView())
                 }
             ))
-        )
-    }
-
-    func navigateToStats() {
-        let viewModel = StatsViewModel(
-            authRepository: container.authRepository,
-            profileRepository: container.profileRepository,
-            taskRepository: container.taskRepository,
-            listRepository: container.listRepository
-        )
-        navController.navigate(
-            route: AdHocRoute(key: "you.stats"),
-            view: AnyView(StatsView(viewModel: viewModel, router: self))
         )
     }
 

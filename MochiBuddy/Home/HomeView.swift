@@ -67,17 +67,10 @@ struct HomeView: View {
         .sheet(isPresented: viewModel.collectBinding(for: \.showTriage, action: .triageLater)) {
             triageSheet
         }
-        .sheet(
-            item: viewModel.collectBinding(for: \.presentedLetter, action: { _ in .letterDismissed })
-        ) { presented in
-            router.letterDetail(letter: presented.letter, source: presented.source) {
-                viewModel.trigger(.letterDismissed)
-            }
-        }
     }
 
     /// The quiet envelope: an unread letter waits, never a badge-red
-    /// demand. Tapping opens the letter as a sheet.
+    /// demand. Tapping routes into the Journal's letter view.
     private var letterEnvelope: some View {
         Button {
             viewModel.trigger(.letterEnvelopeTapped)

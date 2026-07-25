@@ -52,14 +52,6 @@ enum HomeBehavior {
         let meta: String
     }
 
-    /// A letter presented from Home (envelope tap or notification tap) -
-    /// Identifiable wrapper so the detail presents via sheet(item:).
-    struct PresentedLetter: Equatable, Identifiable {
-        let letter: Letter
-        let source: LetterOpenSource
-        var id: String { letter.id }
-    }
-
     struct UIState: UpdatableStruct, Equatable {
         /// True until the first Firestore fetch lands - drives the skeleton.
         var isLoading = true
@@ -103,7 +95,6 @@ enum HomeBehavior {
         var showLetterEnvelope = false
         var letterEnvelopeText = ""
         /// The letter being read from Home, sheet-presented.
-        var presentedLetter: PresentedLetter?
         var petSquishTrigger = 0
         var quickAddText = ""
         var todayDateText = ""
@@ -139,7 +130,6 @@ enum HomeBehavior {
         case editorDismissed
         case dismissCelebration
         case letterEnvelopeTapped
-        case letterDismissed
         // Vacation surfaces.
         case endVacationTapped
         case vacationKeepResting

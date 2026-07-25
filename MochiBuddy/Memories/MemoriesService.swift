@@ -44,6 +44,7 @@ final class MemoriesService {
     private let ledger: CallbackLedger
     private let membershipSession: MembershipSession
     private let celebrationCenter: CelebrationCenter
+    private let momentWriter: MomentWriter?
     private let telemetry: CallbackTelemetry?
     private let calendar: Calendar
 
@@ -55,6 +56,7 @@ final class MemoriesService {
         ledger: CallbackLedger,
         membershipSession: MembershipSession,
         celebrationCenter: CelebrationCenter,
+        momentWriter: MomentWriter? = nil,
         telemetry: CallbackTelemetry? = nil,
         calendar: Calendar = .current
     ) {
@@ -65,6 +67,7 @@ final class MemoriesService {
         self.ledger = ledger
         self.membershipSession = membershipSession
         self.celebrationCenter = celebrationCenter
+        self.momentWriter = momentWriter
         self.telemetry = telemetry
         self.calendar = calendar
     }
@@ -99,6 +102,14 @@ final class MemoriesService {
         )
         let observations = ObservationEngine.evaluate(inputs).qualified
         let lastActiveDay = miner.lastActiveDay
+
+        // Journal record (Feature 6): a qualified list-return event earns
+        // its moment here, on the layer's most reliable evaluation beat.
+        // Once-per-event is the moment's own natural key; the ledger's
+        // surfacing cadence is not consulted - the event happened.
+        for observation in observations where observation.kind == .listReturn {
+            await momentWriter?.listReturn(observation, now: now)
+        }
 
         let days: [PersonalLayerPlanner.DayContext] = rundowns
             .filter { $0.kind == .rundown }
@@ -295,6 +306,12 @@ final class MemoriesService {
         guard let milestone = AnniversaryCalendar.milestone(
             adoptedOn: profile.adoptedOn, on: today
         ) else { return }
+
+        // Journal record (Feature 6): written on detection, BEFORE the
+        // banner's dedup and collision suppression - a streak milestone
+        // may own the banner, but the day still happened. Idempotent by
+        // natural key.
+        await momentWriter?.anniversary(milestone, now: now)
 
         var state = ledger.state(userId: userId)
         guard state.bannerShown[milestone.id] == nil else { return }

@@ -26,6 +26,7 @@ final class VacationReentryService {
     private let bufferStore: ComfortBufferStore
     private let relay: NotificationRelaying
     private let intervalRecorder: ObservationIntervalRecorder?
+    private let momentWriter: MomentWriter?
     private let defaults: UserDefaults
     private let calendar: Calendar
 
@@ -35,6 +36,7 @@ final class VacationReentryService {
         bufferStore: ComfortBufferStore,
         relay: NotificationRelaying,
         intervalRecorder: ObservationIntervalRecorder? = nil,
+        momentWriter: MomentWriter? = nil,
         defaults: UserDefaults = .standard,
         calendar: Calendar = .current
     ) {
@@ -43,6 +45,7 @@ final class VacationReentryService {
         self.bufferStore = bufferStore
         self.relay = relay
         self.intervalRecorder = intervalRecorder
+        self.momentWriter = momentWriter
         self.defaults = defaults
         self.calendar = calendar
     }
@@ -118,6 +121,15 @@ final class VacationReentryService {
         // covered - a trip that expired days ago closes at its scheduled
         // end, not at this open (Feature 4: momentum eligibility).
         await intervalRecorder?.vacationEnded(at: end)
+
+        // Journal record (Feature 6): the return moment, keyed by the
+        // interval's start, plus any deferrable anniversaries the trip
+        // covered on their TRUE dates. Written at re-entry, never during.
+        if let started = profile.vacationStartedAt {
+            await momentWriter?.vacationEnded(
+                intervalStart: started, end: end, adoptedOn: profile.adoptedOn, now: now
+            )
+        }
 
         // The bucket: one-off dated tasks overdue as of the end - both the
         // ones that crossed during the trip and anything already overdue

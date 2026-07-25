@@ -28,9 +28,12 @@ protocol UserProfileRepository: AnyObject {
     func saveDisplayName(_ name: String, userId: String) async throws
     /// Persists the pet's name (sanitized at this boundary).
     func saveMochiName(_ name: String, userId: String) async throws
-    /// Stamps the write-once adoption date. Client code never overwrites an
-    /// existing value (courtesy); the security rules are the guarantee.
-    func stampAdoptedOn(_ dateString: String, userId: String) async throws
+    /// Stamps the write-once adoption date AND its Journal moment in one
+    /// atomic batch (Feature 6: the non-emptiness guarantee is structural).
+    /// Client code never overwrites an existing date (courtesy); the
+    /// security rules are the guarantee, and the moment's create-only id
+    /// makes the batch idempotent.
+    func stampAdoption(_ dateString: String, moment: Moment, userId: String) async throws
     func saveMembershipMirror(isSubscribed: Bool, trialEndsAt: Date?, userId: String) async throws
     /// Rewrites the observation interval log (append/close discipline is
     /// the recorder's job; the log stays small - entries only accrue on
@@ -158,9 +161,17 @@ final class FirestoreUserProfileRepository: UserProfileRepository {
         try await merge(["mochiName": PetNameSanitizer.canonicalName(from: name)], userId: userId)
     }
 
-    func stampAdoptedOn(_ dateString: String, userId: String) async throws {
+    func stampAdoption(_ dateString: String, moment: Moment, userId: String) async throws {
         guard AdoptedOnDate.isValid(dateString) else { return }
-        try await merge(["adoptedOn": dateString], userId: userId)
+        // One batch, so the date and its adoption moment land (and cache)
+        // together. Not awaited - the fire-and-forget convention.
+        let batch = firestore.batch()
+        batch.setData(["adoptedOn": dateString], forDocument: document(userId), merge: true)
+        batch.setData(
+            MomentFields.fields(for: moment),
+            forDocument: document(userId).collection("moments").document(moment.id)
+        )
+        batch.commit(completion: nil)
     }
 
     func saveObservationIntervals(_ intervals: [ObservationInterval], userId: String) async throws {

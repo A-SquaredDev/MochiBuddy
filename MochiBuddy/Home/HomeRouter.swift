@@ -34,7 +34,8 @@ final class HomeRouter {
             reentryService: container.vacationReentryService,
             celebrationCenter: container.celebrationCenter,
             letterService: container.letterCompositionService,
-            memoriesService: container.memoriesService
+            memoriesService: container.memoriesService,
+            journalCoordinator: container.tabCoordinator
         )
         return AnyView(HomeView(viewModel: viewModel, router: self))
     }
@@ -43,18 +44,6 @@ final class HomeRouter {
     /// the returning account and lands on the reactivate gate.
     func wakeMochi() {
         container.session.phase = .flow
-    }
-
-    /// A letter read from Home (envelope or notification tap) - sheet
-    /// presentation; the archive's pushed detail lives under You.
-    func letterDetail(letter: Letter, source: LetterOpenSource, onClose: @escaping () -> Void) -> AnyView {
-        let viewModel = LetterDetailViewModel(
-            letter: letter,
-            source: source,
-            letterService: container.letterCompositionService,
-            adoptedOn: container.petIdentityStore.adoptedOn
-        )
-        return AnyView(LetterDetailView(viewModel: viewModel, onClose: onClose))
     }
 
     /// The add/edit sheet - `draftTitle` seeds a new capture from quick-add.

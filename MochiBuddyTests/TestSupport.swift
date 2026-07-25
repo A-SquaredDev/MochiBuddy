@@ -337,8 +337,10 @@ final class StubProfileRepository: UserProfileRepository {
         }
     }
     private(set) var stampedAdoptedOns: [String] = []
-    func stampAdoptedOn(_ dateString: String, userId: String) async throws {
+    private(set) var stampedAdoptionMoments: [Moment] = []
+    func stampAdoption(_ dateString: String, moment: Moment, userId: String) async throws {
         stampedAdoptedOns.append(dateString)
+        stampedAdoptionMoments.append(moment)
         // Mirror the write-once rule: an existing value is never replaced.
         if var profile, profile.adoptedOn == nil {
             profile.adoptedOn = dateString
@@ -498,6 +500,21 @@ final class StubLetterRepository: LetterRepository {
 final class RecordingLetterTelemetry: LetterTelemetry {
     private(set) var events: [LetterTelemetryEvent] = []
     func log(_ event: LetterTelemetryEvent) { events.append(event) }
+}
+
+final class StubMomentRepository: MomentRepository {
+    var stored: [Moment] = []
+    private(set) var ensureLog: [String] = []
+
+    func moments(userId: String) async throws -> [Moment] {
+        stored.sorted { $0.occurredOn > $1.occurredOn }
+    }
+    func ensureMoment(_ moment: Moment, userId: String) async {
+        ensureLog.append(moment.id)
+        // Create-only: an existing natural key never changes content.
+        guard !stored.contains(where: { $0.id == moment.id }) else { return }
+        stored.append(moment)
+    }
 }
 
 final class StubListRepository: ListRepository {

@@ -25,10 +25,6 @@ final class LetterCompositionService {
     /// The newest unread letter - drives the Home envelope indicator.
     private(set) var unreadLetter: Letter?
 
-    /// Set by a letter-notification tap; Home consumes it to route
-    /// straight to the letter with `source: .notification`.
-    var pendingNotificationOpen: String?
-
     @ObservationIgnored private let authRepository: AuthRepository
     @ObservationIgnored private let profileRepository: UserProfileRepository
     @ObservationIgnored private let taskRepository: TaskRepository

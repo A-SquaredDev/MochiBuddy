@@ -18,6 +18,7 @@ struct RootView: View {
     @State private var router: OnboardingRouter?
     @State private var homeRouter: HomeRouter?
     @State private var tasksRouter: TasksRouter?
+    @State private var journalRouter: JournalRouter?
     @State private var youRouter: YouRouter?
 
     /// Entering home: refresh the entitlement snapshot (dev launches skip
@@ -61,13 +62,15 @@ struct RootView: View {
                     container.themeStore.current.bg.ignoresSafeArea()
                 }
             case .home:
-                if let homeRouter, let tasksRouter, let youRouter {
+                if let homeRouter, let tasksRouter, let journalRouter, let youRouter {
                     NavHost(
                         controller: homeNavController,
                         root: AnyView(MainTabView(
                             homeTab: homeRouter.start(),
                             tasksTab: tasksRouter.start(),
-                            youTab: youRouter.start()
+                            journalTab: journalRouter.start(),
+                            youTab: youRouter.start(),
+                            coordinator: container.tabCoordinator
                         ))
                     )
                 } else {
@@ -82,6 +85,7 @@ struct RootView: View {
             router = OnboardingRouter(navController: navController, container: container)
             homeRouter = HomeRouter(container: container)
             tasksRouter = TasksRouter(navController: homeNavController, container: container)
+            journalRouter = JournalRouter(navController: homeNavController, container: container)
             youRouter = YouRouter(navController: homeNavController, container: container)
             // Dev launches (-mochiStartAtHome) begin in home without the
             // phase change ever firing.

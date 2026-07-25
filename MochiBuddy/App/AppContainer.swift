@@ -65,9 +65,13 @@ final class AppContainer {
     let observationLedger = ObservationLedger()
     let observationService: ObservationService
     let callbackLedger = CallbackLedger()
+    let momentRepository: MomentRepository
+    let momentWriter: MomentWriter
     let memoriesService: MemoriesService
     let suggestionLedger = SuggestionLedger()
     let suggestionService: SuggestionService
+    /// Tab selection + the letter handoff into the Journal (Feature 6).
+    let tabCoordinator = TabCoordinator(telemetry: OSLogJournalTelemetry())
     let letterRepository: LetterRepository
     let letterCompositionService: LetterCompositionService
     let vacationReentryService: VacationReentryService
@@ -105,6 +109,21 @@ final class AppContainer {
             membershipSession: membershipSession
         )
         recurrenceRoller = RecurrenceRoller(taskRepository: taskRepository)
+        petIdentityStore = PetIdentityStore(
+            profileRepository: profileRepository,
+            telemetry: OSLogPetIdentityTelemetry()
+        )
+        // Feature 6: the Journal's synced moment records and their one
+        // producer funnel (payload derivation stays in the pure factory).
+        momentRepository = FirestoreMomentRepository(firestore: firestore)
+        momentWriter = MomentWriter(
+            authRepository: authRepository,
+            momentRepository: momentRepository,
+            petIdentityStore: petIdentityStore,
+            listRepository: listRepository,
+            membershipSession: membershipSession,
+            calendar: .autoupdatingCurrent
+        )
 
         let telemetry = OSLogNotificationTelemetry()
         notificationScheduler = UNNotificationScheduler()
@@ -154,6 +173,7 @@ final class AppContainer {
             ledger: callbackLedger,
             membershipSession: membershipSession,
             celebrationCenter: celebrationCenter,
+            momentWriter: momentWriter,
             telemetry: OSLogCallbackTelemetry(),
             calendar: .autoupdatingCurrent
         )
@@ -187,16 +207,19 @@ final class AppContainer {
         notificationOrchestrator.letterInputProvider = { [weak letterCompositionService] now in
             await letterCompositionService?.plannedLetterInput(now: now)
         }
-        // A tapped invitation routes Home straight to the letter.
-        notificationDelegate.onLetterTap = { [weak letterCompositionService] letterId in
-            letterCompositionService?.pendingNotificationOpen = letterId
+        // A tapped invitation routes into the Journal's letter view via
+        // the stable letter id (Feature 6's navigation-only handoff). The
+        // coordinator holds the route until the tab shell is mounted.
+        notificationDelegate.onLetterTap = { [weak tabCoordinator] letterId in
+            tabCoordinator?.openLetterInJournal(letterId, source: .notification)
         }
         vacationReentryService = VacationReentryService(
             profileRepository: profileRepository,
             taskRepository: taskRepository,
             bufferStore: comfortBufferStore,
             relay: notificationOrchestrator,
-            intervalRecorder: observationIntervalRecorder
+            intervalRecorder: observationIntervalRecorder,
+            momentWriter: momentWriter
         )
         notificationActionHandler = NotificationActionHandler(
             authRepository: authRepository,
@@ -211,10 +234,6 @@ final class AppContainer {
         UNUserNotificationCenter.current().delegate = notificationDelegate
         NotificationCategories.register()
 
-        petIdentityStore = PetIdentityStore(
-            profileRepository: profileRepository,
-            telemetry: OSLogPetIdentityTelemetry()
-        )
         // PetIdentityDidChange, steps 2-3: action labels re-register
         // BEFORE the re-lay so newly laid notifications reference matching
         // labels; the re-lay rewrites mood pings + rundowns with the new
@@ -238,8 +257,13 @@ final class AppContainer {
         // in-app on Home - completions only happen with the app open or
         // land at drain time on the next open, so a push would always
         // arrive while the user is already looking at Mochi.
-        taskCompletionStore.onMilestone = { [weak celebrationCenter] milestone in
+        taskCompletionStore.onMilestone = { [weak celebrationCenter, weak momentWriter] milestone in
             celebrationCenter?.post(milestone: milestone)
+            // Journal record (Feature 6), at the crossing edge - a rebuilt
+            // streak reaching the same count later is a NEW moment.
+            Task { @MainActor in
+                await momentWriter?.streakMilestone(count: milestone)
+            }
         }
         // A lapse or reactivation reshapes the whole plan (promises-only
         // vs the full set) the moment it's learned - and lands in the

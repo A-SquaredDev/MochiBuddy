@@ -36,7 +36,7 @@ final class LetterDetailViewModel: StateViewModel<
     override func triggerAsync(_ action: LetterDetailBehavior.ViewAction) async {
         switch action {
         case .load:
-            state.weekTitle = "Week of \(LetterArchiveViewModel.weekLabel(for: letter))"
+            state.weekTitle = "Week of \(JournalTimeline.weekLabel(for: letter))"
             state.dateRangeText = Self.dateRange(for: letter)
             // The reader always sees the full variant - privacy applies to
             // what leaves the device, not to the author's own copy.

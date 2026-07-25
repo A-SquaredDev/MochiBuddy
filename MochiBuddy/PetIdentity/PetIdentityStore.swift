@@ -106,7 +106,11 @@ final class PetIdentityStore {
             defaults.set(true, forKey: flagKey)
         }
         if adoptedOn == nil {
-            await stampAdoption(anchoredTo: profile.createdAt ?? now, userId: profile.id)
+            // Backfill: the pet's name on that day is unknowable, so the
+            // adoption moment carries the legacy-neutral line.
+            await stampAdoption(
+                anchoredTo: profile.createdAt ?? now, capturedName: nil, userId: profile.id
+            )
         }
         onLoaded?(name)
     }
@@ -121,7 +125,7 @@ final class PetIdentityStore {
         name = chosen
         try? await profileRepository.saveMochiName(chosen, userId: userId)
         defaults.set(true, forKey: Self.migratedKey(for: userId))
-        await stampAdoption(anchoredTo: now, userId: userId)
+        await stampAdoption(anchoredTo: now, capturedName: chosen, userId: userId)
         telemetry?.log(.petNamed(custom: chosen != PetNameSanitizer.defaultName))
     }
 
@@ -141,9 +145,16 @@ final class PetIdentityStore {
         return true
     }
 
-    private func stampAdoption(anchoredTo date: Date, userId: String) async {
+    /// Stamps the write-once date and its Journal adoption moment in one
+    /// batch (Feature 6: non-emptiness is structural). `capturedName` is
+    /// the name chosen at the naming beat; nil on the backfill path, where
+    /// the moment's copy must never imply the current name was used then.
+    private func stampAdoption(anchoredTo date: Date, capturedName: String?, userId: String) async {
         let stamp = AdoptedOnDate.string(from: date, in: .current)
-        try? await profileRepository.stampAdoptedOn(stamp, userId: userId)
+        let moment = MomentFactory.adoption(
+            adoptedOn: stamp, petName: capturedName, locale: .current, now: date
+        )
+        try? await profileRepository.stampAdoption(stamp, moment: moment, userId: userId)
         if adoptedOn == nil {
             adoptedOn = stamp
         }

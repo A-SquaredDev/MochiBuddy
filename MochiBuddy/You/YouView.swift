@@ -92,11 +92,9 @@ struct YouView: View {
         .onReceive(viewModel.navigationEvents) { event in
             switch event {
             case .editBedtime: router.navigateToBedtime()
-            case .showStats: router.navigateToStats()
             case .showNotifications: router.navigateToNotifications()
             case .showReminders: router.navigateToAppleReminders()
             case .showVacation: router.navigateToVacation()
-            case .showLetters: router.navigateToLetters()
             case .showManageLists: router.navigateToManageLists()
             case .startDeleteFlow: router.navigateToDeleteWarn()
             case .signedOut: router.exitToOnboarding()
@@ -332,11 +330,10 @@ struct YouView: View {
         .background(theme.bg)
     }
 
+    // Stats and the interim letters row retired with the Journal tab
+    // (Feature 6, edge 18) - You is pure settings again.
     private var navigationRows: some View {
         VStack(spacing: 8) {
-            MochiListRow(title: "Streaks & stats", subtitle: "Your gentle momentum") {
-                viewModel.trigger(.statsTapped)
-            }
             // Lapsed hides what's meaningless with Mochi asleep: nudge
             // prefs, new Reminders imports, vacation mode.
             if !viewModel.isLapsed {
@@ -349,12 +346,6 @@ struct YouView: View {
                 MochiListRow(title: "Vacation mode", subtitle: viewModel.vacationSub) {
                     viewModel.trigger(.vacationTapped)
                 }
-            }
-            // The archive belongs to the Personal Layer; this row is its
-            // temporary home until the Journal tab (Feature 6) takes over.
-            // Readable in every state incl. lapsed - the letters are theirs.
-            MochiListRow(title: "\(viewModel.mochiName)'s letters", subtitle: "The Sunday archive") {
-                viewModel.trigger(.lettersTapped)
             }
             MochiListRow(title: "Manage lists", subtitle: viewModel.listsSub) {
                 viewModel.trigger(.manageListsTapped)
