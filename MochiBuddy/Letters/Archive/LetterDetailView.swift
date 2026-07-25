@@ -39,6 +39,10 @@ struct LetterDetailView: View {
                     shareMenu
                 }
 
+                if let saveResult = viewModel.saveResultText {
+                    saveToast(saveResult)
+                }
+
                 letterCard
             }
             .padding(EdgeInsets(top: 8, leading: 18, bottom: 24, trailing: 18))
@@ -89,16 +93,30 @@ struct LetterDetailView: View {
     private var shareMenu: some View {
         Menu {
             Button {
-                presentShare(variant: "private", text: viewModel.letter.privateRenderedText)
+                if let image = renderCardImage(text: viewModel.letter.privateRenderedText) {
+                    shareItem = ShareItem(variant: "private", image: image)
+                }
             } label: {
                 Label("Share", systemImage: "square.and.arrow.up")
             }
             if viewModel.offersFullShare {
                 Button {
-                    presentShare(variant: "full", text: viewModel.letter.fullRenderedText)
+                    if let image = renderCardImage(text: viewModel.letter.fullRenderedText) {
+                        shareItem = ShareItem(variant: "full", image: image)
+                    }
                 } label: {
                     Label("Share with task names", systemImage: "square.and.arrow.up.on.square")
                 }
+            }
+            // First-class save: the share sheet's own Save Image action is
+            // environment-dependent; this one always exists. Same privacy
+            // default as Share - always the private variant.
+            Button {
+                if let image = renderCardImage(text: viewModel.letter.privateRenderedText) {
+                    viewModel.trigger(.saveToPhotos(image))
+                }
+            } label: {
+                Label("Save to Photos", systemImage: "square.and.arrow.down")
             }
         } label: {
             Image(systemName: "square.and.arrow.up")
@@ -108,9 +126,23 @@ struct LetterDetailView: View {
         .accessibilityLabel("Share this letter")
     }
 
-    /// Renders the card and hands it to the share sheet. Private text by
-    /// default; the full variant only arrives via the explicit opt-in.
-    private func presentShare(variant: String, text: String) {
+    private func saveToast(_ text: String) -> some View {
+        Text(text)
+            .font(MochiFont.body(11.5, weight: .heavy))
+            .foregroundStyle(theme.ink)
+            .padding(EdgeInsets(top: 8, leading: 14, bottom: 8, trailing: 14))
+            .background(theme.surface2, in: Capsule())
+            .frame(maxWidth: .infinity)
+            .transition(.opacity)
+            .task {
+                try? await Task.sleep(for: .seconds(2.5))
+                viewModel.trigger(.dismissSaveResult)
+            }
+    }
+
+    /// Renders the card at share scale. Private text by default; the full
+    /// variant only arrives via the explicit opt-in.
+    private func renderCardImage(text: String) -> UIImage? {
         let card = LetterShareCard(
             letterText: text,
             petName: viewModel.petName,
@@ -122,8 +154,7 @@ struct LetterDetailView: View {
         // through explicitly or the pet and placeholder render default.
         let renderer = ImageRenderer(content: card.environment(\.mochiTheme, theme))
         renderer.scale = 3
-        guard let image = renderer.uiImage else { return }
-        shareItem = ShareItem(variant: variant, image: image)
+        return renderer.uiImage
     }
 }
 

@@ -12,6 +12,21 @@ import SwiftUI
 import Testing
 @testable import MochiBuddy
 
+private func makeLetter(classification: LetterClassification = .steady) -> Letter {
+    Letter(
+        id: "letter-2026-07-13",
+        periodStart: Dates.days(-9), periodEndExclusive: Dates.days(-3),
+        timeZoneId: TimeZone.current.identifier,
+        classification: classification, beatTypes: [.smallTruePositive],
+        lineIds: ["small-positive:0"],
+        fullRenderedText: "A letter.\n\nFrom Nori",
+        privateRenderedText: "A letter.\n\nFrom Nori",
+        petNameSnapshot: "Nori", composedAt: Dates.days(-3),
+        composerVersion: 1, copyDeckVersion: 1,
+        periodSummaryHash: "cafe", readAt: nil
+    )
+}
+
 @Suite("Letters · share card")
 @MainActor
 struct LetterShareCardTests {
@@ -59,5 +74,42 @@ struct LetterShareCardTests {
             }
         }
         #expect(seen.count >= 10, "got \(seen.count) distinct colors - a near-uniform image means the card drew nothing")
+    }
+
+    @Test("Save to Photos: success toasts, buzzes, and logs; denial hints at Settings")
+    func saveToPhotosFlow() async {
+        let telemetry = RecordingLetterTelemetry()
+        let service = LetterCompositionService(
+            authRepository: StubAuthRepository(),
+            profileRepository: StubProfileRepository(),
+            taskRepository: StubTaskRepository(),
+            listRepository: StubListRepository(),
+            letterRepository: StubLetterRepository(),
+            observationLedger: ObservationLedger(
+                defaults: UserDefaults(suiteName: "share-card-tests-\(UUID().uuidString)")!
+            ),
+            membershipSession: MembershipSession(),
+            telemetry: telemetry
+        )
+
+        let granted = LetterDetailViewModel(
+            letter: makeLetter(), source: .archive, letterService: service,
+            adoptedOn: nil, photoSaver: { _ in true }
+        )
+        await granted.triggerAsync(.saveToPhotos(UIImage()))
+        #expect(granted.uiState.saveResultText == "Saved to Photos")
+        #expect(telemetry.events.contains {
+            if case .shared(let variant) = $0 { return variant == "photos" }
+            return false
+        })
+        await granted.triggerAsync(.dismissSaveResult)
+        #expect(granted.uiState.saveResultText == nil)
+
+        let denied = LetterDetailViewModel(
+            letter: makeLetter(), source: .archive, letterService: service,
+            adoptedOn: nil, photoSaver: { _ in false }
+        )
+        await denied.triggerAsync(.saveToPhotos(UIImage()))
+        #expect(denied.uiState.saveResultText == "Allow photo access in Settings to save")
     }
 }

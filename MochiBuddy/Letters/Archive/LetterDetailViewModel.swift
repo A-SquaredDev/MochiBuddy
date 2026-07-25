@@ -3,7 +3,8 @@
 //  MochiBuddy
 //
 
-import Foundation
+import Photos
+import UIKit
 
 final class LetterDetailViewModel: StateViewModel<
     LetterDetailBehavior.UIState,
@@ -14,17 +15,21 @@ final class LetterDetailViewModel: StateViewModel<
     private let source: LetterOpenSource
     private let letterService: LetterCompositionService
     private let adoptedOn: String?
+    /// Injected so tests exercise the save flow without a photo library.
+    private let photoSaver: (UIImage) async -> Bool
 
     init(
         letter: Letter,
         source: LetterOpenSource,
         letterService: LetterCompositionService,
-        adoptedOn: String?
+        adoptedOn: String?,
+        photoSaver: @escaping (UIImage) async -> Bool = LetterDetailViewModel.saveToPhotoLibrary
     ) {
         self.letter = letter
         self.source = source
         self.letterService = letterService
         self.adoptedOn = adoptedOn
+        self.photoSaver = photoSaver
         super.init(initialState: LetterDetailBehavior.UIState())
     }
 
@@ -45,6 +50,33 @@ final class LetterDetailViewModel: StateViewModel<
 
         case .sharedTapped(let variant):
             letterService.logShared(variant: variant)
+
+        case .saveToPhotos(let image):
+            if await photoSaver(image) {
+                state.saveResultText = "Saved to Photos"
+                Haptics.success()
+                letterService.logShared(variant: "photos")
+            } else {
+                state.saveResultText = "Allow photo access in Settings to save"
+            }
+
+        case .dismissSaveResult:
+            state.saveResultText = nil
+        }
+    }
+
+    /// Add-only photo library write: the narrowest permission iOS offers
+    /// (the app can never read the library), prompted on first use.
+    static func saveToPhotoLibrary(_ image: UIImage) async -> Bool {
+        let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
+        guard status == .authorized || status == .limited else { return false }
+        do {
+            try await PHPhotoLibrary.shared().performChanges {
+                PHAssetChangeRequest.creationRequestForAsset(from: image)
+            }
+            return true
+        } catch {
+            return false
         }
     }
 

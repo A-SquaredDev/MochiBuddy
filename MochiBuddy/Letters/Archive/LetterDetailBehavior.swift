@@ -8,7 +8,7 @@
 //  opt-in and rough letters never offer it.
 //
 
-import Foundation
+import UIKit
 
 enum LetterDetailBehavior {
 
@@ -20,10 +20,17 @@ enum LetterDetailBehavior {
         /// "With Nori since March" - from the adoption snapshot; empty hides.
         var adoptionLine = ""
         var offersFullShare = true
+        /// Transient save feedback ("Saved to Photos" / the Settings hint);
+        /// nil hides the toast.
+        var saveResultText: String?
     }
 
     enum ViewAction {
         case load
         case sharedTapped(variant: String)
+        /// The rendered card (share defaults apply: always the private
+        /// variant) headed for the photo library.
+        case saveToPhotos(UIImage)
+        case dismissSaveResult
     }
 }

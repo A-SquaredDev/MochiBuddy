@@ -13,6 +13,8 @@
 			</array>
 		</dict>
 	</array>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Saves your letter cards to your photo library.</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>Fredoka-Variable.ttf</string>
