@@ -207,13 +207,14 @@ enum JournalTimeline {
     static func trendPoints(
         stats: [CompletedTaskStat],
         start: Date,
-        calendar: Calendar
+        calendar: Calendar,
+        days: Int = trendDays
     ) -> [JournalBehavior.TrendPoint] {
         var countsByDay: [Date: Int] = [:]
         for stat in stats {
             countsByDay[calendar.startOfDay(for: stat.completedAt), default: 0] += 1
         }
-        return (0..<trendDays).compactMap { offset in
+        return (0..<days).compactMap { offset in
             guard let day = calendar.date(byAdding: .day, value: offset, to: start) else { return nil }
             return JournalBehavior.TrendPoint(id: offset, day: day, count: countsByDay[day] ?? 0)
         }

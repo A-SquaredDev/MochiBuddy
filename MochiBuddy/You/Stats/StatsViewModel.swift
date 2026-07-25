@@ -15,9 +15,6 @@ final class StatsViewModel: StateViewModel<
     StatsBehavior.ViewAction
 > {
 
-    /// The charts read four weeks of completions.
-    static let trendDays = JournalTimeline.trendDays
-
     private let authRepository: AuthRepository
     private let profileRepository: UserProfileRepository
     private let taskRepository: TaskRepository
@@ -26,6 +23,10 @@ final class StatsViewModel: StateViewModel<
     private let observationService: ObservationService?
     private let observationLedger: ObservationLedger?
     private let calendar: Calendar
+
+    /// Per-range fetch cache - toggling ranges must not re-read Firestore
+    /// for a window this screen already pulled.
+    private var statsCache: [StatsBehavior.TimeRange: [CompletedTaskStat]] = [:]
 
     init(
         authRepository: AuthRepository,
@@ -52,6 +53,11 @@ final class StatsViewModel: StateViewModel<
         switch action {
         case .load:
             await load()
+
+        case .rangeChanged(let range):
+            guard range != uiState.range else { return }
+            state.range = range
+            await load()
         }
     }
 
@@ -71,28 +77,41 @@ final class StatsViewModel: StateViewModel<
             ? "Keep it going, a task a day does it"
             : "A task a day starts one"
 
+        let range = next.range
         let today = calendar.startOfDay(for: now)
         let weekStart = calendar.date(byAdding: .day, value: -6, to: today) ?? today
-        let trendStart = calendar.date(byAdding: .day, value: -(Self.trendDays - 1), to: today) ?? today
+        let rangeStart = calendar.date(byAdding: .day, value: -(range.days - 1), to: today) ?? today
 
-        // One 4-week fetch feeds every chart; week widgets slice the last 7.
-        let stats = (try? await taskRepository.completedTaskStats(since: trendStart, userId: userId)) ?? []
+        // One range-scoped fetch feeds every card; the streak strip always
+        // slices the last 7 days regardless of the selected window.
+        let stats: [CompletedTaskStat]
+        if let cached = statsCache[range] {
+            stats = cached
+        } else {
+            stats = (try? await taskRepository.completedTaskStats(since: rangeStart, userId: userId)) ?? []
+            statsCache[range] = stats
+        }
         let weekStats = stats.filter { $0.completedAt >= weekStart }
         let lists = (try? await listRepository.fetchLists(userId: userId)) ?? []
 
         next.week = JournalTimeline.weekCells(stats: weekStats, weekStart: weekStart, calendar: calendar)
         next.tiles = Self.tiles(
-            weekDone: weekStats.count,
-            weekOnTime: Self.onTimeText(weekStats),
+            rangeDone: stats.count,
+            rangeOnTime: Self.onTimeText(stats),
+            range: range,
             bestStreak: bestStreak,
             coins: next.coins,
             adoptedOn: profile?.adoptedOn ?? petIdentityStore.adoptedOn,
             today: CivilDay(of: now, in: calendar)
         )
 
+        // Daily bars stay readable up to a month; 3 months buckets by week.
+        next.trendUnit = range == .threeMonths ? .week : .day
         next.trend = stats.isEmpty
             ? []
-            : JournalTimeline.trendPoints(stats: stats, start: trendStart, calendar: calendar)
+            : (range == .threeMonths
+                ? Self.weeklyTrendPoints(stats: stats, start: rangeStart, weeks: range.days / 7, calendar: calendar)
+                : JournalTimeline.trendPoints(stats: stats, start: rangeStart, calendar: calendar, days: range.days))
         next.trendCaption = stats.isEmpty
             ? nil
             : "\(Self.onTimeText(stats)) on time · busiest on \(Self.busiestWeekday(stats: stats, calendar: calendar) ?? "–")"
@@ -157,16 +176,22 @@ final class StatsViewModel: StateViewModel<
     // MARK: - Derivations (pure, testable)
 
     static func tiles(
-        weekDone: Int,
-        weekOnTime: String,
+        rangeDone: Int,
+        rangeOnTime: String,
+        range: StatsBehavior.TimeRange,
         bestStreak: Int,
         coins: Int,
         adoptedOn: String?,
         today: CivilDay
     ) -> [StatsBehavior.StatTile] {
+        let (doneTitle, onTimeSubtitle): (String, String) = switch range {
+        case .week: ("Done this week", "this week")
+        case .month: ("Done this month", "this month")
+        case .threeMonths: ("Done in 3 months", "3 months")
+        }
         var tiles: [StatsBehavior.StatTile] = [
-            .init(id: "done", value: "\(weekDone)", title: "Done this week", subtitle: "tasks"),
-            .init(id: "completion", value: weekOnTime, title: "On time", subtitle: "this week"),
+            .init(id: "done", value: "\(rangeDone)", title: doneTitle, subtitle: "tasks"),
+            .init(id: "completion", value: rangeOnTime, title: "On time", subtitle: onTimeSubtitle),
             .init(id: "best", value: "\(bestStreak)", title: "Best streak", subtitle: bestStreak == 1 ? "day" : "days"),
         ]
         // The fourth tile prefers the friendship; coins fill in until an
@@ -181,6 +206,28 @@ final class StatsViewModel: StateViewModel<
             tiles.append(.init(id: "coins", value: "\(coins)", title: "Coins", subtitle: "balance"))
         }
         return tiles
+    }
+
+    /// Weekly buckets for the 3-month trend - each point's `day` is that
+    /// civil week's start date, counts summed across the week.
+    static func weeklyTrendPoints(
+        stats: [CompletedTaskStat],
+        start: Date,
+        weeks: Int,
+        calendar: Calendar
+    ) -> [StatsBehavior.TrendPoint] {
+        var countsByDay: [Date: Int] = [:]
+        for stat in stats {
+            countsByDay[calendar.startOfDay(for: stat.completedAt), default: 0] += 1
+        }
+        return (0..<weeks).compactMap { week in
+            guard let weekStart = calendar.date(byAdding: .day, value: week * 7, to: start) else { return nil }
+            let count = (0..<7).reduce(0) { sum, offset in
+                guard let day = calendar.date(byAdding: .day, value: offset, to: weekStart) else { return sum }
+                return sum + (countsByDay[day] ?? 0)
+            }
+            return StatsBehavior.TrendPoint(id: week, day: weekStart, count: count)
+        }
     }
 
     static func onTimeText(_ stats: [CompletedTaskStat]) -> String {

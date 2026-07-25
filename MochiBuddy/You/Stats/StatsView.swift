@@ -30,6 +30,8 @@ struct StatsView: View {
 
                 streakCard
 
+                rangeTabs
+
                 LazyVGrid(columns: columns, spacing: 9) {
                     ForEach(viewModel.tiles) { tile in
                         statTile(tile)
@@ -60,6 +62,36 @@ struct StatsView: View {
         }
         .background(theme.bg)
         .onLoad { viewModel.trigger(.load) }
+    }
+
+    /// Week / Month / 3 months - scopes every card below it (the streak
+    /// strip above stays a fixed 7 days).
+    private var rangeTabs: some View {
+        HStack(spacing: 4) {
+            ForEach(StatsBehavior.TimeRange.allCases) { range in
+                let isOn = range == viewModel.range
+                Button {
+                    Haptics.selection()
+                    viewModel.trigger(.rangeChanged(range))
+                } label: {
+                    Text(range.rawValue)
+                        .font(MochiFont.display(12.5, weight: .medium))
+                        .foregroundStyle(isOn ? theme.primaryInk : theme.muted)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 7)
+                        .background(isOn ? theme.primary : .clear, in: Capsule())
+                        .shadow(color: isOn ? .black.opacity(0.18) : .clear, radius: 7, y: 3)
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(isOn ? [.isSelected] : [])
+            }
+        }
+        .padding(4)
+        .background(theme.surface2, in: Capsule())
+        .overlay(Capsule().stroke(theme.line, lineWidth: 1.5))
+        .animation(MochiMotion.soft, value: viewModel.range)
     }
 
     private var streakCard: some View {
@@ -158,10 +190,14 @@ struct StatsView: View {
     private var trendCard: some View {
         MochiCard(padding: EdgeInsets(top: 14, leading: 15, bottom: 12, trailing: 15)) {
             VStack(alignment: .leading, spacing: 8) {
-                MochiEyebrow(text: "Last 4 weeks")
+                MochiEyebrow(text: viewModel.range.windowLabel)
                 Chart(viewModel.trend) { point in
                     BarMark(
-                        x: .value("Day", point.day, unit: .day),
+                        x: .value(
+                            viewModel.trendUnit == .week ? "Week" : "Day",
+                            point.day,
+                            unit: viewModel.trendUnit == .week ? .weekOfYear : .day
+                        ),
                         y: .value("Done", point.count),
                         width: .ratio(0.55)
                     )
@@ -169,7 +205,7 @@ struct StatsView: View {
                     .cornerRadius(2.5)
                 }
                 .chartXAxis {
-                    AxisMarks(values: .stride(by: .day, count: 7)) { _ in
+                    AxisMarks(values: trendAxisStride) { _ in
                         AxisGridLine().foregroundStyle(theme.line)
                         AxisValueLabel(format: .dateTime.day().month(.abbreviated))
                             .font(MochiFont.body(9, weight: .bold))
@@ -194,11 +230,19 @@ struct StatsView: View {
         }
     }
 
+    private var trendAxisStride: AxisMarkValues {
+        switch (viewModel.trendUnit, viewModel.range) {
+        case (.week, _): .stride(by: .weekOfYear, count: 2)
+        case (.day, .week): .stride(by: .day, count: 2)
+        case (.day, _): .stride(by: .day, count: 7)
+        }
+    }
+
     /// When things get done - four bands, magnitude bars, one hue.
     private var rhythmCard: some View {
         MochiCard(padding: EdgeInsets(top: 14, leading: 15, bottom: 14, trailing: 15)) {
             VStack(alignment: .leading, spacing: 10) {
-                MochiEyebrow(text: "Your rhythm · 4 weeks")
+                MochiEyebrow(text: "Your rhythm · \(viewModel.range.suffix)")
                 let maxCount = max(viewModel.rhythm.map(\.count).max() ?? 1, 1)
                 ForEach(viewModel.rhythm) { bar in
                     HStack(spacing: 8) {
@@ -238,7 +282,7 @@ struct StatsView: View {
     private var listBreakdownCard: some View {
         MochiCard(padding: EdgeInsets(top: 14, leading: 15, bottom: 14, trailing: 15)) {
             VStack(alignment: .leading, spacing: 10) {
-                MochiEyebrow(text: "Where tasks got done · 4 weeks")
+                MochiEyebrow(text: "Where tasks got done · \(viewModel.range.suffix)")
                 let maxCount = viewModel.listBreakdown.map(\.count).max() ?? 1
                 ForEach(viewModel.listBreakdown) { slice in
                     HStack(spacing: 8) {

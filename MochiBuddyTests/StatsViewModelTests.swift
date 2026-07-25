@@ -82,14 +82,14 @@ struct StatsTrendTests {
         await vm.triggerAsync(.load)
 
         let trend = vm.uiState.trend
-        #expect(trend.count == StatsViewModel.trendDays)
+        #expect(trend.count == StatsBehavior.TimeRange.month.days, "month is the default range")
         #expect(trend.last?.count == 2, "today is the last point")
         #expect(trend[trend.count - 4].count == 1, "three days ago")
         #expect(trend.map(\.count).reduce(0, +) == 3, "every other day is zero")
     }
 
-    @Test("week tiles only count the last 7 days even though the fetch spans 28")
-    func weekTilesSliceSeven() async {
+    @Test("tiles follow the selected range; the streak strip always slices 7 days")
+    func rangeScopesTiles() async {
         let stats = [
             liveStat(daysAgo: 1),
             liveStat(daysAgo: 10),
@@ -97,9 +97,29 @@ struct StatsTrendTests {
         ]
         let vm = makeStatsVM(stats: stats)
         await vm.triggerAsync(.load)
-        let doneTile = vm.uiState.tiles.first { $0.id == "done" }
-        #expect(doneTile?.value == "1")
-        #expect(vm.uiState.trend.map(\.count).reduce(0, +) == 3)
+        #expect(vm.uiState.tiles.first { $0.id == "done" }?.value == "3", "month default counts 28 days")
+        #expect(vm.uiState.week.map(\.count).reduce(0, +) == 1, "the heat strip stays weekly")
+
+        await vm.triggerAsync(.rangeChanged(.week))
+        #expect(vm.uiState.tiles.first { $0.id == "done" }?.value == "1")
+        #expect(vm.uiState.tiles.first { $0.id == "done" }?.title == "Done this week")
+    }
+
+    @Test("3 months buckets the trend into 13 weekly points")
+    func threeMonthsWeeklyBuckets() async {
+        let stats = [
+            liveStat(daysAgo: 0),
+            liveStat(daysAgo: 1),
+            liveStat(daysAgo: 40),
+        ]
+        let vm = makeStatsVM(stats: stats)
+        await vm.triggerAsync(.load)
+        await vm.triggerAsync(.rangeChanged(.threeMonths))
+
+        let trend = vm.uiState.trend
+        #expect(vm.uiState.trendUnit == .week)
+        #expect(trend.count == 13)
+        #expect(trend.map(\.count).reduce(0, +) == 3, "weekly buckets keep every completion")
     }
 
     @Test("on-time math: undated counts on-time, late counts against")
@@ -161,7 +181,7 @@ struct StatsTilesTests {
     func daysTogether() {
         let today = CivilDay("2026-07-25")!
         let tiles = StatsViewModel.tiles(
-            weekDone: 4, weekOnTime: "80%", bestStreak: 9, coins: 40,
+            rangeDone: 4, rangeOnTime: "80%", range: .week, bestStreak: 9, coins: 40,
             adoptedOn: "2026-07-08", today: today
         )
         let together = tiles.first { $0.id == "together" }
@@ -173,12 +193,27 @@ struct StatsTilesTests {
     @Test("without an adoption date the coins tile fills the grid")
     func coinsFallback() {
         let tiles = StatsViewModel.tiles(
-            weekDone: 0, weekOnTime: "–", bestStreak: 1, coins: 40,
+            rangeDone: 0, rangeOnTime: "–", range: .week, bestStreak: 1, coins: 40,
             adoptedOn: nil, today: CivilDay("2026-07-25")!
         )
         #expect(tiles.contains { $0.id == "coins" && $0.value == "40" })
         let best = tiles.first { $0.id == "best" }
         #expect(best?.subtitle == "day", "singular at 1")
+    }
+
+    @Test("tile copy names the selected window")
+    func rangeCopy() {
+        let month = StatsViewModel.tiles(
+            rangeDone: 9, rangeOnTime: "90%", range: .month, bestStreak: 2, coins: 0,
+            adoptedOn: nil, today: CivilDay("2026-07-25")!
+        )
+        #expect(month.first { $0.id == "done" }?.title == "Done this month")
+        #expect(month.first { $0.id == "completion" }?.subtitle == "this month")
+        let quarter = StatsViewModel.tiles(
+            rangeDone: 9, rangeOnTime: "90%", range: .threeMonths, bestStreak: 2, coins: 0,
+            adoptedOn: nil, today: CivilDay("2026-07-25")!
+        )
+        #expect(quarter.first { $0.id == "done" }?.title == "Done in 3 months")
     }
 }
 
