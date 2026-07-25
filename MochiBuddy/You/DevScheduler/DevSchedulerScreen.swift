@@ -93,6 +93,7 @@ enum DevSchedulerBehavior {
         var timeTravelText = ""
         var observations = DevObservationInspector.Model()
         var expandedObservationId: String? = nil
+        var memories = DevMemoriesInspector.Model()
         /// Feature 3 force-compose result line, DEBUG pipeline check.
         var letterComposeText = ""
 
@@ -129,11 +130,13 @@ final class DevSchedulerViewModel: StateViewModel<
     private let observationService: ObservationService?
     private let observationLedger: ObservationLedger?
     private let letterService: LetterCompositionService?
+    private let memoriesService: MemoriesService?
 
     private var context: NotificationOrchestrator.RelayContext?
     /// Cached once per rebuild; the engine is pure, so time travel just
     /// re-evaluates these at a shifted "now".
     private var observationInputs: ObservationEngine.Inputs?
+    private var memoriesInputs: DevMemoriesInspector.Inputs?
 
     init(
         orchestrator: NotificationOrchestrator,
@@ -142,7 +145,8 @@ final class DevSchedulerViewModel: StateViewModel<
         membershipSession: MembershipSession,
         observationService: ObservationService? = nil,
         observationLedger: ObservationLedger? = nil,
-        letterService: LetterCompositionService? = nil
+        letterService: LetterCompositionService? = nil,
+        memoriesService: MemoriesService? = nil
     ) {
         self.orchestrator = orchestrator
         self.scheduler = scheduler
@@ -151,6 +155,7 @@ final class DevSchedulerViewModel: StateViewModel<
         self.observationService = observationService
         self.observationLedger = observationLedger
         self.letterService = letterService
+        self.memoriesService = memoriesService
         super.init(initialState: DevSchedulerBehavior.UIState())
     }
 
@@ -302,6 +307,7 @@ final class DevSchedulerViewModel: StateViewModel<
                 : "\(violations) INVARIANT VIOLATION\(violations == 1 ? "" : "S")"
         setUIState(next)
         observationInputs = await observationService?.engineInputs(now: now)
+        memoriesInputs = await memoriesService?.inspectorInputs(now: now)
         rebuildTimeTravel()
     }
 
@@ -324,6 +330,18 @@ final class DevSchedulerViewModel: StateViewModel<
         guard let snapshot = context?.snapshot else { return }
         let t = Date.now.addingTimeInterval(uiState.timeTravelHours * 3600)
         rebuildObservations(at: t)
+        if let memoriesInputs {
+            state.memories = DevMemoriesInspector.model(
+                inputs: memoriesInputs,
+                register: RundownEmotionalRegister.evaluate(
+                    fireAt: t, snapshot: snapshot,
+                    taper: orchestrator.currentTaperState(),
+                    calendar: .current
+                ),
+                at: t,
+                calendar: .current
+            )
+        }
         let value = MoodForecast.displayed(at: t, snapshot: snapshot)
         var text = String(
             format: "+%.0fh · %@ · %.1f · %@",
@@ -506,6 +524,7 @@ struct DevSchedulerView: View {
                             action: { .observationRowTapped($0) }
                         )
                     )
+                    DevMemoriesSection(model: viewModel.memories)
                     pendingList
                 }
             }

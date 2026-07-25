@@ -83,8 +83,9 @@ struct RemoteTuningTests {
     @Test("the canonical key set matches the published console parameters, one to one")
     @MainActor
     func consoleKeysMatch() {
-        // The exact list for the Firebase console: the Jul 19 2026 set
-        // plus the 24 obs_* observation keys (Personal Layer, Feature 4).
+        // The exact list for the Firebase console: the Jul 19 2026 set,
+        // the 24 obs_* observation keys (Feature 4), the 6 letter_* keys
+        // (Feature 3), and the 6 callback_* keys (Feature 2).
         let published: Set<String> = [
             "mood_anchor", "mood_lateness_cap_hours", "mood_base_sting",
             "mood_stress_saturation", "mood_momentum_max", "mood_momentum_saturation",
@@ -108,9 +109,11 @@ struct RemoteTuningTests {
             "obs_sticky_days", "obs_rundown_weekly_cap",
             "letter_send_weekday", "letter_send_hour", "letter_max_beats",
             "letter_quiet_max", "letter_rough_overdue_days", "letter_great_ratio",
+            "callback_weekly_cap", "callback_min_gap_days", "callback_min_age_days",
+            "callback_fact_age_days", "callback_best_day_min", "callback_streak_quiet_days",
         ]
         #expect(Set(RemoteTuning.allKeys) == published)
-        #expect(RemoteTuning.allKeys.count == 54, "no duplicates")
+        #expect(RemoteTuning.allKeys.count == 60, "no duplicates")
     }
 
     @Test("EVERY published key is consumed with its declared type - override all 54, every field moves")
@@ -167,6 +170,12 @@ struct RemoteTuningTests {
                 "letter_quiet_max": 3,
                 "letter_rough_overdue_days": 5,
                 "letter_great_ratio": 2,
+                "callback_weekly_cap": 3,
+                "callback_min_gap_days": 2,
+                "callback_min_age_days": 14,
+                "callback_fact_age_days": 5,
+                "callback_best_day_min": 6,
+                "callback_streak_quiet_days": 10,
             ],
             jsons: [
                 "notif_floor_taper": "[5,4,3,2,1]",
@@ -206,7 +215,9 @@ struct RemoteTuningTests {
             obsComebackHours: 12, obsComebackP75Hours: 36,
             obsStickyDays: 10, obsRundownWeeklyCap: 1,
             letterSendWeekday: 7, letterSendHour: 18, letterMaxBeats: 2,
-            letterQuietMax: 3, letterRoughOverdueDays: 5, letterGreatRatio: 2
+            letterQuietMax: 3, letterRoughOverdueDays: 5, letterGreatRatio: 2,
+            callbackWeeklyCap: 3, callbackMinGapDays: 2, callbackMinAgeDays: 14,
+            callbackFactAgeDays: 5, callbackBestDayMin: 6, callbackStreakQuietDays: 10
         )
         #expect(tuning == expected, "every parameter must land in exactly one field")
     }
@@ -276,5 +287,11 @@ struct RemoteTuningTests {
         #expect(LetterConstants.quietMax == 2)
         #expect(LetterConstants.roughOverdueDays == 4)
         #expect(LetterConstants.greatRatio == 1.5)
+        #expect(CallbackConstants.weeklyCap == 2)
+        #expect(CallbackConstants.minGapDays == 3)
+        #expect(CallbackConstants.minAgeDays == 21)
+        #expect(CallbackConstants.factAgeDays == 7)
+        #expect(CallbackConstants.bestDayMin == 5)
+        #expect(CallbackConstants.streakQuietDays == 14)
     }
 }

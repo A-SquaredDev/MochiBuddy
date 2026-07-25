@@ -160,6 +160,8 @@ final class VacationReentryService {
             try? await profileRepository.saveStreak(
                 count: profile.streakCount,
                 best: profile.bestStreakCount,
+                // Pass-through, never a stamp: re-entry sets no record.
+                bestAchievedOn: profile.bestStreakAchievedOn,
                 lastActiveDate: yesterday,
                 userId: userId
             )

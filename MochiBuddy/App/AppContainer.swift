@@ -64,6 +64,8 @@ final class AppContainer {
     let observationIntervalRecorder: ObservationIntervalRecorder
     let observationLedger = ObservationLedger()
     let observationService: ObservationService
+    let callbackLedger = CallbackLedger()
+    let memoriesService: MemoriesService
     let letterRepository: LetterRepository
     let letterCompositionService: LetterCompositionService
     let vacationReentryService: VacationReentryService
@@ -130,6 +132,29 @@ final class AppContainer {
             ledger: observationLedger,
             telemetry: OSLogObservationTelemetry()
         )
+        memoriesService = MemoriesService(
+            authRepository: authRepository,
+            profileRepository: profileRepository,
+            observationService: observationService,
+            observationLedger: observationLedger,
+            ledger: callbackLedger,
+            membershipSession: membershipSession,
+            celebrationCenter: celebrationCenter,
+            telemetry: OSLogCallbackTelemetry(),
+            calendar: .autoupdatingCurrent
+        )
+        // Feature 2: the one Personal-Layer line per rundown (canonical
+        // priority incl. Feature 4's observation tier) is chosen and
+        // cadence-committed by the memories service on every re-lay.
+        notificationOrchestrator.personalLayerProvider = { [weak memoriesService] request in
+            await memoriesService?.assignPersonalLayer(
+                rundowns: request.rundowns,
+                snapshot: request.snapshot,
+                taper: request.taper,
+                completionTimes: request.completionTimes,
+                now: request.now
+            ) ?? [:]
+        }
         letterRepository = FirestoreLetterRepository(firestore: firestore)
         letterCompositionService = LetterCompositionService(
             authRepository: authRepository,

@@ -25,6 +25,19 @@ struct PeriodSummary: Equatable {
         let completedWeekdayName: String
     }
 
+    /// A relationship anniversary that landed inside the period (Personal
+    /// Layer, Feature 2 closing Feature 3's noted gap). The letter
+    /// REMEMBERS the date - even one a streak milestone owned on the
+    /// surfaces, and one that passed during a partial-vacation period
+    /// (a fully covered period composes no letter, so "only if a letter
+    /// otherwise exists" is structural).
+    struct AnniversaryFact: Equatable {
+        let tier: AnniversaryTier
+        /// The mark's date fell inside a vacation interval - phrasing
+        /// acknowledges the pause honestly.
+        let duringVacation: Bool
+    }
+
     let periodId: String
     let petName: String
     let adoptedOn: String?
@@ -46,6 +59,8 @@ struct PeriodSummary: Equatable {
     let bestDay: BestDay?
     /// Streak milestones landed inside the period, ascending.
     let milestonesLanded: [Int]
+    /// The relationship anniversary landed this period, if any.
+    var anniversary: AnniversaryFact? = nil
     let comeback: ComebackFact?
     /// Pre-filtered by the service: the highest-priority qualified
     /// observation not already surfaced this week (Feature 4's dedup).

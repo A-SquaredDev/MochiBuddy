@@ -67,6 +67,7 @@ enum NotificationRequestBuilder {
         floorPhase: NotificationCopy.FloorPhase,
         hideTaskNames: Bool,
         petName: String = PetNameSanitizer.defaultName,
+        personal: PersonalLayerSlot = .unavailable,
         deck: inout CopyDeck,
         calendar: Calendar = .current
     ) -> ScheduledNotificationRequest {
@@ -107,21 +108,41 @@ enum NotificationRequestBuilder {
 
         case .rundown:
             let top = RundownRanker.topTasks(from: allTasks, at: plan.fireAt, calendar: calendar)
-            // "Yesterday" relative to the briefing: completions known at
-            // lay time on the prior calendar day. Pessimistic like the
-            // forecast - future completions can only add, and adding
-            // re-lays.
-            let yesterdayCount = calendar.date(byAdding: .day, value: -1, to: plan.fireAt)
-                .map { yesterday in
-                    completionTimes.count { calendar.isDate($0, inSameDayAs: yesterday) }
-                } ?? 0
+            // The one Personal-Layer line per rundown (Feature 2's
+            // canonical priority: streak milestone > anniversary >
+            // crushed yesterday > callback > observation) arrives
+            // pre-selected. Crushed-yesterday stays a title override;
+            // everything else is an opener line. Absent an assignment
+            // (no MemoriesService, e.g. bare tests), fall back to the
+            // legacy crushed-yesterday computation so the beat never
+            // silently vanishes.
+            let crushed: Bool
+            var opener: String?
+            switch personal {
+            case .line(let content):
+                crushed = content.line == .crushedYesterday
+                opener = content.opener
+            case .none:
+                crushed = false
+            case .unavailable:
+                // "Yesterday" relative to the briefing: completions known
+                // at lay time on the prior calendar day. Pessimistic like
+                // the forecast - future completions can only add, and
+                // adding re-lays.
+                let yesterdayCount = calendar.date(byAdding: .day, value: -1, to: plan.fireAt)
+                    .map { yesterday in
+                        completionTimes.count { calendar.isDate($0, inSameDayAs: yesterday) }
+                    } ?? 0
+                crushed = yesterdayCount >= NotificationCopy.crushedYesterdayThreshold
+            }
             return ScheduledNotificationRequest(
                 plan: plan,
                 content: NotificationCopy.rundown(
                     taskTitles: top.map(\.title),
                     hideTaskNames: hideTaskNames,
                     petName: petName,
-                    crushedYesterday: yesterdayCount >= NotificationCopy.crushedYesterdayThreshold
+                    crushedYesterday: crushed,
+                    openerLine: opener
                 ),
                 urgency: .active,
                 categoryId: nil,

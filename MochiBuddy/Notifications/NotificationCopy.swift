@@ -155,20 +155,25 @@ enum NotificationCopy {
 
     /// The morning briefing: tone flexes to the load, length never does.
     /// A notably productive yesterday takes over the title - the no-cost
-    /// celebration beat folded in, never a separate ping.
+    /// celebration beat folded in, never a separate ping. The one
+    /// Personal-Layer opener line (anniversary / callback / observation,
+    /// Feature 2's canonical priority already applied upstream) leads
+    /// the day's priorities in the body.
     static func rundown(
         taskTitles: [String],
         hideTaskNames: Bool,
         petName: String,
-        crushedYesterday: Bool = false
+        crushedYesterday: Bool = false,
+        openerLine: String? = nil
     ) -> Content {
         guard !taskTitles.isEmpty else {
+            let restBody = PetCopyTemplate.render(
+                "Nothing due today. {name} is taking it easy with you.",
+                petName: petName
+            )
             return Content(
                 title: crushedYesterday ? "You crushed yesterday" : "A calm day",
-                body: PetCopyTemplate.render(
-                    "Nothing due today. {name} is taking it easy with you.",
-                    petName: petName
-                )
+                body: openerLine.map { "\($0)\n\(restBody)" } ?? restBody
             )
         }
         let title = if crushedYesterday {
@@ -180,14 +185,17 @@ enum NotificationCopy {
             default: "Big one today. We've got this"
             }
         }
+        let taskBody: String
         if hideTaskNames {
             let count = taskTitles.count
-            return Content(
-                title: title,
-                body: "Your top \(count) \(count == 1 ? "task is" : "tasks are") ready when you are."
-            )
+            taskBody = "Your top \(count) \(count == 1 ? "task is" : "tasks are") ready when you are."
+        } else {
+            taskBody = taskTitles.joined(separator: " · ")
         }
-        return Content(title: title, body: taskTitles.joined(separator: " · "))
+        return Content(
+            title: title,
+            body: openerLine.map { "\($0)\n\(taskBody)" } ?? taskBody
+        )
     }
 
     static func letterInvitation(petName: String, deck: inout CopyDeck) -> Content {

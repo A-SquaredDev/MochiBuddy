@@ -73,7 +73,8 @@ final class YouRouter: YouRouting {
             membershipSession: container.membershipSession,
             observationService: container.observationService,
             observationLedger: container.observationLedger,
-            letterService: container.letterCompositionService
+            letterService: container.letterCompositionService,
+            memoriesService: container.memoriesService
         )
         navController.navigate(
             route: AdHocRoute(key: "you.devScheduler"),
@@ -225,7 +226,8 @@ final class YouRouter: YouRouting {
         let viewModel = DeleteConfirmViewModel(
             authRepository: container.authRepository,
             accountEraser: container.accountEraser,
-            observationLedger: container.observationLedger
+            observationLedger: container.observationLedger,
+            callbackLedger: container.callbackLedger
         )
         navController.navigate(
             route: AdHocRoute(key: "you.deleteConfirm"),

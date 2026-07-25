@@ -167,6 +167,40 @@ enum PeriodSummaryBuilder {
         return milestones.sorted()
     }
 
+    /// The relationship anniversary whose date fell inside the window
+    /// (Personal Layer, Feature 2). Date-only milestone math in the
+    /// letter's authoritative zone; when two land in one period (not
+    /// possible with the sparse v1 set, but the scan is honest) the
+    /// larger, later mark wins. `duringVacation` marks a date the trip
+    /// covered - the letter is the surface that remembers it.
+    static func anniversary(
+        adoptedOn: String?,
+        window: Range<Date>,
+        intervals: [ObservationInterval],
+        now: Date,
+        zone: TimeZone
+    ) -> PeriodSummary.AnniversaryFact? {
+        guard adoptedOn != nil else { return nil }
+        let calendar = LetterSchedule.calendar(for: zone)
+        let firstDay = CivilDay(of: window.lowerBound, in: calendar)
+        // The window's exclusive end belongs to the next period's first
+        // moment; step back one second before taking its civil day.
+        let lastDay = CivilDay(of: window.upperBound.addingTimeInterval(-1), in: calendar)
+        guard let milestone = AnniversaryCalendar.milestones(
+            adoptedOn: adoptedOn, from: firstDay, through: lastDay
+        ).last else { return nil }
+
+        let midday = Date(
+            timeIntervalSince1970: TimeInterval(milestone.day.dayNumber) * 86_400 + 43_200
+        )
+        let duringVacation = intervals.contains {
+            $0.kind == .vacation && $0.contains(min(midday, now))
+        }
+        return PeriodSummary.AnniversaryFact(
+            tier: milestone.tier, duringVacation: duringVacation
+        )
+    }
+
     /// The single biggest recovery: the overdue task cleared this window
     /// that had waited longest. Carries the title - full variant only.
     static func comeback(

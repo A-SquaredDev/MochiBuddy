@@ -42,7 +42,14 @@ protocol UserProfileRepository: AnyObject {
     func markOnboardingComplete(userId: String) async throws
     /// Atomic coin adjustment (completions earn, treats spend).
     func incrementCoins(by delta: Int, userId: String) async throws
-    func saveStreak(count: Int, best: Int, lastActiveDate: Date, userId: String) async throws
+    /// One merge write, so count, best, and the record's achieved date
+    /// land atomically (the bestStreakAchievedOn contract). Callers pass
+    /// the existing date through unchanged unless the record was
+    /// strictly exceeded; nil means "no stamped date" (legacy) and never
+    /// clears a stored one.
+    func saveStreak(
+        count: Int, best: Int, bestAchievedOn: String?, lastActiveDate: Date, userId: String
+    ) async throws
 }
 
 final class FirestoreUserProfileRepository: UserProfileRepository {
@@ -191,12 +198,20 @@ final class FirestoreUserProfileRepository: UserProfileRepository {
         try await merge(["coins": FieldValue.increment(Int64(delta))], userId: userId)
     }
 
-    func saveStreak(count: Int, best: Int, lastActiveDate: Date, userId: String) async throws {
-        try await merge([
+    func saveStreak(
+        count: Int, best: Int, bestAchievedOn: String?, lastActiveDate: Date, userId: String
+    ) async throws {
+        var fields: [String: Any] = [
             "streakCount": count,
             "bestStreakCount": best,
             "lastActiveDate": Timestamp(date: lastActiveDate),
-        ], userId: userId)
+        ]
+        // Nil never clears: a legacy record simply has no date until a
+        // new record stamps one.
+        if let bestAchievedOn {
+            fields["bestStreakAchievedOn"] = bestAchievedOn
+        }
+        try await merge(fields, userId: userId)
     }
 
     private func merge(_ fields: [String: Any], userId: String) async throws {

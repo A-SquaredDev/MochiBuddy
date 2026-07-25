@@ -86,6 +86,7 @@ func makeProfile(
     coins: Int = 0,
     streak: Int = 0,
     bestStreak: Int = 0,
+    bestStreakAchievedOn: String? = nil,
     lastActiveDate: Date? = nil,
     vacationMode: Bool = false,
     vacationResumeAt: Date? = nil,
@@ -105,6 +106,7 @@ func makeProfile(
         mochiName: mochiName, adoptedOn: adoptedOn,
         timezone: nil, bedtime: bedtime, themeId: nil,
         coins: coins, streakCount: streak, bestStreakCount: bestStreak,
+        bestStreakAchievedOn: bestStreakAchievedOn,
         lastActiveDate: lastActiveDate, isSubscribed: false, trialEndsAt: nil,
         onboardingComplete: true, notificationsEnabled: nil,
         notificationPrefs: notificationPrefs, soundEnabled: false,
@@ -278,6 +280,9 @@ final class StubProfileRepository: UserProfileRepository {
     var fetchError: Error?
     private(set) var coinDeltas: [Int] = []
     private(set) var savedStreaks: [(count: Int, best: Int, lastActiveDate: Date)] = []
+    /// Parallel to savedStreaks: the bestStreakAchievedOn passed with each
+    /// save (nil = pass-through of "no stamped date").
+    private(set) var savedBestAchievedOns: [String?] = []
     private(set) var accountLinks: [(provider: String, displayName: String?, userId: String)] = []
     private(set) var membershipMirrors: [(isSubscribed: Bool, trialEndsAt: Date?, userId: String)] = []
     private(set) var ensuredAccounts: [AuthAccount] = []
@@ -369,11 +374,17 @@ final class StubProfileRepository: UserProfileRepository {
         }
     }
 
-    func saveStreak(count: Int, best: Int, lastActiveDate: Date, userId: String) async throws {
+    func saveStreak(
+        count: Int, best: Int, bestAchievedOn: String?, lastActiveDate: Date, userId: String
+    ) async throws {
         savedStreaks.append((count, best, lastActiveDate))
+        savedBestAchievedOns.append(bestAchievedOn)
         if var profile {
             profile.streakCount = count
             profile.bestStreakCount = best
+            if let bestAchievedOn {
+                profile.bestStreakAchievedOn = bestAchievedOn
+            }
             profile.lastActiveDate = lastActiveDate
             self.profile = profile
         }

@@ -414,6 +414,66 @@ struct NotificationRequestBuilderTests {
         #expect(ordinary.content.title != "You crushed yesterday")
     }
 
+    @Test("a resolved Personal-Layer slot governs the rundown (Feature 2)")
+    func personalLayerSlotDressing() {
+        let fireAt = Dates.calendar.date(
+            byAdding: .minute, value: 7 * 60, to: Dates.calendar.startOfDay(for: Dates.days(1))
+        )!
+        let plan = PlannedNotification(id: "rundown-2026-07-09", kind: .rundown, fireAt: fireAt)
+        var deck = CopyDeck()
+        let crushedWorthy = (0..<5).map { Dates.hours(Double(-$0)) }
+        let tasks = [makeTask(id: "a", title: "Pay rent", dueAt: Dates.hours(-2), hasTime: true)]
+        let byId = ["a": tasks[0]]
+
+        // An opener line leads the body; the task list still follows.
+        let milestone = AnniversaryMilestone(tier: .week, day: CivilDay("2026-07-09")!)
+        let opener = NotificationRequestBuilder.request(
+            for: plan, tasksById: byId, allTasks: tasks,
+            completionTimes: crushedWorthy,
+            floorPhase: .acute, hideTaskNames: false,
+            personal: .line(PersonalLayerContent(
+                line: .anniversary(milestone), opener: "One week with Nori today."
+            )),
+            deck: &deck
+        )
+        #expect(opener.content.body.hasPrefix("One week with Nori today.\n"))
+        #expect(opener.content.body.contains("Pay rent"))
+        #expect(opener.content.title != "You crushed yesterday",
+                "the anniversary outranked crushed yesterday upstream; the title must not sneak it back")
+
+        // A planner-decided empty slot suppresses the legacy fallback
+        // (e.g. a streak-claimed date renders nothing).
+        let none = NotificationRequestBuilder.request(
+            for: plan, tasksById: byId, allTasks: tasks,
+            completionTimes: crushedWorthy,
+            floorPhase: .acute, hideTaskNames: false,
+            personal: PersonalLayerSlot.none,
+            deck: &deck
+        )
+        #expect(none.content.title != "You crushed yesterday")
+        #expect(!none.content.body.contains("\n"))
+
+        // No planner at all: the legacy crushed computation still runs.
+        let unavailable = NotificationRequestBuilder.request(
+            for: plan, tasksById: byId, allTasks: tasks,
+            completionTimes: crushedWorthy,
+            floorPhase: .acute, hideTaskNames: false,
+            personal: .unavailable,
+            deck: &deck
+        )
+        #expect(unavailable.content.title == "You crushed yesterday")
+
+        // A crushed-yesterday assignment keeps its title-override form.
+        let crushed = NotificationRequestBuilder.request(
+            for: plan, tasksById: byId, allTasks: tasks,
+            completionTimes: crushedWorthy,
+            floorPhase: .acute, hideTaskNames: false,
+            personal: .line(PersonalLayerContent(line: .crushedYesterday, opener: nil)),
+            deck: &deck
+        )
+        #expect(crushed.content.title == "You crushed yesterday")
+    }
+
     @Test("the backstop reads as pure presence - safe at any staleness")
     func backstopDressing() {
         let request = build(

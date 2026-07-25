@@ -423,6 +423,10 @@ final class LetterCompositionService {
                 streakCount: profile.streakCount,
                 lastActiveDate: profile.lastActiveDate, zone: zone
             ),
+            anniversary: PeriodSummaryBuilder.anniversary(
+                adoptedOn: profile.adoptedOn, window: window,
+                intervals: profile.observationIntervals, now: now, zone: zone
+            ),
             comeback: PeriodSummaryBuilder.comeback(
                 completedTasks: completedTasks, window: window, zone: zone
             ),

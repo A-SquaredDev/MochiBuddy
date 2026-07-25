@@ -28,6 +28,7 @@ final class HomeViewModel: StateViewModel<
     private let reentryService: VacationReentryService
     private let celebrationCenter: CelebrationCenter
     private let letterService: LetterCompositionService?
+    private let memoriesService: MemoriesService?
 
     // Domain source of truth - UIState is derived from these.
     /// Incomplete tasks only; completions move to `completedToday`.
@@ -64,7 +65,8 @@ final class HomeViewModel: StateViewModel<
         relay: NotificationRelaying,
         reentryService: VacationReentryService,
         celebrationCenter: CelebrationCenter,
-        letterService: LetterCompositionService? = nil
+        letterService: LetterCompositionService? = nil,
+        memoriesService: MemoriesService? = nil
     ) {
         self.authRepository = authRepository
         self.profileRepository = profileRepository
@@ -79,6 +81,7 @@ final class HomeViewModel: StateViewModel<
         self.reentryService = reentryService
         self.celebrationCenter = celebrationCenter
         self.letterService = letterService
+        self.memoriesService = memoriesService
         super.init(initialState: HomeBehavior.UIState())
     }
 
@@ -337,6 +340,11 @@ final class HomeViewModel: StateViewModel<
             }
         }
 
+        // Today's anniversary banner, if any, lands in the celebration
+        // center on the day's first open (once per milestone; a streak
+        // milestone owns a collided date; silent on vacation and lapse).
+        await memoriesService?.checkAnniversaryBanner(now: .now)
+
         rebuildDerivedState()
     }
 
@@ -452,6 +460,10 @@ final class HomeViewModel: StateViewModel<
         // action, the widget drain) celebrates here, on Mochi's surface.
         if let milestone = celebrationCenter.consumeMilestone() {
             next.celebrationText = StreakMilestones.celebrationText(days: milestone, petName: petName)
+        } else if let anniversary = celebrationCenter.consumeAnniversary() {
+            // The general collision rule already kept this slot empty on
+            // any streak-claimed date, so first-come rendering is safe.
+            next.celebrationText = anniversary
         }
         next.mochiName = petName
         next.subGreeting = "Let's keep \(petName) happy"

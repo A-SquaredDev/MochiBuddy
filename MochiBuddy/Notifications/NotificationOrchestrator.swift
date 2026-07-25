@@ -76,6 +76,21 @@ final class NotificationOrchestrator {
     /// lives with the marker's owner.
     var letterInputProvider: ((Date) async -> LetterNotificationInput?)?
 
+    /// Anniversaries + memory callbacks (Feature 2): chooses the one
+    /// Personal-Layer line per planned rundown and commits the cadence
+    /// consequences - wired by AppContainer to MemoriesService. Keyed by
+    /// the rundown's civil date string.
+    var personalLayerProvider: ((PersonalLayerRequest) async -> [String: PersonalLayerContent])?
+
+    /// Everything the Personal-Layer assignment needs from one relay.
+    struct PersonalLayerRequest {
+        let rundowns: [PlannedNotification]
+        let snapshot: MoodSnapshot
+        let taper: TaperState
+        let completionTimes: [Date]
+        let now: Date
+    }
+
     init(
         authRepository: AuthRepository,
         profileRepository: UserProfileRepository,
@@ -199,12 +214,33 @@ final class NotificationOrchestrator {
         let diff = NotificationPlanDiffer.diff(desired: plan, pendingIds: await scheduler.pendingIds())
         scheduler.removePending(ids: diff.removeIds)
 
+        // The one Personal-Layer line per rundown morning (Feature 2's
+        // canonical priority), assigned for the whole horizon in one
+        // deterministic pass so cadence threads across the laid days.
+        var personalByDate: [String: PersonalLayerContent]?
+        if let personalLayerProvider {
+            personalByDate = await personalLayerProvider(PersonalLayerRequest(
+                rundowns: plan.filter { $0.kind == .rundown },
+                snapshot: snapshot,
+                taper: taper,
+                completionTimes: completions,
+                now: now
+            ))
+        }
+
         var deck = loadDeck()
         let tasksById = Dictionary(tasks.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         // Copy shifts acute → chronic on day 3 of the stretch, with the
         // same counter the cadence taper reads.
         let floorPhase: NotificationCopy.FloorPhase = floorDays >= 2 ? .chronic : .acute
         for planned in diff.schedule {
+            let slot: PersonalLayerSlot
+            if planned.kind == .rundown, let personalByDate {
+                let date = CivilDay(of: planned.fireAt, in: calendar).dateString
+                slot = personalByDate[date].map { .line($0) } ?? PersonalLayerSlot.none
+            } else {
+                slot = .unavailable
+            }
             let request = NotificationRequestBuilder.request(
                 for: planned,
                 tasksById: tasksById,
@@ -213,6 +249,7 @@ final class NotificationOrchestrator {
                 floorPhase: floorPhase,
                 hideTaskNames: prefs.hideTaskNames,
                 petName: context.petName,
+                personal: slot,
                 deck: &deck,
                 calendar: calendar
             )

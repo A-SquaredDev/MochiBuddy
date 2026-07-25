@@ -33,7 +33,8 @@ final class HomeRouter {
             relay: container.notificationOrchestrator,
             reentryService: container.vacationReentryService,
             celebrationCenter: container.celebrationCenter,
-            letterService: container.letterCompositionService
+            letterService: container.letterCompositionService,
+            memoriesService: container.memoriesService
         )
         return AnyView(HomeView(viewModel: viewModel, router: self))
     }

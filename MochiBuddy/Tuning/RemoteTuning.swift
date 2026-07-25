@@ -100,6 +100,15 @@ struct ResolvedTuning: Equatable {
     var letterQuietMax = 2
     var letterRoughOverdueDays = 4
     var letterGreatRatio = 1.5
+    // Memory callbacks (Personal Layer, Feature 2). The milestone set
+    // (1 week / 1 month / yearly) is deliberately NOT here - calendar
+    // facts, not levers. No repeat-cooldown key: once-until-changed.
+    var callbackWeeklyCap = 2
+    var callbackMinGapDays = 3
+    var callbackMinAgeDays = 21
+    var callbackFactAgeDays = 7
+    var callbackBestDayMin = 5
+    var callbackStreakQuietDays = 14
 
     static let defaults = ResolvedTuning()
 
@@ -203,6 +212,13 @@ struct ResolvedTuning: Equatable {
         count("letter_quiet_max", 0...20, into: &tuning.letterQuietMax)
         count("letter_rough_overdue_days", 1...7, into: &tuning.letterRoughOverdueDays)
         number("letter_great_ratio", 1...10, into: &tuning.letterGreatRatio)
+
+        count("callback_weekly_cap", 0...7, into: &tuning.callbackWeeklyCap)
+        count("callback_min_gap_days", 0...14, into: &tuning.callbackMinGapDays)
+        count("callback_min_age_days", 0...90, into: &tuning.callbackMinAgeDays)
+        count("callback_fact_age_days", 0...60, into: &tuning.callbackFactAgeDays)
+        count("callback_best_day_min", 2...20, into: &tuning.callbackBestDayMin)
+        count("callback_streak_quiet_days", 0...60, into: &tuning.callbackStreakQuietDays)
         if let data = source.json("streak_milestones"),
            let parsed = try? JSONDecoder().decode(Milestones.self, from: data),
            !parsed.fixed.isEmpty, parsed.fixed.allSatisfy({ $0 > 0 }), parsed.thenEvery > 0 {
@@ -268,6 +284,12 @@ enum RemoteTuning {
         "letter_quiet_max",
         "letter_rough_overdue_days",
         "letter_great_ratio",
+        "callback_weekly_cap",
+        "callback_min_gap_days",
+        "callback_min_age_days",
+        "callback_fact_age_days",
+        "callback_best_day_min",
+        "callback_streak_quiet_days",
     ]
     static let jsonKeys: [String] = [
         "notif_floor_taper",
@@ -348,6 +370,16 @@ enum RemoteTuning {
         LetterConstants.quietMax = tuning.letterQuietMax
         LetterConstants.roughOverdueDays = tuning.letterRoughOverdueDays
         LetterConstants.greatRatio = tuning.letterGreatRatio
+
+        // Memory callbacks: cadence + floors re-derive on the next relay;
+        // the ledger's once-until-changed state is never touched by
+        // tuning (fact identities don't depend on these values).
+        CallbackConstants.weeklyCap = tuning.callbackWeeklyCap
+        CallbackConstants.minGapDays = tuning.callbackMinGapDays
+        CallbackConstants.minAgeDays = tuning.callbackMinAgeDays
+        CallbackConstants.factAgeDays = tuning.callbackFactAgeDays
+        CallbackConstants.bestDayMin = tuning.callbackBestDayMin
+        CallbackConstants.streakQuietDays = tuning.callbackStreakQuietDays
     }
 
     /// Activate whatever last session fetched, apply it, then fetch in

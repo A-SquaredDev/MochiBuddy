@@ -56,9 +56,20 @@ final class RewardsStore {
             streak = 1
         }
         let best = max(previousBest, streak)
+        // The bestStreakAchievedOn contract (Personal Layer, Feature 2):
+        // stamped only on a STRICT exceed, atomically with the count, in
+        // the streak engine's own calendar. Equal never overwrites; an
+        // advancing record run re-stamps daily (the date the stored
+        // record was first reached); legacy records are never guessed.
+        let bestAchievedOn = streak > previousBest
+            ? AdoptedOnDate.string(from: today)
+            : profile?.bestStreakAchievedOn
 
         try? await profileRepository.incrementCoins(by: Self.coinsPerTask, userId: userId)
-        try? await profileRepository.saveStreak(count: streak, best: best, lastActiveDate: today, userId: userId)
+        try? await profileRepository.saveStreak(
+            count: streak, best: best, bestAchievedOn: bestAchievedOn,
+            lastActiveDate: today, userId: userId
+        )
         return CompletionOutcome(
             coinsDelta: Self.coinsPerTask, streak: streak, bestStreak: best, streakExtended: extended
         )

@@ -139,3 +139,73 @@ struct RewardsStreakTests {
         #expect(outcome.streak == 1)
     }
 }
+
+@Suite("RewardsStore · bestStreakAchievedOn (Feature 2 contract)")
+struct RewardsBestAchievedOnTests {
+
+    private let calendar = Calendar.current
+    private var today: Date { calendar.startOfDay(for: .now) }
+    private var yesterday: Date { calendar.date(byAdding: .day, value: -1, to: today)! }
+    private var todayString: String { AdoptedOnDate.string(from: today) }
+
+    private func store(profile: UserProfile) -> (RewardsStore, StubProfileRepository) {
+        let repo = StubProfileRepository()
+        repo.profile = profile
+        return (RewardsStore(profileRepository: repo), repo)
+    }
+
+    @Test("a strict exceed stamps today, atomically with the count")
+    func strictExceedStamps() async {
+        let (store, repo) = store(profile: makeProfile(
+            streak: 5, bestStreak: 5, bestStreakAchievedOn: "2026-01-10", lastActiveDate: yesterday
+        ))
+        _ = await store.awardCompletion(userId: "user1")
+        // One save carried both the new best (6) and its date.
+        #expect(repo.savedStreaks.last?.best == 6)
+        #expect(repo.savedBestAchievedOns.last == todayString)
+    }
+
+    @Test("equal never overwrites the stored date")
+    func equalNeverOverwrites() async {
+        // Streak restarts at 1 against a best of 12: no record, the
+        // stored date passes through untouched.
+        let threeDaysAgo = calendar.date(byAdding: .day, value: -3, to: today)!
+        let (restartStore, restartRepo) = store(profile: makeProfile(
+            streak: 12, bestStreak: 12, bestStreakAchievedOn: "2026-01-10", lastActiveDate: threeDaysAgo
+        ))
+        _ = await restartStore.awardCompletion(userId: "user1")
+        #expect(restartRepo.savedBestAchievedOns.last == "2026-01-10")
+
+        // Same-day hold (no extension) equally passes through.
+        let (holdStore, holdRepo) = store(profile: makeProfile(
+            streak: 3, bestStreak: 5, bestStreakAchievedOn: "2026-02-02", lastActiveDate: today
+        ))
+        _ = await holdStore.awardCompletion(userId: "user1")
+        #expect(holdRepo.savedBestAchievedOns.last == "2026-02-02")
+    }
+
+    @Test("an advancing record run re-stamps daily")
+    func advancingRecordRestamps() async {
+        // best == streak and the run extends: today is a NEW record, so
+        // the date advances with it (the date the stored record was
+        // first reached).
+        let (store, repo) = store(profile: makeProfile(
+            streak: 8, bestStreak: 8, bestStreakAchievedOn: "2026-01-10", lastActiveDate: yesterday
+        ))
+        _ = await store.awardCompletion(userId: "user1")
+        #expect(repo.savedStreaks.last?.best == 9)
+        #expect(repo.savedBestAchievedOns.last == todayString)
+    }
+
+    @Test("a legacy record never gets a guessed date")
+    func legacyNeverGuessed() async {
+        // No stored date, no new record: the save passes nil through -
+        // count-only copy until a genuinely new record stamps.
+        let (store, repo) = store(profile: makeProfile(
+            streak: 2, bestStreak: 23, lastActiveDate: yesterday
+        ))
+        _ = await store.awardCompletion(userId: "user1")
+        #expect(repo.savedStreaks.last?.best == 23)
+        #expect(repo.savedBestAchievedOns == [nil])
+    }
+}

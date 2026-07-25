@@ -130,8 +130,22 @@ enum LetterComposer {
 
         // Priority: milestone > comeback > best day > observation > list
         // return. One per category; one insight-family beat total.
-        if !summary.milestonesLanded.isEmpty {
+        // The milestone beat carries streak milestones, anniversaries, or
+        // BOTH in one beat (Feature 2's collision rule: the streak owned
+        // the banner and rundown that day; the letter remembers both).
+        let hasStreakMilestone = !summary.milestonesLanded.isEmpty
+        if hasStreakMilestone, summary.anniversary != nil {
+            add(.milestone, pool: LetterCopy.milestoneCollisionPool, key: "milestone-both")
+        } else if hasStreakMilestone {
             add(.milestone, pool: LetterCopy.milestonePool, key: "milestone")
+        } else if let anniversary = summary.anniversary {
+            add(
+                .milestone,
+                pool: anniversary.duringVacation
+                    ? LetterCopy.anniversaryVacationPool
+                    : LetterCopy.anniversaryPool,
+                key: "milestone-anniversary"
+            )
         }
         if summary.comeback != nil {
             add(.comeback, pool: LetterCopy.comebackPool, key: "comeback")
@@ -206,6 +220,11 @@ enum LetterComposer {
                     of: "{milestone}", with: LetterCopy.numberWord(milestone)
                 )
             }
+            if let anniversary = summary.anniversary {
+                text = text.replacingOccurrences(
+                    of: "{annspan}", with: LetterCopy.anniversarySpan(anniversary.tier)
+                )
+            }
         case .observation:
             if case .weekday(let weekday) = summary.observationConclusion,
                ObservationCopy.weekdayNames.indices.contains(weekday), weekday >= 1 {
@@ -243,6 +262,11 @@ enum LetterComposer {
             parts.append("-")
         }
         parts.append(summary.milestonesLanded.map(String.init).joined(separator: ","))
+        if let anniversary = summary.anniversary {
+            parts.append("ann:\(anniversary.tier.telemetryLabel):\(anniversary.duringVacation)")
+        } else {
+            parts.append("-")
+        }
         if let comeback = summary.comeback {
             parts.append("\(comeback.taskTitle)|\(comeback.completedWeekdayName)")
         } else {

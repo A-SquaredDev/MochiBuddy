@@ -21,6 +21,7 @@ private func makeSummary(
     vacationOverlap: Bool = false,
     bestDay: PeriodSummary.BestDay? = nil,
     milestonesLanded: [Int] = [],
+    anniversary: PeriodSummary.AnniversaryFact? = nil,
     comeback: PeriodSummary.ComebackFact? = nil,
     observation: ObservationConclusion? = nil,
     listReturnName: String? = nil,
@@ -38,6 +39,7 @@ private func makeSummary(
         vacationOverlap: vacationOverlap,
         bestDay: bestDay,
         milestonesLanded: milestonesLanded,
+        anniversary: anniversary,
         comeback: comeback,
         observationConclusion: observation,
         listReturnName: listReturnName,
@@ -311,6 +313,68 @@ struct LetterComposerTests {
                 #expect(!nonAsciiEmoji, "no emoji in prose: \(text)")
             }
         }
+    }
+}
+
+@Suite("Letters · anniversary beat (Feature 2)")
+struct LetterAnniversaryBeatTests {
+
+    @Test("an anniversary alone earns the milestone beat")
+    func anniversaryAlone() {
+        let letter = LetterComposer.compose(summary: makeSummary(
+            anniversary: PeriodSummary.AnniversaryFact(tier: .month, duringVacation: false)
+        ))
+        #expect(letter.beatTypes.contains(.milestone))
+        #expect(letter.fullText.contains("one month"))
+        #expect(!letter.fullText.contains("{annspan}"))
+    }
+
+    @Test("streak + anniversary in one period compose ONE collision beat carrying both")
+    func collisionCarriesBoth() {
+        let letter = LetterComposer.compose(summary: makeSummary(
+            milestonesLanded: [7],
+            anniversary: PeriodSummary.AnniversaryFact(tier: .week, duringVacation: false)
+        ))
+        #expect(letter.beatTypes.count { $0 == .milestone } == 1)
+        #expect(letter.fullText.contains("seven"), "the streak count renders")
+        #expect(letter.fullText.contains("one week"), "the anniversary span renders")
+        #expect(!letter.fullText.contains("{milestone}"))
+        #expect(!letter.fullText.contains("{annspan}"))
+    }
+
+    @Test("a mark passed on vacation gets the honest vacation phrasing")
+    func vacationPassedMark() {
+        let letter = LetterComposer.compose(summary: makeSummary(
+            anniversary: PeriodSummary.AnniversaryFact(tier: .week, duringVacation: true)
+        ))
+        #expect(letter.beatTypes.contains(.milestone))
+        #expect(letter.fullText.contains("one week"))
+        // The vacation pool is the source: every line acknowledges the
+        // pause rather than pretending presence.
+        let usedVacationPool = LetterCopy.anniversaryVacationPool.contains { template in
+            letter.fullText.contains(
+                template.full
+                    .replacingOccurrences(of: "{annspan}", with: "one week")
+                    .replacingOccurrences(of: "{name}", with: "Nori")
+            )
+        }
+        #expect(usedVacationPool)
+    }
+
+    @Test("the summary hash sees the anniversary")
+    func hashCoversAnniversary() {
+        let without = LetterComposer.summaryHash(makeSummary())
+        let with = LetterComposer.summaryHash(makeSummary(
+            anniversary: PeriodSummary.AnniversaryFact(tier: .month, duringVacation: false)
+        ))
+        #expect(without != with)
+    }
+
+    @Test("year spans spell correctly")
+    func yearSpans() {
+        #expect(LetterCopy.anniversarySpan(.year(1)) == "one year")
+        #expect(LetterCopy.anniversarySpan(.year(2)) == "two years")
+        #expect(LetterCopy.anniversarySpan(.month) == "one month")
     }
 }
 

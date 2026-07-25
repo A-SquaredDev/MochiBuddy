@@ -23,6 +23,7 @@ struct UserProfileDTO {
     let coins: Int?
     let streakCount: Int?
     let bestStreakCount: Int?
+    let bestStreakAchievedOn: String?
     let lastActiveDate: Date?
     let isSubscribed: Bool?
     let trialEndsAt: Date?
@@ -51,6 +52,7 @@ struct UserProfileDTO {
         coins = data["coins"] as? Int
         streakCount = data["streakCount"] as? Int
         bestStreakCount = data["bestStreakCount"] as? Int
+        bestStreakAchievedOn = data["bestStreakAchievedOn"] as? String
         lastActiveDate = (data["lastActiveDate"] as? Timestamp)?.dateValue()
         isSubscribed = data["isSubscribed"] as? Bool
         trialEndsAt = (data["trialEndsAt"] as? Timestamp)?.dateValue()
@@ -87,6 +89,11 @@ enum UserProfileMapper {
             coins: dto.coins ?? 0,
             streakCount: dto.streakCount ?? 0,
             bestStreakCount: max(dto.bestStreakCount ?? 0, dto.streakCount ?? 0),
+            // Garbage decodes to nil, never a guessed date - a legacy
+            // record keeps count-only phrasing until a new record stamps.
+            bestStreakAchievedOn: dto.bestStreakAchievedOn.flatMap {
+                AdoptedOnDate.isValid($0) ? $0 : nil
+            },
             lastActiveDate: dto.lastActiveDate,
             isSubscribed: dto.isSubscribed ?? false,
             trialEndsAt: dto.trialEndsAt,

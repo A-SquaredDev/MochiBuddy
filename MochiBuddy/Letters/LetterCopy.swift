@@ -40,7 +40,7 @@ struct LetterTemplate: Equatable {
 enum LetterCopy {
 
     /// Stored on every letter as provenance; bump on any pool change.
-    static let version = 1
+    static let version = 2
 
     // MARK: - Salutations
 
@@ -76,6 +76,42 @@ enum LetterCopy {
         LetterTemplate("You hit {milestone} days of showing up. {name} is still a little giddy about it."),
         LetterTemplate("That {milestone}-day streak landed this week. {name} keeps replaying the moment."),
     ]
+
+    /// Anniversary-only milestone beat (Feature 2). {annspan} is the
+    /// spelled span ("one week", "one month", "one year", "two years").
+    static let anniversaryPool = [
+        LetterTemplate("{annspan} of us landed this week. {name} kept the date circled."),
+        LetterTemplate("This week held a little milestone: {annspan} together. {name} noticed."),
+        LetterTemplate("{annspan} since you and {name} met, as of this week."),
+    ]
+
+    /// The mark's date fell inside a vacation - the letter remembers it
+    /// honestly, rest included (this is the ONLY surface for a 1-week
+    /// mark passed on vacation, and only when a letter exists at all).
+    static let anniversaryVacationPool = [
+        LetterTemplate("Somewhere in the quiet this week, you and {name} passed {annspan} together."),
+        LetterTemplate("While things were paused, {annspan} of us went by. {name} counted it anyway."),
+        LetterTemplate("{annspan} together landed mid-rest this week. {name} thinks that still counts."),
+    ]
+
+    /// Streak milestone + anniversary in ONE beat - the collision the
+    /// day's surfaces resolved in the streak's favor; the letter carries
+    /// both. {milestone} spelled streak count, {annspan} spelled span.
+    static let milestoneCollisionPool = [
+        LetterTemplate("{milestone} days of streak, {annspan} of us. {name} calls that a very good week."),
+        LetterTemplate("Two milestones in one week: {milestone} days showing up, and {annspan} together. {name} barely slept."),
+        LetterTemplate("The {milestone}-day streak landed the same week as {annspan} of us. {name} kept both receipts."),
+    ]
+
+    /// The spelled anniversary span for {annspan}.
+    static func anniversarySpan(_ tier: AnniversaryTier) -> String {
+        switch tier {
+        case .week: "one week"
+        case .month: "one month"
+        case .year(1): "one year"
+        case .year(let n): "\(numberWord(n)) years"
+        }
+    }
 
     /// The single biggest recovery, named in full; neutral in private.
     static let comebackPool = [

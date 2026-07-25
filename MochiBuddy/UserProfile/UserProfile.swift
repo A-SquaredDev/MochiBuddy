@@ -105,6 +105,13 @@ struct UserProfile: Equatable {
     var coins: Int
     var streakCount: Int
     var bestStreakCount: Int
+    /// Date-only YYYY-MM-DD the stored best-streak record was FIRST
+    /// reached (Personal Layer, Feature 2). Updated atomically with
+    /// `bestStreakCount`, and only on a strict exceed - equal values
+    /// never overwrite the date; as an active record run advances daily
+    /// the date advances with it. Legacy records are never assigned a
+    /// guessed date (nil until a new record stamps it).
+    var bestStreakAchievedOn: String? = nil
     /// Last local day with ≥1 completion - drives the streak.
     var lastActiveDate: Date?
     var isSubscribed: Bool

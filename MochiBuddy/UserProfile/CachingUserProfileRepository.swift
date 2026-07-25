@@ -181,11 +181,19 @@ final class CachingUserProfileRepository: UserProfileRepository {
         mutate(userId) { $0.coins += delta }
     }
 
-    func saveStreak(count: Int, best: Int, lastActiveDate: Date, userId: String) async throws {
-        try await wrapped.saveStreak(count: count, best: best, lastActiveDate: lastActiveDate, userId: userId)
+    func saveStreak(
+        count: Int, best: Int, bestAchievedOn: String?, lastActiveDate: Date, userId: String
+    ) async throws {
+        try await wrapped.saveStreak(
+            count: count, best: best, bestAchievedOn: bestAchievedOn,
+            lastActiveDate: lastActiveDate, userId: userId
+        )
         mutate(userId) {
             $0.streakCount = count
             $0.bestStreakCount = best
+            if let bestAchievedOn {
+                $0.bestStreakAchievedOn = bestAchievedOn
+            }
             $0.lastActiveDate = lastActiveDate
         }
     }
