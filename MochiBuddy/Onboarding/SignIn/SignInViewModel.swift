@@ -1,22 +1,22 @@
 //
-//  AccountViewModel.swift
+//  SignInViewModel.swift
 //  MochiBuddy
 //
-//  8 · Continue with Apple / Google - placed after the value moment.
-//  Links the credential onto the anonymous session so nothing is lost.
+//  Direct sign-in from the landing screen. A recognised account routes
+//  on its membership (home, restore, or the expired gate); a provider
+//  account with no Mochi profile falls back to fresh onboarding.
 //
 
 import Foundation
 
-final class AccountViewModel: ObservableStateViewModel<
-    AccountBehavior.UIState,
-    AccountBehavior.ViewAction,
-    AccountBehavior.NavigationEvent
+final class SignInViewModel: ObservableStateViewModel<
+    SignInBehavior.UIState,
+    SignInBehavior.ViewAction,
+    SignInBehavior.NavigationEvent
 > {
 
     private let authRepository: AuthRepository
     private let profileRepository: UserProfileRepository
-    private let onboardingStore: OnboardingStore
     private let membershipStore: MembershipStore
 
     private var pendingNonce: AppleSignInNonce?
@@ -24,25 +24,17 @@ final class AccountViewModel: ObservableStateViewModel<
     init(
         authRepository: AuthRepository,
         profileRepository: UserProfileRepository,
-        onboardingStore: OnboardingStore,
         membershipStore: MembershipStore
     ) {
         self.authRepository = authRepository
         self.profileRepository = profileRepository
-        self.onboardingStore = onboardingStore
         self.membershipStore = membershipStore
-        super.init(initialState: AccountBehavior.UIState())
+        super.init(initialState: SignInBehavior.UIState())
     }
 
-    override func triggerAsync(_ action: AccountBehavior.ViewAction) async {
+    override func triggerAsync(_ action: SignInBehavior.ViewAction) async {
         switch action {
         case .load:
-            state.petName = onboardingStore.petName
-            // A landing-screen sign-in earlier in this run means the
-            // session is already a provider account - no re-linking here.
-            if let account = authRepository.currentAccount, !account.isAnonymous {
-                state.signedInDetail = account.email ?? account.displayName ?? "Signed in"
-            }
             prepareNonce()
 
         case .appleCompleted(let idToken, let fullName):
@@ -87,11 +79,12 @@ final class AccountViewModel: ObservableStateViewModel<
                 state.errorMessage = "Couldn't sign in with Google. \(error.localizedDescription)"
             }
 
-        case .continueTapped:
-            // Already signed in from the landing screen - just resolve.
-            guard let account = authRepository.currentAccount else { return }
-            state.isWorking = true
-            await routeAfterSignIn(account)
+        case .noAccountFoundConfirmed:
+            // Fires from both the button and the alert-dismiss binding -
+            // only the first one may navigate.
+            guard uiState.showNoAccountFound else { return }
+            state.showNoAccountFound = false
+            setNavigationEvent(.startOnboarding)
 
         case .dismissError:
             state.errorMessage = nil
@@ -101,13 +94,10 @@ final class AccountViewModel: ObservableStateViewModel<
         }
     }
 
-    /// Sign-in can land on a different uid (an existing account) - route
-    /// on what that account already has instead of marching everyone to
-    /// the trial paywall.
     private func routeAfterSignIn(_ account: AuthAccount) async {
-        // Re-point purchases at whoever we actually are now.
+        // Sign-in can land on a different uid (existing account) -
+        // re-point purchases at whoever we actually are now.
         await membershipStore.identify(userId: account.uid)
-        await onboardingStore.recordAccountLink(account)
         let destination = await PostSignIn.resolve(
             account: account,
             profileRepository: profileRepository,
@@ -115,16 +105,17 @@ final class AccountViewModel: ObservableStateViewModel<
         )
         state.isWorking = false
         switch destination {
-        case .continueOnboarding:
-            setNavigationEvent(.next)
-        case .skipToFinish:
-            setNavigationEvent(.skipToFinish)
         case .enterApp:
             setNavigationEvent(.enterApp)
         case .lapsedGate:
             setNavigationEvent(.showLapsedGate)
         case .restoreFound(let purchase):
             setNavigationEvent(.showRestoreFound(purchase))
+        case .continueOnboarding, .skipToFinish:
+            // No completed profile behind this provider - the wizard is
+            // still the right path (the Account step will recognise the
+            // session and skip re-linking).
+            state.showNoAccountFound = true
         }
     }
 

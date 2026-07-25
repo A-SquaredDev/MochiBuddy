@@ -29,10 +29,88 @@ private func makeAccountVM(
     )
     let vm = AccountViewModel(
         authRepository: auth,
+        profileRepository: profileRepo,
         onboardingStore: onboardingStore,
         membershipStore: membership
     )
     return (vm, auth, profileRepo, membership)
+}
+
+@Suite("Account linking · post-sign-in routing")
+@MainActor
+struct AccountPostSignInRoutingTests {
+
+    private func signedInAuth() -> StubAuthRepository {
+        let auth = StubAuthRepository()
+        auth.signInResult = AuthAccount(
+            uid: "existing-user-42", isAnonymous: false, displayName: "Old Alex",
+            email: "alex@hey.com", providerId: "apple.com"
+        )
+        return auth
+    }
+
+    @Test("an anonymous session with no completed profile still marches to the paywall")
+    func newUserGoesNext() async {
+        let (vm, _, profileRepo, _) = makeAccountVM()
+        profileRepo.profile = nil
+        let recorder = EventRecorder(vm)
+        await vm.triggerAsync(.load)
+        await vm.triggerAsync(.appleCompleted(idToken: "t", fullName: nil))
+        await recorder.drain()
+        #expect(recorder.events == [.next])
+    }
+
+    @Test("a restored account whose membership expired lands on the lapsed gate, not the trial paywall")
+    func expiredAccountSeesLapsedGate() async {
+        let (vm, _, _, membership) = makeAccountVM(auth: signedInAuth())
+        membership.status = .lapsed
+        let recorder = EventRecorder(vm)
+        await vm.triggerAsync(.load)
+        await vm.triggerAsync(.appleCompleted(idToken: "t", fullName: nil))
+        await recorder.drain()
+        #expect(recorder.events == [.showLapsedGate])
+    }
+
+    @Test("a restored account with an active store purchase routes to restore")
+    func restorableRoutesToRestoreFound() async {
+        let (vm, _, _, membership) = makeAccountVM(auth: signedInAuth())
+        membership.status = .lapsed
+        let purchase = RestorablePurchase(plan: .yearly, renewsAt: nil)
+        membership.restorable = purchase
+        let recorder = EventRecorder(vm)
+        await vm.triggerAsync(.load)
+        await vm.triggerAsync(.appleCompleted(idToken: "t", fullName: nil))
+        await recorder.drain()
+        #expect(recorder.events == [.showRestoreFound(purchase)])
+    }
+
+    @Test("a restored account still entitled skips the paywall and enters the app")
+    func entitledAccountEntersApp() async {
+        let (vm, _, _, membership) = makeAccountVM(auth: signedInAuth())
+        membership.status = .active(plan: .yearly, renewsAt: nil)
+        let recorder = EventRecorder(vm)
+        await vm.triggerAsync(.load)
+        await vm.triggerAsync(.appleCompleted(idToken: "t", fullName: nil))
+        await recorder.drain()
+        #expect(recorder.events == [.enterApp])
+    }
+
+    @Test("a session already signed in from the landing screen shows Continue and resolves on tap")
+    func preSignedSessionContinues() async {
+        let auth = StubAuthRepository()
+        auth.currentAccount = AuthAccount(
+            uid: "existing-user-42", isAnonymous: false, displayName: "Old Alex",
+            email: "alex@hey.com", providerId: "apple.com"
+        )
+        let (vm, _, _, membership) = makeAccountVM(auth: auth)
+        membership.status = .active(plan: .yearly, renewsAt: nil)
+        let recorder = EventRecorder(vm)
+        await vm.triggerAsync(.load)
+        #expect(vm.uiState.signedInDetail == "alex@hey.com")
+        await vm.triggerAsync(.continueTapped)
+        await recorder.drain()
+        #expect(recorder.events == [.enterApp])
+    }
 }
 
 @Suite("Account linking · Sign in with Apple")

@@ -15,6 +15,10 @@ enum AccountBehavior {
         var isWorking = false
         var errorMessage: String?
         var showGoogleUnavailable = false
+        /// Non-nil when the session is already a provider account (the
+        /// landing sign-in happened earlier in this run) - the footer
+        /// swaps the provider buttons for a Continue button.
+        var signedInDetail: String?
     }
 
     enum ViewAction {
@@ -22,11 +26,20 @@ enum AccountBehavior {
         case appleCompleted(idToken: String, fullName: PersonNameComponents?)
         case appleFailed(message: String)
         case googleTapped
+        case continueTapped
         case dismissError
         case dismissGoogleUnavailable
     }
 
-    enum NavigationEvent {
+    enum NavigationEvent: Equatable {
+        /// Never-subscribed: on to the trial paywall, as always.
         case next
+        /// Already entitled but onboarding incomplete: skip the paywall.
+        case skipToFinish
+        /// Restored a completed, entitled account: straight into the app.
+        case enterApp
+        /// Restored a completed account whose membership expired.
+        case showLapsedGate
+        case showRestoreFound(RestorablePurchase)
     }
 }

@@ -4,7 +4,6 @@
 //
 
 import SwiftUI
-import AuthenticationServices
 
 struct AccountView: View {
     @State var viewModel: ObservableStateViewModel<
@@ -30,9 +29,30 @@ struct AccountView: View {
                 bodyText: "Create an account so your tasks, coins and \(viewModel.petName) follow you to any device, and nothing gets lost."
             )
         } footer: {
-            appleButton
-            googleButton
-            MochiTextLink(title: "Everything you set up is already saved.")
+            if let detail = viewModel.signedInDetail {
+                // Landing sign-in already linked this session - no re-auth.
+                Text("Signed in as \(detail)")
+                    .font(MochiFont.body(12.5, weight: .heavy))
+                    .foregroundStyle(theme.muted)
+                    .frame(maxWidth: .infinity)
+                MochiButton(title: "Continue") {
+                    viewModel.trigger(.continueTapped)
+                }
+            } else {
+                SignInProviderButtons(
+                    hashedNonce: viewModel.hashedNonce,
+                    onAppleCompleted: { idToken, fullName in
+                        viewModel.trigger(.appleCompleted(idToken: idToken, fullName: fullName))
+                    },
+                    onAppleFailed: { message in
+                        viewModel.trigger(.appleFailed(message: message))
+                    },
+                    onGoogleTapped: {
+                        viewModel.trigger(.googleTapped)
+                    }
+                )
+                MochiTextLink(title: "Everything you set up is already saved.")
+            }
         }
         .overlay {
             if viewModel.isWorking {
@@ -59,55 +79,16 @@ struct AccountView: View {
             switch event {
             case .next:
                 router.navigateToPaywall()
+            case .skipToFinish:
+                router.navigateToFinish()
+            case .enterApp:
+                router.finishOnboarding()
+            case .showLapsedGate:
+                router.navigateToLapsedGate()
+            case .showRestoreFound(let purchase):
+                router.navigateToRestoreFound(purchase)
             }
         }
-    }
-
-    private var appleButton: some View {
-        SignInWithAppleButton(.continue) { request in
-            request.requestedScopes = [.fullName, .email]
-            request.nonce = viewModel.hashedNonce
-        } onCompletion: { result in
-            switch result {
-            case .success(let authorization):
-                guard
-                    let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
-                    let tokenData = credential.identityToken,
-                    let idToken = String(data: tokenData, encoding: .utf8)
-                else {
-                    viewModel.trigger(.appleFailed(message: "Apple didn't return a valid credential."))
-                    return
-                }
-                viewModel.trigger(.appleCompleted(idToken: idToken, fullName: credential.fullName))
-            case .failure:
-                // Treat as cancellation - no error surfaced.
-                viewModel.trigger(.appleFailed(message: ""))
-            }
-        }
-        .signInWithAppleButtonStyle(theme.isDark ? .white : .black)
-        .frame(height: 50)
-        .clipShape(Capsule())
-        .shadow(color: .black.opacity(0.2), radius: 10, y: 8)
-    }
-
-    private var googleButton: some View {
-        Button {
-            viewModel.trigger(.googleTapped)
-        } label: {
-            HStack(spacing: 9) {
-                Text("G")
-                    .font(.system(size: 17, weight: .bold, design: .rounded))
-                    .foregroundStyle(Color(hex: 0x4285F4))
-                Text("Continue with Google")
-                    .font(MochiFont.display(15, weight: .medium))
-                    .foregroundStyle(Color(hex: 0x1F1F1F))
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 50)
-            .background(.white, in: Capsule())
-            .shadow(color: .black.opacity(0.2), radius: 10, y: 8)
-        }
-        .buttonStyle(SquishButtonStyle())
     }
 }
 

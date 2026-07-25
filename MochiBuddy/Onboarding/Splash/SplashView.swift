@@ -60,8 +60,8 @@ struct SplashView: View {
         .onLoad { viewModel.trigger(.load) }
         .onReceive(viewModel.navigationEvents) { event in
             switch event {
-            case .showMeetMochi:
-                router.navigateToMeetMochi()
+            case .showLanding:
+                router.navigateToLanding()
             case .showWelcomeBack(let summary):
                 router.navigateToWelcomeBack(summary)
             case .enterApp:

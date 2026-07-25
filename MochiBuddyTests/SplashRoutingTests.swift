@@ -51,7 +51,7 @@ struct SplashRoutingTests {
         let recorder = EventRecorder(vm)
         await vm.triggerAsync(.load)
         await recorder.drain()
-        #expect(recorder.events == [.showMeetMochi])
+        #expect(recorder.events == [.showLanding])
     }
 
     @Test("reinstall with a live subscription goes straight home - no onboarding replay")
@@ -125,7 +125,7 @@ struct SplashRoutingTests {
         let recorder = EventRecorder(vm)
         await vm.triggerAsync(.load)
         await recorder.drain()
-        #expect(recorder.events == [.showMeetMochi])
+        #expect(recorder.events == [.showLanding])
     }
 
     @Test("purchases are re-pointed at the session's uid before anything else routes")
@@ -152,7 +152,7 @@ struct SplashRoutingTests {
         let recorder = EventRecorder(vm)
         await vm.triggerAsync(.load)
         await recorder.drain()
-        #expect(recorder.events == [.showMeetMochi])
+        #expect(recorder.events == [.showLanding])
     }
 
     @Test("a profile fetch failure (offline) falls back to Meet Mochi instead of hanging")
@@ -161,7 +161,7 @@ struct SplashRoutingTests {
         let recorder = EventRecorder(vm)
         await vm.triggerAsync(.load)
         await recorder.drain()
-        #expect(recorder.events == [.showMeetMochi])
+        #expect(recorder.events == [.showLanding])
     }
 
     @Test("a missing profile document routes like a fresh user")
@@ -170,7 +170,7 @@ struct SplashRoutingTests {
         let recorder = EventRecorder(vm)
         await vm.triggerAsync(.load)
         await recorder.drain()
-        #expect(recorder.events == [.showMeetMochi])
+        #expect(recorder.events == [.showLanding])
     }
 
     // MARK: Identity summary details

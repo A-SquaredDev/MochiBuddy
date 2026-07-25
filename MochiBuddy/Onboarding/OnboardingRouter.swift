@@ -11,6 +11,8 @@ import SwiftUI
 
 @MainActor
 protocol OnboardingRouting: AnyObject {
+    func navigateToLanding()
+    func navigateToSignIn()
     func navigateToMeetMochi()
     func navigateToFirstTask()
     func navigateToFlavorPicker()
@@ -56,6 +58,25 @@ final class OnboardingRouter: OnboardingRouting {
             membershipStore: container.membershipStore
         )
         return AnyView(SplashView(viewModel: viewModel, router: self))
+    }
+
+    func navigateToLanding() {
+        navController.navigate(
+            route: AdHocRoute(key: "landing"),
+            view: AnyView(LandingView(router: self))
+        )
+    }
+
+    func navigateToSignIn() {
+        let viewModel = SignInViewModel(
+            authRepository: container.authRepository,
+            profileRepository: container.profileRepository,
+            membershipStore: container.membershipStore
+        )
+        navController.navigate(
+            route: AdHocRoute(key: "signIn"),
+            view: AnyView(SignInView(viewModel: viewModel, router: self))
+        )
     }
 
     func navigateToMeetMochi() {
@@ -115,6 +136,7 @@ final class OnboardingRouter: OnboardingRouting {
     func navigateToAccount() {
         let viewModel = AccountViewModel(
             authRepository: container.authRepository,
+            profileRepository: container.profileRepository,
             onboardingStore: onboardingStore,
             membershipStore: container.membershipStore
         )
@@ -190,17 +212,16 @@ final class OnboardingRouter: OnboardingRouting {
         navController.popBackStack()
     }
 
-    /// "Not you? Switch account" - drop the session and run first-run again.
+    /// "Not you? Switch account" - drop the session and run first-run
+    /// again. Lands on the landing screen so the right person can sign in
+    /// immediately instead of re-walking the wizard.
     func restartOnboarding() {
         try? container.authRepository.signOut()
         Task { @MainActor in
             _ = try? await container.authRepository.ensureSession()
             navController.replaceStack(
-                with: AnyView(MeetMochiView(
-                    viewModel: MeetMochiViewModel(onboardingStore: onboardingStore),
-                    router: self
-                )),
-                route: AdHocRoute(key: "meetMochi")
+                with: AnyView(LandingView(router: self)),
+                route: AdHocRoute(key: "landing")
             )
         }
     }

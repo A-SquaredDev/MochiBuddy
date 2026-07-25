@@ -50,7 +50,7 @@ final class SplashViewModel: ObservableStateViewModel<
             await minimumBeat.value
 
             guard let profile, profile.onboardingComplete else {
-                setNavigationEvent(.showMeetMochi)
+                setNavigationEvent(.showLanding)
                 return
             }
 
@@ -63,7 +63,7 @@ final class SplashViewModel: ObservableStateViewModel<
         } catch {
             // Offline or Firebase unreachable - never trap the user on splash.
             await minimumBeat.value
-            setNavigationEvent(.showMeetMochi)
+            setNavigationEvent(.showLanding)
         }
     }
 

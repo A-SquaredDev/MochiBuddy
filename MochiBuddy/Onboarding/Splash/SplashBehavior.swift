@@ -17,7 +17,7 @@ enum SplashBehavior {
     }
 
     enum NavigationEvent: Equatable {
-        case showMeetMochi
+        case showLanding
         case showWelcomeBack(ReturningAccountSummary)
         case enterApp
     }
