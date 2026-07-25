@@ -20,19 +20,6 @@ enum ManageListsBehavior {
         let color: Color
     }
 
-    /// One recurring series (a live task carrying a repeat rule).
-    struct RepeatingUIItem: Equatable, Identifiable {
-        let id: String
-        let title: String
-        let cadence: String
-    }
-
-    /// Sheet payload for editing a series via the task editor.
-    struct EditingSeries: Equatable, Identifiable {
-        let task: TaskItem
-        var id: String { task.id }
-    }
-
     struct UIState: UpdatableStruct, Equatable {
         /// The pet's chosen name - construction sites that can't reach the
         /// pet identity keep the "Mochi" default.
@@ -52,10 +39,6 @@ enum ManageListsBehavior {
         var showRename = false
         /// List whose color swatches are expanded inline (nil = none).
         var editingColorListId: String?
-        /// Live recurring series, shown in their own section.
-        var repeating: [RepeatingUIItem] = []
-        /// Series being edited - drives the task-editor sheet.
-        var editingSeries: EditingSeries?
     }
 
     enum ViewAction {
@@ -73,7 +56,5 @@ enum ManageListsBehavior {
         case cancelRename
         case colorDotTapped(id: String)
         case selectRowColor(id: String, colorHex: String)
-        case seriesTapped(id: String)
-        case seriesEditorDismissed
     }
 }

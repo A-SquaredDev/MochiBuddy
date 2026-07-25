@@ -14,6 +14,7 @@ protocol TasksRouting: BackRouting {
     /// seeded with a title (Home quick-add) or a list (ListDetail).
     func taskEditor(task: TaskItem?, draftTitle: String?, draftListId: String?) -> AnyView
     func navigateToManageLists()
+    func navigateToManageRepeating()
     func navigateToListDetail(source: ListDetailSource)
 }
 
@@ -86,13 +87,24 @@ final class TasksRouter: TasksRouting {
         let viewModel = ManageListsViewModel(
             authRepository: container.authRepository,
             listRepository: container.listRepository,
-            taskRepository: container.taskRepository,
             membershipSession: container.membershipSession,
             petName: container.petIdentityStore.name
         )
         navController.navigate(
             route: AdHocRoute(key: "tasks.lists"),
-            view: AnyView(ManageListsView(
+            view: AnyView(ManageListsView(viewModel: viewModel, router: self))
+        )
+    }
+
+    func navigateToManageRepeating() {
+        let viewModel = ManageRepeatingViewModel(
+            authRepository: container.authRepository,
+            taskRepository: container.taskRepository,
+            petName: container.petIdentityStore.name
+        )
+        navController.navigate(
+            route: AdHocRoute(key: "tasks.repeating"),
+            view: AnyView(ManageRepeatingView(
                 viewModel: viewModel,
                 router: self,
                 taskEditor: { [weak self] task in

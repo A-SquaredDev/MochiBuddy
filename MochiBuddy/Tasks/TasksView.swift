@@ -54,6 +54,8 @@ struct TasksView: View {
             switch event {
             case .showManageLists:
                 router.navigateToManageLists()
+            case .showManageRepeating:
+                router.navigateToManageRepeating()
             case .showListDetail(let source):
                 router.navigateToListDetail(source: source)
             }
@@ -69,6 +71,11 @@ struct TasksView: View {
             taskGroups
             if let footnote = viewModel.footnote {
                 footnoteCard(footnote)
+            }
+            if viewModel.showManageRepeating {
+                MochiButton(title: "Manage repeating tasks", variant: .ghost) {
+                    viewModel.trigger(.manageRepeatingTapped)
+                }
             }
         case .done:
             if let celebration = viewModel.doneCelebration {

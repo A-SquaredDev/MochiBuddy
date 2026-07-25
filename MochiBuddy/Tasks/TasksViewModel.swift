@@ -119,6 +119,9 @@ final class TasksViewModel: ObservableStateViewModel<
 
         case .manageListsTapped:
             setNavigationEvent(.showManageLists)
+
+        case .manageRepeatingTapped:
+            setNavigationEvent(.showManageRepeating)
         }
     }
 
@@ -298,6 +301,8 @@ final class TasksViewModel: ObservableStateViewModel<
             next.footnote = "All future-dated tasks live here. No date means Someday, "
                 + "beyond 7 days means Later. Repeating tasks appear once their "
                 + "next occurrence is scheduled."
+            // Lapsed mode freezes recurrence, so the edit surface hides too.
+            next.showManageRepeating = !next.isLapsed
 
         case .lists:
             next.subtitle = "Your categories"

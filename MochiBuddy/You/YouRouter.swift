@@ -154,26 +154,12 @@ final class YouRouter: YouRouting {
         let viewModel = ManageListsViewModel(
             authRepository: container.authRepository,
             listRepository: container.listRepository,
-            taskRepository: container.taskRepository,
             membershipSession: container.membershipSession,
             petName: container.petIdentityStore.name
         )
         navController.navigate(
             route: AdHocRoute(key: "you.lists"),
-            view: AnyView(ManageListsView(
-                viewModel: viewModel,
-                router: self,
-                taskEditor: { [weak self] task in
-                    self.map { AnyView(TaskEditorView(viewModel: TaskEditorViewModel(
-                        editingTask: task,
-                        petName: $0.container.petIdentityStore.name,
-                        authRepository: $0.container.authRepository,
-                        taskRepository: $0.container.taskRepository,
-                        listRepository: $0.container.listRepository,
-                        suggestionService: $0.container.suggestionService
-                    ))) } ?? AnyView(EmptyView())
-                }
-            ))
+            view: AnyView(ManageListsView(viewModel: viewModel, router: self))
         )
     }
 

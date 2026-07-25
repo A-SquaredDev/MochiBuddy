@@ -15,8 +15,6 @@ struct ManageListsView: View {
         ManageListsBehavior.ViewAction
     >
     let router: any BackRouting
-    /// Builds the task-editor sheet for a repeating series (routers own DI).
-    let taskEditor: (TaskItem) -> AnyView
 
     @Environment(\.mochiTheme) private var theme
     @FocusState private var nameFieldFocused: Bool
@@ -61,18 +59,6 @@ struct ManageListsView: View {
                 viewModel.trigger(.moveList(from: from, to: to))
             }
 
-            if !viewModel.repeating.isEmpty {
-                Group {
-                    MochiEyebrow(text: "Repeating tasks")
-                        .padding(.top, 4)
-                }
-                .listRowStyling()
-                ForEach(viewModel.repeating) { series in
-                    repeatingRow(series)
-                        .listRowStyling()
-                }
-            }
-
             if viewModel.canAddLists {
                 Group {
                     MochiEyebrow(text: "New list")
@@ -98,11 +84,6 @@ struct ManageListsView: View {
         // corners falls through to black.
         .background(theme.bg.ignoresSafeArea())
         .onLoad { viewModel.trigger(.load) }
-        .sheet(
-            item: viewModel.collectBinding(for: \.editingSeries, action: { _ in .seriesEditorDismissed })
-        ) { editing in
-            taskEditor(editing.task)
-        }
         .alert(
             "Delete \(viewModel.deleteCandidateName ?? "list")?",
             isPresented: viewModel.collectBinding(for: \.showDeleteConfirm, action: .cancelDelete),
@@ -185,39 +166,6 @@ struct ManageListsView: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Delete \(list.name)")
         }
-    }
-
-    /// A live recurring series - tap to edit its rule in the task editor.
-    private func repeatingRow(_ series: ManageListsBehavior.RepeatingUIItem) -> some View {
-        Button {
-            Haptics.impact(.light)
-            viewModel.trigger(.seriesTapped(id: series.id))
-        } label: {
-            HStack(spacing: 11) {
-                Image(systemName: "arrow.triangle.2.circlepath")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(theme.primaryText)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(series.title)
-                        .font(MochiFont.body(13, weight: .heavy))
-                        .foregroundStyle(theme.ink)
-                        .lineLimit(1)
-                    Text(series.cadence)
-                        .font(MochiFont.body(11, weight: .bold))
-                        .foregroundStyle(theme.muted)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                MochiRowChevron()
-            }
-            .padding(EdgeInsets(top: 11, leading: 12, bottom: 11, trailing: 12))
-            .background(theme.surface2, in: RoundedRectangle(cornerRadius: MochiRadius.md))
-            .overlay(
-                RoundedRectangle(cornerRadius: MochiRadius.md)
-                    .stroke(theme.line, lineWidth: 1.5)
-            )
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
     }
 
     /// Inline swatches shown under a row after tapping its color dot.

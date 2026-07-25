@@ -71,6 +71,8 @@ enum TasksBehavior {
         var doneCelebration: String?
         /// Muted caption under the segment's content (Upcoming's explainer).
         var footnote: String?
+        /// Upcoming only: entry point into the repeating-tasks screen.
+        var showManageRepeating = false
         /// Lists only.
         var listItems: [ListUIItem] = []
         /// Lists only: shown when synced Reminders lists exist but access
@@ -89,10 +91,12 @@ enum TasksBehavior {
         case dismissCelebration
         case listTapped(String)
         case manageListsTapped
+        case manageRepeatingTapped
     }
 
     enum NavigationEvent {
         case showManageLists
+        case showManageRepeating
         case showListDetail(ListDetailSource)
     }
 }
