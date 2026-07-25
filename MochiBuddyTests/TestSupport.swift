@@ -396,8 +396,10 @@ final class StubTaskRepository: TaskRepository {
     var completed: [TaskItem] = []
     var completedStats: [CompletedTaskStat] = []
     var nextAddedTaskId = "added-task-id"
+    var nextAllocatedTaskId = "allocated-task-id"
 
     private(set) var addedDrafts: [TaskDraft] = []
+    private(set) var addedTaskIds: [String?] = []
     private(set) var setCompletedCalls: [(taskId: String, completed: Bool)] = []
     private(set) var setCompletedContexts: [CompletionLocalContext?] = []
     private(set) var updatedTasks: [TaskItem] = []
@@ -405,10 +407,12 @@ final class StubTaskRepository: TaskRepository {
     private(set) var rollForwardCalls: [(id: String, newDueAt: Date, missed: Int)] = []
     private(set) var deletedIds: [String] = []
 
+    func allocateTaskId(userId: String) -> String { nextAllocatedTaskId }
     @discardableResult
-    func addTask(_ draft: TaskDraft, userId: String) async throws -> String {
+    func addTask(_ draft: TaskDraft, id: String?, userId: String) async throws -> String {
         addedDrafts.append(draft)
-        return nextAddedTaskId
+        addedTaskIds.append(id)
+        return id ?? nextAddedTaskId
     }
     func incompleteTasks(userId: String) async throws -> [TaskItem] { incomplete }
     func task(id: String, userId: String) async throws -> TaskItem? {

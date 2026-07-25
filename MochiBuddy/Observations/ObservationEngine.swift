@@ -186,24 +186,49 @@ enum ObservationEngine {
         let prepared = Prepared(inputs: inputs)
         let window = prepared.windowRecords(endingAt: prepared.today)
 
-        func build(_ records: [PreparedRecord], scope: DistributionResult.Scope) -> DistributionResult {
-            let minutes = dayCappedMinutes(records)
-            return DistributionResult(
-                minutes: minutes,
-                scopeUsed: scope,
-                evidenceCount: minutes.count,
-                distinctDates: Set(records.map(\.day)).count
-            )
-        }
-
         if let listId {
             let scoped = window.filter { $0.stat.listId == listId }
-            let capped = dayCappedMinutes(scoped)
+            let capped = dayCappedEntries(scoped)
             if capped.count >= ObservationConstants.timeOfDayMin {
-                return build(scoped, scope: .list(listId))
+                return DistributionResult(entries: capped, scopeUsed: .list(listId))
             }
         }
-        return build(window, scope: .globalFallback)
+        return DistributionResult(entries: dayCappedEntries(window), scopeUsed: .globalFallback)
+    }
+
+    /// A suggestion scope, named by the caller (Feature 5). Unlike the
+    /// Feature 4 contract above there is NO fallback logic here: scope
+    /// precedence is Feature 5's qualification job, and each scope's
+    /// result honestly names itself.
+    enum SuggestionScope {
+        case series(String)
+        case list(String)
+        case global
+    }
+
+    /// Raw per-scope distribution for suggested times (Feature 5).
+    /// Series scope keeps TIMED completions only (the spec's "timed
+    /// completions" gate: a series' due time is what re-time proposes to
+    /// change, so undated and date-only rows are not evidence about it).
+    /// Day capping runs AFTER scope filtering, the Feature 4 order - a
+    /// scope's cap is a fact about that scope's own days.
+    static func suggestionDistribution(scope: SuggestionScope, inputs: Inputs) -> DistributionResult {
+        let prepared = Prepared(inputs: inputs)
+        let window = prepared.windowRecords(endingAt: prepared.today)
+        let scoped: [PreparedRecord]
+        let scopeUsed: DistributionResult.Scope
+        switch scope {
+        case .series(let identity):
+            scoped = window.filter { $0.seriesKey == identity && $0.stat.hasTime }
+            scopeUsed = .series(identity)
+        case .list(let listId):
+            scoped = window.filter { $0.stat.listId == listId }
+            scopeUsed = .list(listId)
+        case .global:
+            scoped = window
+            scopeUsed = .globalFallback
+        }
+        return DistributionResult(entries: dayCappedEntries(scoped), scopeUsed: scopeUsed)
     }
 
     /// Circular center of minute-of-day values: 23:30 and 00:30 cluster
@@ -339,28 +364,37 @@ enum ObservationEngine {
         return (counts, days)
     }
 
-    /// Day-capped canonical minutes. Within a day, picks are stride-
-    /// sampled over the sorted minutes (first, spread, last) so the cap
-    /// limits weight without biasing toward one end of the day.
-    private static func dayCappedMinutes(_ records: [PreparedRecord]) -> [Int] {
-        var perDay: [CivilDay: [Int]] = [:]
+    /// Day-capped distribution entries. Within a day, picks are stride-
+    /// sampled over the minute-sorted records (first, spread, last) so the
+    /// cap limits weight without biasing toward one end of the day.
+    private static func dayCappedEntries(_ records: [PreparedRecord]) -> [DistributionResult.Entry] {
+        var perDay: [CivilDay: [PreparedRecord]] = [:]
         for record in records {
-            perDay[record.day, default: []].append(record.stat.completedLocalMinute)
+            perDay[record.day, default: []].append(record)
         }
-        var minutes: [Int] = []
+        var entries: [DistributionResult.Entry] = []
         for day in perDay.keys.sorted() {
-            let sorted = perDay[day]!.sorted()
+            let sorted = perDay[day]!.sorted { $0.stat.completedLocalMinute < $1.stat.completedLocalMinute }
             let cap = ObservationConstants.dayCap
+            var picks: [PreparedRecord] = []
             if sorted.count <= cap {
-                minutes.append(contentsOf: sorted)
+                picks = sorted
             } else {
                 for pick in 0..<cap {
                     let index = pick * (sorted.count - 1) / Swift.max(cap - 1, 1)
-                    minutes.append(sorted[index])
+                    picks.append(sorted[index])
                 }
             }
+            entries.append(contentsOf: picks.map { record in
+                DistributionResult.Entry(
+                    minute: record.stat.completedLocalMinute,
+                    day: record.day.dateString,
+                    identity: record.seriesKey,
+                    rescheduleCount: record.stat.rescheduleCount
+                )
+            })
         }
-        return minutes
+        return entries
     }
 
     // MARK: - Trait gates (single snapshot)

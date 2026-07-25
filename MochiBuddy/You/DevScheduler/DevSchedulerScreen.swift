@@ -94,6 +94,8 @@ enum DevSchedulerBehavior {
         var observations = DevObservationInspector.Model()
         var expandedObservationId: String? = nil
         var memories = DevMemoriesInspector.Model()
+        var suggestions = DevSuggestionsInspector.Model()
+        var suggestionTaskId: String? = nil
         /// Feature 3 force-compose result line, DEBUG pipeline check.
         var letterComposeText = ""
 
@@ -110,6 +112,7 @@ enum DevSchedulerBehavior {
         case rangeChanged(Int)
         case rowTapped(String)
         case observationRowTapped(String?)
+        case suggestionTaskPicked(String)
         case composeLetterNow
         case scrubbed(Date?)
         /// Local dev store only: restart the 7-day trial so the horizon
@@ -131,6 +134,7 @@ final class DevSchedulerViewModel: StateViewModel<
     private let observationLedger: ObservationLedger?
     private let letterService: LetterCompositionService?
     private let memoriesService: MemoriesService?
+    private let suggestionLedger: SuggestionLedger?
 
     private var context: NotificationOrchestrator.RelayContext?
     /// Cached once per rebuild; the engine is pure, so time travel just
@@ -146,7 +150,8 @@ final class DevSchedulerViewModel: StateViewModel<
         observationService: ObservationService? = nil,
         observationLedger: ObservationLedger? = nil,
         letterService: LetterCompositionService? = nil,
-        memoriesService: MemoriesService? = nil
+        memoriesService: MemoriesService? = nil,
+        suggestionLedger: SuggestionLedger? = nil
     ) {
         self.orchestrator = orchestrator
         self.scheduler = scheduler
@@ -156,6 +161,7 @@ final class DevSchedulerViewModel: StateViewModel<
         self.observationLedger = observationLedger
         self.letterService = letterService
         self.memoriesService = memoriesService
+        self.suggestionLedger = suggestionLedger
         super.init(initialState: DevSchedulerBehavior.UIState())
     }
 
@@ -183,6 +189,10 @@ final class DevSchedulerViewModel: StateViewModel<
 
         case .observationRowTapped(let id):
             state.expandedObservationId = id
+
+        case .suggestionTaskPicked(let id):
+            state.suggestionTaskId = id
+            rebuildTimeTravel()
 
         case .composeLetterNow:
             guard let letterService else { return }
@@ -326,10 +336,31 @@ final class DevSchedulerViewModel: StateViewModel<
         )
     }
 
+    /// Re-evaluate the pure suggestion engine for the picked task at a
+    /// (possibly time-traveled) instant on the cached inputs.
+    private func rebuildSuggestions(at now: Date) {
+        guard let inputs = observationInputs,
+              let context,
+              let ledger = suggestionLedger,
+              let userId = observationService?.currentUserId
+        else { return }
+        state.suggestions = DevSuggestionsInspector.model(
+            inputs: inputs,
+            tasks: context.snapshot.tasks,
+            pickedTaskId: uiState.suggestionTaskId,
+            bedtime: context.bedtime,
+            isLapsed: membershipSession.isLapsed,
+            ledgerState: ledger.state(userId: userId),
+            at: now,
+            calendar: .current
+        )
+    }
+
     private func rebuildTimeTravel() {
         guard let snapshot = context?.snapshot else { return }
         let t = Date.now.addingTimeInterval(uiState.timeTravelHours * 3600)
         rebuildObservations(at: t)
+        rebuildSuggestions(at: t)
         if let memoriesInputs {
             state.memories = DevMemoriesInspector.model(
                 inputs: memoriesInputs,
@@ -525,6 +556,10 @@ struct DevSchedulerView: View {
                         )
                     )
                     DevMemoriesSection(model: viewModel.memories)
+                    DevSuggestionsSection(
+                        model: viewModel.suggestions,
+                        onPickTask: { viewModel.trigger(.suggestionTaskPicked($0)) }
+                    )
                     pendingList
                 }
             }

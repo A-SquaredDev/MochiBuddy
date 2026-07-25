@@ -23,11 +23,24 @@ final class TaskEditorViewModel: ObservableStateViewModel<
     private let authRepository: AuthRepository
     private let taskRepository: TaskRepository
     private let listRepository: ListRepository
+    private let suggestionService: SuggestionService?
     private let editingTask: TaskItem?
 
     // Domain source of truth.
     private var draft: TaskDraft
     private var lists: [TaskList] = []
+
+    // Suggested times (Personal Layer, Feature 5). One editor open = one
+    // session: a trigger presents at most once, and a presented proposal
+    // is FROZEN - it never regenerates as fields toggle. Lifecycle and
+    // outcome classification live here; all math is the pure engine's.
+    private enum SuggestionLifecycle { case offered, confirmed, dismissed }
+    private var suggestionSession: SuggestionService.Session?
+    private var presentedProposals: [SuggestionTrigger: SuggestionProposal] = [:]
+    private var suggestionLifecycles: [SuggestionTrigger: SuggestionLifecycle] = [:]
+    private var tappedTriggers: Set<SuggestionTrigger> = []
+    private var evaluatedTriggers: Set<SuggestionTrigger> = []
+    private var suggestionContextCache: (key: String, context: SuggestionEngine.Context)?
 
     init(
         editingTask: TaskItem?,
@@ -36,12 +49,14 @@ final class TaskEditorViewModel: ObservableStateViewModel<
         petName: String = "Mochi",
         authRepository: AuthRepository,
         taskRepository: TaskRepository,
-        listRepository: ListRepository
+        listRepository: ListRepository,
+        suggestionService: SuggestionService? = nil
     ) {
         self.editingTask = editingTask
         self.authRepository = authRepository
         self.taskRepository = taskRepository
         self.listRepository = listRepository
+        self.suggestionService = suggestionService
         if let task = editingTask {
             draft = TaskDraft(
                 title: task.title,
@@ -77,6 +92,7 @@ final class TaskEditorViewModel: ObservableStateViewModel<
             if let userId {
                 lists = (try? await listRepository.fetchLists(userId: userId)) ?? []
             }
+            suggestionSession = await suggestionService?.beginSession(editingTask: editingTask)
             rebuild(picker: .none)
 
         case .titleChanged(let title):
@@ -117,6 +133,12 @@ final class TaskEditorViewModel: ObservableStateViewModel<
             draft.dueAt = Self.combine(day: draft.dueAt ?? .now, time: time)
             draft.hasTime = true
             rebuild(picker: uiState.activePicker)
+
+        case .suggestionTapped:
+            acceptSuggestion()
+
+        case .suggestionDismissed:
+            dismissSuggestion()
 
         case .selectPriority(let id):
             draft.priority = TaskPriority(rawValue: id) ?? .med
@@ -278,6 +300,7 @@ final class TaskEditorViewModel: ObservableStateViewModel<
     private func performSave() async {
         guard let userId else { return }
         state.isWorking = true
+        classifySuggestionOutcomes()
 
         if let task = editingTask {
             var updated = task
@@ -290,7 +313,11 @@ final class TaskEditorViewModel: ObservableStateViewModel<
             updated.repeatRule = draft.repeatRule
             try? await taskRepository.updateTask(updated, userId: userId)
         } else {
-            _ = try? await taskRepository.addTask(draft, userId: userId)
+            // The preallocated id (when a suggestion session minted one)
+            // keeps a pre-save chip dismissal attached to this task.
+            _ = try? await taskRepository.addTask(
+                draft, id: suggestionSession?.preallocatedTaskId, userId: userId
+            )
         }
         Haptics.success()
         setNavigationEvent(.done)
@@ -305,6 +332,7 @@ final class TaskEditorViewModel: ObservableStateViewModel<
         state.showSaveScopeOptions = false
         state.isWorking = true
 
+        classifySuggestionOutcomes()
         var detached = task
         detached.title = draft.title
         detached.notes = draft.notes
@@ -341,9 +369,217 @@ final class TaskEditorViewModel: ObservableStateViewModel<
         setNavigationEvent(.done)
     }
 
+    // MARK: - Suggested times (Personal Layer, Feature 5)
+
+    /// The task's series identity - a recurring habit is one identity
+    /// (`seriesId ?? id`). Only an EXISTING task has one: a brand-new
+    /// series has no completions to learn from. Never inferred from
+    /// titles - titles are user content, not identity.
+    private var seriesIdentity: String? {
+        guard let task = editingTask, task.repeatRule != nil || task.seriesId != nil else {
+            return nil
+        }
+        return task.seriesId ?? task.id
+    }
+
+    private var currentTaskId: String? {
+        editingTask?.id ?? suggestionSession?.preallocatedTaskId
+    }
+
+    /// Evaluate any trigger that has not presented yet. Presented
+    /// proposals are frozen; a trigger that evaluated blocked keeps
+    /// re-evaluating as fields change (the chip may still appear), but
+    /// its denominator event fires only once per session.
+    private func refreshSuggestions(now: Date = .now) {
+        guard let service = suggestionService, let session = suggestionSession else { return }
+
+        let key = "\(seriesIdentity ?? "-")|\(draft.listId ?? "-")"
+        let context: SuggestionEngine.Context
+        if let cached = suggestionContextCache, cached.key == key {
+            context = cached.context
+        } else {
+            context = service.engineContext(
+                session: session, seriesIdentity: seriesIdentity, listId: draft.listId, now: now
+            )
+            suggestionContextCache = (key, context)
+        }
+
+        let calendar = Calendar.current
+        let snapshot = SuggestionEngine.TaskSnapshot(
+            listId: draft.listId,
+            isRecurring: draft.repeatRule != nil,
+            hasTime: draft.hasTime,
+            scheduledMinute: draft.hasTime ? draft.dueAt.map { Self.minuteOfDay($0, calendar: calendar) } : nil,
+            dueDay: draft.dueAt.map { CivilDay(of: $0, in: calendar).dateString },
+            // Structural: Apple Reminders rows never open this editor.
+            isAppleSource: false
+        )
+
+        for trigger in SuggestionTrigger.allCases where suggestionLifecycles[trigger] == nil {
+            let dismissKeyId = trigger == .newTime ? currentTaskId : seriesIdentity
+            guard let dismissKeyId else { continue }
+            let dismissedAt = service.dismissedMinute(trigger, id: dismissKeyId, userId: session.userId)
+            let evaluation = trigger == .newTime
+                ? SuggestionEngine.evaluateNewTime(task: snapshot, context: context, dismissedAt: dismissedAt)
+                : SuggestionEngine.evaluateReTime(task: snapshot, context: context, dismissedAt: dismissedAt)
+            // An empty evaluation means the trigger's preconditions never
+            // held - nothing happened, nothing to report.
+            guard evaluation.proposal != nil || evaluation.blocked != nil else { continue }
+            if !evaluatedTriggers.contains(trigger) {
+                evaluatedTriggers.insert(trigger)
+                service.recordEvaluated(evaluation, userId: session.userId)
+            }
+            if let proposal = evaluation.proposal {
+                presentedProposals[trigger] = proposal
+                suggestionLifecycles[trigger] = .offered
+                service.recordShown(proposal, userId: session.userId)
+            }
+        }
+    }
+
+    /// The chip the View renders right now, derived from the frozen
+    /// proposals: manual changes can satisfy or remove a chip, but never
+    /// regenerate one.
+    private func suggestionChipState() -> TaskEditorBehavior.SuggestionChip? {
+        for trigger in [SuggestionTrigger.reTime, .newTime] {
+            guard let proposal = presentedProposals[trigger],
+                  let lifecycle = suggestionLifecycles[trigger]
+            else { continue }
+            let listName = proposal.listId.flatMap { id in lists.first { $0.id == id }?.name }
+            switch lifecycle {
+            case .dismissed:
+                continue
+            case .confirmed:
+                // Quiet confirmed state; everything stays editable. A
+                // cleared time retires the row (the outcome classifier
+                // still remembers the tap).
+                guard draft.hasTime else { continue }
+                return TaskEditorBehavior.SuggestionChip(
+                    label: SuggestionCopy.confirmed(minute: proposal.displayedMinute),
+                    reason: "",
+                    accessibilityLabel: SuggestionCopy.confirmed(minute: proposal.displayedMinute),
+                    isConfirmed: true
+                )
+            case .offered:
+                guard offeredPreconditionsHold(trigger, proposal: proposal) else { continue }
+                return TaskEditorBehavior.SuggestionChip(
+                    label: SuggestionCopy.chipLabel(proposal, petName: uiState.petName),
+                    reason: SuggestionCopy.reason(proposal, listName: listName),
+                    accessibilityLabel: SuggestionCopy.accessibilityLabel(
+                        proposal, petName: uiState.petName, listName: listName
+                    ),
+                    isConfirmed: false
+                )
+            }
+        }
+        return nil
+    }
+
+    private func offeredPreconditionsHold(
+        _ trigger: SuggestionTrigger, proposal: SuggestionProposal
+    ) -> Bool {
+        switch trigger {
+        case .newTime:
+            // A manually chosen time satisfies or replaces the offer.
+            return draft.dueAt != nil && !draft.hasTime
+        case .reTime:
+            guard draft.repeatRule != nil, draft.hasTime, let dueAt = draft.dueAt else {
+                return false
+            }
+            // A manual pick near the proposal is a match - the chip's
+            // job is done (the classifier records it at save).
+            let minute = Self.minuteOfDay(dueAt)
+            return SuggestionEngine.circularDistance(minute, proposal.displayedMinute) > 30
+        }
+    }
+
+    private var visibleOfferedTrigger: SuggestionTrigger? {
+        for trigger in [SuggestionTrigger.reTime, .newTime] {
+            guard let proposal = presentedProposals[trigger],
+                  suggestionLifecycles[trigger] == .offered,
+                  offeredPreconditionsHold(trigger, proposal: proposal)
+            else { continue }
+            return trigger
+        }
+        return nil
+    }
+
+    /// Sets the time exactly as a manual pick would - fully editable
+    /// after; saving proceeds through the normal editor path.
+    private func acceptSuggestion() {
+        guard let trigger = visibleOfferedTrigger,
+              let proposal = presentedProposals[trigger]
+        else { return }
+        tappedTriggers.insert(trigger)
+        suggestionLifecycles[trigger] = .confirmed
+        let base = draft.dueAt ?? Calendar.current.startOfDay(for: .now)
+        draft.dueAt = Self.combine(day: base, minuteOfDay: proposal.displayedMinute)
+        draft.hasTime = true
+        Haptics.success()
+        rebuild(picker: .none)
+    }
+
+    /// No confirmation, no "are you sure" - the ledger remembers the
+    /// displayed minute so the same proposal stays gone until it moves.
+    private func dismissSuggestion() {
+        guard let service = suggestionService, let session = suggestionSession,
+              let trigger = visibleOfferedTrigger,
+              let proposal = presentedProposals[trigger],
+              let id = trigger == .newTime ? currentTaskId : seriesIdentity
+        else { return }
+        suggestionLifecycles[trigger] = .dismissed
+        service.recordDismissed(
+            trigger, id: id, displayedMinute: proposal.displayedMinute, userId: session.userId
+        )
+        Haptics.impact(.light)
+        rebuild(picker: uiState.activePicker)
+    }
+
+    /// Save-based terminal outcomes, classified once. Precedence: tapped
+    /// state > matched state > dismissed > ignored - a dismiss followed
+    /// by manually choosing the suggested time is MATCHED, the more
+    /// informative signal. Cancel never reaches here: an abandoned
+    /// session is not evidence against the suggestion.
+    private func classifySuggestionOutcomes() {
+        guard let service = suggestionService, let session = suggestionSession,
+              let taskId = currentTaskId
+        else { return }
+        let savedMinute = draft.hasTime ? draft.dueAt.map { Self.minuteOfDay($0) } : nil
+        for (trigger, proposal) in presentedProposals {
+            let outcome: SuggestionOutcome
+            if tappedTriggers.contains(trigger) {
+                outcome = savedMinute == proposal.displayedMinute ? .accepted : .adjusted
+            } else if let savedMinute,
+                      SuggestionEngine.circularDistance(savedMinute, proposal.displayedMinute) <= 30 {
+                outcome = .matched
+            } else if suggestionLifecycles[trigger] == .dismissed {
+                outcome = .dismissed
+            } else {
+                outcome = .ignored
+            }
+            service.recordOutcome(
+                outcome, proposal: proposal, taskId: taskId,
+                seriesId: seriesIdentity, userId: session.userId
+            )
+        }
+        presentedProposals = [:]
+    }
+
+    private static func minuteOfDay(_ date: Date, calendar: Calendar = .current) -> Int {
+        let parts = calendar.dateComponents([.hour, .minute], from: date)
+        return (parts.hour ?? 0) * 60 + (parts.minute ?? 0)
+    }
+
+    private static func combine(day: Date, minuteOfDay minute: Int, calendar: Calendar = .current) -> Date {
+        calendar.date(
+            bySettingHour: minute / 60, minute: minute % 60, second: 0, of: day
+        ) ?? day
+    }
+
     // MARK: - Derivation
 
     private func rebuild(picker: TaskEditorBehavior.PickerTarget) {
+        refreshSuggestions()
         let calendar = Calendar.current
         var next = uiState
         next.isEditing = editingTask != nil
@@ -387,6 +623,7 @@ final class TaskEditorViewModel: ObservableStateViewModel<
         next.timeText = draft.hasTime
             ? (draft.dueAt ?? .now).formatted(date: .omitted, time: .shortened)
             : "Add time"
+        next.suggestionChip = suggestionChipState()
 
         next.priorityOptions = [
             .init(id: TaskPriority.low.rawValue, label: "Low", dot: .custom(Self.lowPriorityDot)),

@@ -639,4 +639,64 @@ struct DistributionTests {
         #expect(ObservationEngine.circularCenterMinute(of: [720]) == 720)
         #expect(ObservationEngine.circularCenterMinute(of: []) == nil)
     }
+
+    @Test("series scope keeps timed completions only, and names itself")
+    func seriesScopeTimedOnly() {
+        let timed = (0..<10).map { index in
+            makeStat(seriesId: "s1", localDate: day(-1 - index), localMinute: 1200, hasTime: true,
+                     isRecurring: true)
+        }
+        let dateOnly = (0..<3).map { index in
+            makeStat(seriesId: "s1", localDate: day(-20 - index), localMinute: 900, hasTime: false,
+                     isRecurring: true)
+        }
+        let other = (0..<5).map { index in
+            makeStat(taskId: "other", localDate: day(-1 - index), localMinute: 600, hasTime: true)
+        }
+        let result = ObservationEngine.suggestionDistribution(
+            scope: .series("s1"),
+            inputs: makeInputs(records: timed + dateOnly + other)
+        )
+        #expect(result.scopeUsed == .series("s1"))
+        #expect(result.evidenceCount == 10, "date-only rows are not evidence about a due TIME")
+        #expect(result.entries.allSatisfy { $0.minute == 1200 })
+    }
+
+    @Test("suggestion entries carry provenance: identity, civil day, rescheduleCount")
+    func entryProvenance() {
+        let records = [
+            makeStat(taskId: "t1", seriesId: "s1", localDate: day(-1), localMinute: 600,
+                     rescheduleCount: 2),
+            makeStat(taskId: "t2", localDate: day(-2), localMinute: 700, rescheduleCount: nil),
+        ]
+        let result = ObservationEngine.suggestionDistribution(
+            scope: .global, inputs: makeInputs(records: records)
+        )
+        func byMinute(_ minute: Int) -> DistributionResult.Entry {
+            result.entries.first { $0.minute == minute }!
+        }
+        #expect(byMinute(600).identity == "s1", "seriesId over taskId - one habit, one identity")
+        #expect(byMinute(600).rescheduleCount == 2)
+        #expect(byMinute(600).day == day(-1))
+        #expect(byMinute(700).identity == "t2")
+        #expect(byMinute(700).rescheduleCount == nil, "unknown stays unknown, never 0")
+    }
+
+    @Test("the day cap applies AFTER scope filtering - a scope's cap is its own")
+    func dayCapAfterFilter() {
+        // Five same-day series completions + five same-day others: the
+        // series scope caps to 3 of ITS OWN, not 3 of the mixed day.
+        let series = (0..<5).map { index in
+            makeStat(seriesId: "s1", localDate: day(-1), localMinute: 1000 + index, hasTime: true,
+                     isRecurring: true)
+        }
+        let other = (0..<5).map { index in
+            makeStat(taskId: "o\(index)", localDate: day(-1), localMinute: 500 + index)
+        }
+        let result = ObservationEngine.suggestionDistribution(
+            scope: .series("s1"), inputs: makeInputs(records: series + other)
+        )
+        #expect(result.evidenceCount == 3)
+        #expect(result.entries.allSatisfy { $0.minute >= 1000 })
+    }
 }

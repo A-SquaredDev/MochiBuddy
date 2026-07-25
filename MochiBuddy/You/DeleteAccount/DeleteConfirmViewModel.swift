@@ -19,6 +19,7 @@ final class DeleteConfirmViewModel: ObservableStateViewModel<
     private let accountEraser: AccountEraser
     private let observationLedger: ObservationLedger?
     private let callbackLedger: CallbackLedger?
+    private let suggestionLedger: SuggestionLedger?
 
     private var pendingNonce: AppleSignInNonce?
 
@@ -26,12 +27,14 @@ final class DeleteConfirmViewModel: ObservableStateViewModel<
         authRepository: AuthRepository,
         accountEraser: AccountEraser,
         observationLedger: ObservationLedger? = nil,
-        callbackLedger: CallbackLedger? = nil
+        callbackLedger: CallbackLedger? = nil,
+        suggestionLedger: SuggestionLedger? = nil
     ) {
         self.authRepository = authRepository
         self.accountEraser = accountEraser
         self.observationLedger = observationLedger
         self.callbackLedger = callbackLedger
+        self.suggestionLedger = suggestionLedger
         super.init(initialState: DeleteConfirmBehavior.UIState())
     }
 
@@ -93,12 +96,13 @@ final class DeleteConfirmViewModel: ObservableStateViewModel<
             state.isWorking = true
             do {
                 try await accountEraser.eraseAllData(userId: userId)
-                // Deletion clears the UID's observation + callback
-                // surfacing cadence (Feature 4 + 2 ledger hygiene) -
+                // Deletion clears the UID's observation + callback +
+                // suggestion cadence (Feature 4 + 2 + 5 ledger hygiene) -
                 // device-local, so it rides the erase, not the Firestore
                 // subtree.
                 observationLedger?.clear(userId: userId)
                 callbackLedger?.clear(userId: userId)
+                suggestionLedger?.clear(userId: userId)
                 try await authRepository.deleteCurrentUser()
                 state.isWorking = false
                 setNavigationEvent(.deleted)

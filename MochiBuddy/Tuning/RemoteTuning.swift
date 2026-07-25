@@ -109,6 +109,22 @@ struct ResolvedTuning: Equatable {
     var callbackFactAgeDays = 7
     var callbackBestDayMin = 5
     var callbackStreakQuietDays = 14
+    // Suggested times (Personal Layer, Feature 5). Qualification floors
+    // are raw day-capped counts; the reschedule weight shapes peaks only.
+    var suggestMinEvidence = 15
+    var suggestMinDates = 5
+    var suggestPeakShare = 0.35
+    var suggestPeakWindowMin = 90
+    var suggestPeakDates = 3
+    var suggestRunnerUpMargin = 0.10
+    var suggestSeriesMin = 8
+    var suggestSeriesDates = 5
+    var suggestListMinSeries = 3
+    var suggestListSeriesShare = 0.40
+    var suggestRetimeMismatchHours = 3
+    var suggestMinLeadMin = 30
+    var suggestDismissRearmMin = 60
+    var suggestRescheduleWeight = 0.25
 
     static let defaults = ResolvedTuning()
 
@@ -219,6 +235,21 @@ struct ResolvedTuning: Equatable {
         count("callback_fact_age_days", 0...60, into: &tuning.callbackFactAgeDays)
         count("callback_best_day_min", 2...20, into: &tuning.callbackBestDayMin)
         count("callback_streak_quiet_days", 0...60, into: &tuning.callbackStreakQuietDays)
+
+        count("suggest_min_evidence", 2...100, into: &tuning.suggestMinEvidence)
+        count("suggest_min_dates", 1...50, into: &tuning.suggestMinDates)
+        number("suggest_peak_share", 0...1, into: &tuning.suggestPeakShare)
+        count("suggest_peak_window_min", 15...360, into: &tuning.suggestPeakWindowMin)
+        count("suggest_peak_dates", 1...50, into: &tuning.suggestPeakDates)
+        number("suggest_runner_up_margin", 0...1, into: &tuning.suggestRunnerUpMargin)
+        count("suggest_series_min", 2...100, into: &tuning.suggestSeriesMin)
+        count("suggest_series_dates", 1...50, into: &tuning.suggestSeriesDates)
+        count("suggest_list_min_series", 1...20, into: &tuning.suggestListMinSeries)
+        number("suggest_list_series_share", 0...1, into: &tuning.suggestListSeriesShare)
+        count("suggest_retime_mismatch_hours", 1...12, into: &tuning.suggestRetimeMismatchHours)
+        count("suggest_min_lead_min", 0...240, into: &tuning.suggestMinLeadMin)
+        count("suggest_dismiss_rearm_min", 0...720, into: &tuning.suggestDismissRearmMin)
+        number("suggest_reschedule_weight", 0...2, into: &tuning.suggestRescheduleWeight)
         if let data = source.json("streak_milestones"),
            let parsed = try? JSONDecoder().decode(Milestones.self, from: data),
            !parsed.fixed.isEmpty, parsed.fixed.allSatisfy({ $0 > 0 }), parsed.thenEvery > 0 {
@@ -290,6 +321,20 @@ enum RemoteTuning {
         "callback_fact_age_days",
         "callback_best_day_min",
         "callback_streak_quiet_days",
+        "suggest_min_evidence",
+        "suggest_min_dates",
+        "suggest_peak_share",
+        "suggest_peak_window_min",
+        "suggest_peak_dates",
+        "suggest_runner_up_margin",
+        "suggest_series_min",
+        "suggest_series_dates",
+        "suggest_list_min_series",
+        "suggest_list_series_share",
+        "suggest_retime_mismatch_hours",
+        "suggest_min_lead_min",
+        "suggest_dismiss_rearm_min",
+        "suggest_reschedule_weight",
     ]
     static let jsonKeys: [String] = [
         "notif_floor_taper",
@@ -380,6 +425,24 @@ enum RemoteTuning {
         CallbackConstants.factAgeDays = tuning.callbackFactAgeDays
         CallbackConstants.bestDayMin = tuning.callbackBestDayMin
         CallbackConstants.streakQuietDays = tuning.callbackStreakQuietDays
+
+        // Suggested times: gates re-derive on the next editor open; the
+        // ledger's dismissals key on displayed proposals, not thresholds,
+        // so tuning never touches cadence state.
+        SuggestionConstants.minEvidence = tuning.suggestMinEvidence
+        SuggestionConstants.minDates = tuning.suggestMinDates
+        SuggestionConstants.peakShare = tuning.suggestPeakShare
+        SuggestionConstants.peakWindowMin = tuning.suggestPeakWindowMin
+        SuggestionConstants.peakDates = tuning.suggestPeakDates
+        SuggestionConstants.runnerUpMargin = tuning.suggestRunnerUpMargin
+        SuggestionConstants.seriesMin = tuning.suggestSeriesMin
+        SuggestionConstants.seriesDates = tuning.suggestSeriesDates
+        SuggestionConstants.listMinSeries = tuning.suggestListMinSeries
+        SuggestionConstants.listSeriesShare = tuning.suggestListSeriesShare
+        SuggestionConstants.retimeMismatchHours = tuning.suggestRetimeMismatchHours
+        SuggestionConstants.minLeadMin = tuning.suggestMinLeadMin
+        SuggestionConstants.dismissRearmMin = tuning.suggestDismissRearmMin
+        SuggestionConstants.rescheduleWeight = tuning.suggestRescheduleWeight
     }
 
     /// Activate whatever last session fetched, apply it, then fetch in

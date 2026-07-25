@@ -262,7 +262,65 @@ struct TaskEditorView: View {
                     }
                 }
             }
+            if let chip = viewModel.suggestionChip {
+                suggestionRow(chip)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
         }
+        .animation(MochiMotion.soft, value: viewModel.suggestionChip)
+    }
+
+    /// The suggested-time chip (Personal Layer, Feature 5) - present only
+    /// while its gates pass, absent otherwise. The whole row is the
+    /// accept button; the small x is the dismiss affordance.
+    private func suggestionRow(_ chip: TaskEditorBehavior.SuggestionChip) -> some View {
+        HStack(spacing: 9) {
+            Button {
+                guard !chip.isConfirmed else { return }
+                Haptics.impact(.light)
+                viewModel.trigger(.suggestionTapped)
+            } label: {
+                HStack(spacing: 9) {
+                    Image(systemName: chip.isConfirmed ? "checkmark.circle.fill" : "clock")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(chip.isConfirmed ? theme.primary : theme.muted)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(chip.label)
+                            .font(MochiFont.display(13, weight: .medium))
+                            .foregroundStyle(theme.ink)
+                        if !chip.reason.isEmpty {
+                            Text(chip.reason)
+                                .font(MochiFont.body(11, weight: .bold))
+                                .foregroundStyle(theme.muted)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    Spacer(minLength: 0)
+                }
+            }
+            .buttonStyle(SquishButtonStyle())
+            .accessibilityLabel(chip.accessibilityLabel)
+            if !chip.isConfirmed {
+                Button {
+                    Haptics.impact(.light)
+                    viewModel.trigger(.suggestionDismissed)
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(theme.muted)
+                        .frame(width: 26, height: 26)
+                        .background(theme.surface2, in: Circle())
+                }
+                .buttonStyle(SquishButtonStyle())
+                .accessibilityLabel(SuggestionCopy.dismissAccessibilityLabel)
+            }
+        }
+        .padding(EdgeInsets(top: 10, leading: 13, bottom: 10, trailing: 10))
+        .background(theme.surface, in: RoundedRectangle(cornerRadius: MochiRadius.md))
+        .overlay(
+            RoundedRectangle(cornerRadius: MochiRadius.md)
+                .stroke(theme.line, lineWidth: 1.5)
+        )
     }
 
     private func fieldBlock(_ label: String, @ViewBuilder content: () -> some View) -> some View {

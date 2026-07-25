@@ -74,7 +74,8 @@ final class YouRouter: YouRouting {
             observationService: container.observationService,
             observationLedger: container.observationLedger,
             letterService: container.letterCompositionService,
-            memoriesService: container.memoriesService
+            memoriesService: container.memoriesService,
+            suggestionLedger: container.suggestionLedger
         )
         navController.navigate(
             route: AdHocRoute(key: "you.devScheduler"),
@@ -180,7 +181,8 @@ final class YouRouter: YouRouting {
                         petName: $0.container.petIdentityStore.name,
                         authRepository: $0.container.authRepository,
                         taskRepository: $0.container.taskRepository,
-                        listRepository: $0.container.listRepository
+                        listRepository: $0.container.listRepository,
+                        suggestionService: $0.container.suggestionService
                     ))) } ?? AnyView(EmptyView())
                 }
             ))
@@ -227,7 +229,8 @@ final class YouRouter: YouRouting {
             authRepository: container.authRepository,
             accountEraser: container.accountEraser,
             observationLedger: container.observationLedger,
-            callbackLedger: container.callbackLedger
+            callbackLedger: container.callbackLedger,
+            suggestionLedger: container.suggestionLedger
         )
         navController.navigate(
             route: AdHocRoute(key: "you.deleteConfirm"),

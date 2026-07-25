@@ -66,6 +66,8 @@ final class AppContainer {
     let observationService: ObservationService
     let callbackLedger = CallbackLedger()
     let memoriesService: MemoriesService
+    let suggestionLedger = SuggestionLedger()
+    let suggestionService: SuggestionService
     let letterRepository: LetterRepository
     let letterCompositionService: LetterCompositionService
     let vacationReentryService: VacationReentryService
@@ -131,6 +133,18 @@ final class AppContainer {
             listRepository: listRepository,
             ledger: observationLedger,
             telemetry: OSLogObservationTelemetry()
+        )
+        // Feature 5: the editor's suggested-time chip - assembles a
+        // session over the observation fetch, owns the dismissal ledger.
+        suggestionService = SuggestionService(
+            authRepository: authRepository,
+            profileRepository: profileRepository,
+            taskRepository: taskRepository,
+            observationService: observationService,
+            membershipSession: membershipSession,
+            ledger: suggestionLedger,
+            telemetry: OSLogSuggestionTelemetry(),
+            calendar: .autoupdatingCurrent
         )
         memoriesService = MemoriesService(
             authRepository: authRepository,

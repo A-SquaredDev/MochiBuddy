@@ -70,6 +70,17 @@ final class ObservationService {
         return ObservationEngine.timeOfDayDistribution(listId: listId, inputs: inputs)
     }
 
+    /// Raw per-scope distribution for suggested times (Feature 5) - no
+    /// fallback logic; scope precedence belongs to the suggestion engine.
+    func suggestionDistribution(
+        scope: ObservationEngine.SuggestionScope, now: Date = .now, calendar: Calendar = .current
+    ) async -> DistributionResult? {
+        guard let userId = currentUserId,
+              let inputs = await inputs(userId: userId, now: now, calendar: calendar)
+        else { return nil }
+        return ObservationEngine.suggestionDistribution(scope: scope, inputs: inputs)
+    }
+
     /// Marks an observation surfaced and returns its copy line (nil when
     /// the pool can't render, e.g. a list-return whose list name is gone).
     func surfaced(

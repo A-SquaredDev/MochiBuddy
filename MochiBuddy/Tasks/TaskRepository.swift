@@ -77,10 +77,15 @@ struct CompletedTaskStat: Equatable {
 }
 
 protocol TaskRepository: AnyObject {
+    /// Mints a task id without writing anything - the suggestion chip's
+    /// dismissal ledger keys unsaved tasks by it, so a dismissal made
+    /// before the first save survives the save (Personal Layer, Feature 5).
+    func allocateTaskId(userId: String) -> String
     /// Returns the new task's id (available immediately - offline persistence
     /// applies the write to the local cache before the server ack).
+    /// `id` saves under a preallocated identity; nil mints one.
     @discardableResult
-    func addTask(_ draft: TaskDraft, userId: String) async throws -> String
+    func addTask(_ draft: TaskDraft, id: String?, userId: String) async throws -> String
     func incompleteTasks(userId: String) async throws -> [TaskItem]
     /// One task by id - notification actions resolve their target with it.
     func task(id: String, userId: String) async throws -> TaskItem?
@@ -115,6 +120,13 @@ protocol TaskRepository: AnyObject {
     func incompleteTasksFromServer(userId: String) async throws -> [TaskItem]
 }
 
+extension TaskRepository {
+    @discardableResult
+    func addTask(_ draft: TaskDraft, userId: String) async throws -> String {
+        try await addTask(draft, id: nil, userId: userId)
+    }
+}
+
 final class FirestoreTaskRepository: TaskRepository {
 
     private let firestore: Firestore
@@ -127,8 +139,12 @@ final class FirestoreTaskRepository: TaskRepository {
         firestore.collection("users").document(userId).collection("tasks")
     }
 
+    func allocateTaskId(userId: String) -> String {
+        tasks(userId).document().documentID
+    }
+
     @discardableResult
-    func addTask(_ draft: TaskDraft, userId: String) async throws -> String {
+    func addTask(_ draft: TaskDraft, id: String?, userId: String) async throws -> String {
         var fields: [String: Any] = [
             "title": draft.title,
             "hasTime": draft.hasTime,
@@ -158,6 +174,10 @@ final class FirestoreTaskRepository: TaskRepository {
         }
         // Not awaited: offline persistence applies the write to the local
         // cache instantly; awaiting would block until a server ack.
+        if let id {
+            tasks(userId).document(id).setData(fields, completion: nil)
+            return id
+        }
         return tasks(userId).addDocument(data: fields, completion: nil).documentID
     }
 

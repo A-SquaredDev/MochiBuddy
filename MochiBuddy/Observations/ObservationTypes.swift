@@ -95,17 +95,33 @@ struct QualifiedObservation: Equatable {
 struct DistributionResult: Equatable {
 
     enum Scope: Equatable {
+        /// One recurring habit's own completions (seriesId ?? taskId).
+        case series(String)
         case list(String)
         case globalFallback
     }
 
-    /// Canonical minute-of-day values (0...1439), day-capped, one entry
-    /// per contributing completion. Histograms and bands are derived views.
-    let minutes: [Int]
+    /// One day-capped completion, with the provenance Feature 5's gates
+    /// read: the civil date (peak-date spread), the task/series identity
+    /// (list concentration guard), and the reschedule counter (peak-shaping
+    /// weight; nil = unknown, never "known unmoved").
+    struct Entry: Equatable {
+        let minute: Int
+        let day: String
+        let identity: String
+        let rescheduleCount: Int?
+    }
+
+    /// Day-capped, one entry per contributing completion. Histograms and
+    /// bands are derived views.
+    let entries: [Entry]
     let scopeUsed: Scope
+
+    /// Canonical minute-of-day values (0...1439).
+    var minutes: [Int] { entries.map(\.minute) }
     /// Day-capped completion count backing the minutes.
-    let evidenceCount: Int
-    let distinctDates: Int
+    var evidenceCount: Int { entries.count }
+    var distinctDates: Int { Set(entries.map(\.day)).count }
 }
 
 // MARK: - Replay timeline (inspector + tests)

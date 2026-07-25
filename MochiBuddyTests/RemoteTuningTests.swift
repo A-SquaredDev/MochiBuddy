@@ -85,7 +85,8 @@ struct RemoteTuningTests {
     func consoleKeysMatch() {
         // The exact list for the Firebase console: the Jul 19 2026 set,
         // the 24 obs_* observation keys (Feature 4), the 6 letter_* keys
-        // (Feature 3), and the 6 callback_* keys (Feature 2).
+        // (Feature 3), the 6 callback_* keys (Feature 2), and the 14
+        // suggest_* keys (Feature 5).
         let published: Set<String> = [
             "mood_anchor", "mood_lateness_cap_hours", "mood_base_sting",
             "mood_stress_saturation", "mood_momentum_max", "mood_momentum_saturation",
@@ -111,12 +112,18 @@ struct RemoteTuningTests {
             "letter_quiet_max", "letter_rough_overdue_days", "letter_great_ratio",
             "callback_weekly_cap", "callback_min_gap_days", "callback_min_age_days",
             "callback_fact_age_days", "callback_best_day_min", "callback_streak_quiet_days",
+            "suggest_min_evidence", "suggest_min_dates", "suggest_peak_share",
+            "suggest_peak_window_min", "suggest_peak_dates", "suggest_runner_up_margin",
+            "suggest_series_min", "suggest_series_dates",
+            "suggest_list_min_series", "suggest_list_series_share",
+            "suggest_retime_mismatch_hours", "suggest_min_lead_min",
+            "suggest_dismiss_rearm_min", "suggest_reschedule_weight",
         ]
         #expect(Set(RemoteTuning.allKeys) == published)
-        #expect(RemoteTuning.allKeys.count == 60, "no duplicates")
+        #expect(RemoteTuning.allKeys.count == 74, "no duplicates")
     }
 
-    @Test("EVERY published key is consumed with its declared type - override all 54, every field moves")
+    @Test("EVERY published key is consumed with its declared type - override all 74, every field moves")
     @MainActor
     func everyKeyDecodes() {
         let source = StubTuningSource(
@@ -176,6 +183,20 @@ struct RemoteTuningTests {
                 "callback_fact_age_days": 5,
                 "callback_best_day_min": 6,
                 "callback_streak_quiet_days": 10,
+                "suggest_min_evidence": 12,
+                "suggest_min_dates": 4,
+                "suggest_peak_share": 0.4,
+                "suggest_peak_window_min": 60,
+                "suggest_peak_dates": 2,
+                "suggest_runner_up_margin": 0.15,
+                "suggest_series_min": 6,
+                "suggest_series_dates": 4,
+                "suggest_list_min_series": 2,
+                "suggest_list_series_share": 0.5,
+                "suggest_retime_mismatch_hours": 2,
+                "suggest_min_lead_min": 45,
+                "suggest_dismiss_rearm_min": 90,
+                "suggest_reschedule_weight": 0.5,
             ],
             jsons: [
                 "notif_floor_taper": "[5,4,3,2,1]",
@@ -217,7 +238,13 @@ struct RemoteTuningTests {
             letterSendWeekday: 7, letterSendHour: 18, letterMaxBeats: 2,
             letterQuietMax: 3, letterRoughOverdueDays: 5, letterGreatRatio: 2,
             callbackWeeklyCap: 3, callbackMinGapDays: 2, callbackMinAgeDays: 14,
-            callbackFactAgeDays: 5, callbackBestDayMin: 6, callbackStreakQuietDays: 10
+            callbackFactAgeDays: 5, callbackBestDayMin: 6, callbackStreakQuietDays: 10,
+            suggestMinEvidence: 12, suggestMinDates: 4, suggestPeakShare: 0.4,
+            suggestPeakWindowMin: 60, suggestPeakDates: 2, suggestRunnerUpMargin: 0.15,
+            suggestSeriesMin: 6, suggestSeriesDates: 4,
+            suggestListMinSeries: 2, suggestListSeriesShare: 0.5,
+            suggestRetimeMismatchHours: 2, suggestMinLeadMin: 45,
+            suggestDismissRearmMin: 90, suggestRescheduleWeight: 0.5
         )
         #expect(tuning == expected, "every parameter must land in exactly one field")
     }
@@ -293,5 +320,19 @@ struct RemoteTuningTests {
         #expect(CallbackConstants.factAgeDays == 7)
         #expect(CallbackConstants.bestDayMin == 5)
         #expect(CallbackConstants.streakQuietDays == 14)
+        #expect(SuggestionConstants.minEvidence == 15)
+        #expect(SuggestionConstants.minDates == 5)
+        #expect(SuggestionConstants.peakShare == 0.35)
+        #expect(SuggestionConstants.peakWindowMin == 90)
+        #expect(SuggestionConstants.peakDates == 3)
+        #expect(SuggestionConstants.runnerUpMargin == 0.10)
+        #expect(SuggestionConstants.seriesMin == 8)
+        #expect(SuggestionConstants.seriesDates == 5)
+        #expect(SuggestionConstants.listMinSeries == 3)
+        #expect(SuggestionConstants.listSeriesShare == 0.40)
+        #expect(SuggestionConstants.retimeMismatchHours == 3)
+        #expect(SuggestionConstants.minLeadMin == 30)
+        #expect(SuggestionConstants.dismissRearmMin == 60)
+        #expect(SuggestionConstants.rescheduleWeight == 0.25)
     }
 }

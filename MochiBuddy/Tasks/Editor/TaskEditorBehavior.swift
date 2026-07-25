@@ -35,6 +35,16 @@ enum TaskEditorBehavior {
         var dot: ChipDot = .none
     }
 
+    /// The suggested-time chip (Personal Layer, Feature 5). Present only
+    /// while a trigger's gates pass - no placeholder, no layout jump.
+    struct SuggestionChip: Equatable {
+        var label: String
+        var reason: String
+        var accessibilityLabel: String
+        /// Tapped: the quiet "10:00 AM set" state (no dismiss affordance).
+        var isConfirmed: Bool
+    }
+
     /// One weekday toggle in the custom-repeat row.
     struct DayChip: Equatable, Identifiable {
         /// Calendar weekday number (1 = Sunday … 7 = Saturday).
@@ -60,6 +70,7 @@ enum TaskEditorBehavior {
         var hasTime = false
         var timeText = "Add time"
         var time = Date()
+        var suggestionChip: SuggestionChip?
         var activePicker: PickerTarget = .none
         var priorityOptions: [ChoiceChip] = []
         var selectedPriorityId = TaskPriority.med.rawValue
@@ -85,6 +96,8 @@ enum TaskEditorBehavior {
         case clearTimeTapped
         case dateChanged(Date)
         case timeChanged(Date)
+        case suggestionTapped
+        case suggestionDismissed
         case selectPriority(String)
         case selectList(String)
         case selectRepeat(String)
