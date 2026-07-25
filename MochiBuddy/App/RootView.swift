@@ -100,6 +100,22 @@ struct RootView: View {
             if phase == .active, container.session.phase == .home {
                 Task { @MainActor in
                     await container.widgetCompletionDrain.drain()
+                    // Entitlement can expire while backgrounded, and cold
+                    // launch is the only other place that notices - without
+                    // this a backgrounded app never meets the resubscribe
+                    // gate. RevenueCat caches customerInfo, so rapid
+                    // foregrounds stay cheap.
+                    let wasLapsed = container.membershipSession.isLapsed
+                    container.membershipSession.status = await container.membershipStore.currentStatus()
+                    if !wasLapsed, container.membershipSession.isLapsed {
+                        // Freshly lapsed: back through the flow - Splash
+                        // re-evaluates and lands on the reactivate gate,
+                        // the same path You's "Wake Mochi" takes. A user
+                        // who already chose degraded mode stays put (the
+                        // wasLapsed guard).
+                        container.session.phase = .flow
+                        return
+                    }
                     // After the drain, so the composition barrier's flush
                     // sees widget completions already durable.
                     await container.letterCompositionService.handleUserForeground()
