@@ -14,6 +14,7 @@
 
 import FirebaseRemoteConfig
 import Foundation
+import os
 
 /// The seam under Firebase so resolution is pure and testable.
 protocol TuningSource {
@@ -456,8 +457,27 @@ enum RemoteTuning {
             return
         }
         let remoteConfig = RemoteConfig.remoteConfig()
+        #if DEBUG
+        // Dev builds skip the 12h fetch throttle so a console publish is
+        // checkable on the next launch pair (fetch now, activate next).
+        let settings = RemoteConfigSettings()
+        settings.minimumFetchInterval = 0
+        remoteConfig.configSettings = settings
+        #endif
         _ = try? await remoteConfig.activate()
         apply(ResolvedTuning.resolve(from: FirebaseTuningSource(remoteConfig: remoteConfig)))
+        #if DEBUG
+        // Console-completeness audit: unit tests pin the CODE's 74-key
+        // list but cannot see the console; this names any key the
+        // activated template did not carry with a remote source.
+        let missing = allKeys.filter { remoteConfig.configValue(forKey: $0).source != .remote }
+        let logger = Logger(subsystem: "com.aaronmckain.MochiBuddy", category: "tuning")
+        if missing.isEmpty {
+            logger.info("remote_tuning_audit all \(allKeys.count) keys remote-sourced")
+        } else {
+            logger.warning("remote_tuning_audit missing \(missing.count) of \(allKeys.count): \(missing.joined(separator: " "))")
+        }
+        #endif
         remoteConfig.fetch { _, _ in } // lands next launch
     }
 }
