@@ -11,12 +11,21 @@
 import SwiftUI
 
 struct LetterDetailView: View {
+
+    /// A rendered card en route to the share sheet.
+    private struct ShareItem: Identifiable {
+        let variant: String
+        let image: UIImage
+        var id: String { variant }
+    }
+
     @State var viewModel: LetterDetailViewModel
     /// Nil when pushed (back arrow via router); set when presented as a
     /// sheet (close button).
     var onClose: (() -> Void)?
     var onBack: (() -> Void)?
 
+    @State private var shareItem: ShareItem?
     @Environment(\.mochiTheme) private var theme
 
     var body: some View {
@@ -36,6 +45,19 @@ struct LetterDetailView: View {
         }
         .background(theme.bg)
         .onLoad { viewModel.trigger(.load) }
+        .sheet(item: $shareItem) { item in
+            // UIActivityViewController, not ShareLink: a ShareLink inside
+            // a Menu never presented (its activation lost to the menu
+            // dismissal), and the UIKit sheet also gives Save Image plus a
+            // completion hook so letter_shared logs only on a REAL share.
+            ActivityShareSheet(image: item.image) { completed in
+                if completed {
+                    viewModel.trigger(.sharedTapped(variant: item.variant))
+                }
+                shareItem = nil
+            }
+            .presentationDetents([.medium, .large])
+        }
     }
 
     private var letterCard: some View {
@@ -66,31 +88,17 @@ struct LetterDetailView: View {
 
     private var shareMenu: some View {
         Menu {
-            ShareLink(
-                item: renderCard(text: viewModel.letter.privateRenderedText),
-                preview: SharePreview(
-                    "Letter from \(viewModel.petName)",
-                    image: renderCard(text: viewModel.letter.privateRenderedText)
-                )
-            ) {
+            Button {
+                presentShare(variant: "private", text: viewModel.letter.privateRenderedText)
+            } label: {
                 Label("Share", systemImage: "square.and.arrow.up")
             }
-            .simultaneousGesture(TapGesture().onEnded {
-                viewModel.trigger(.sharedTapped(variant: "private"))
-            })
             if viewModel.offersFullShare {
-                ShareLink(
-                    item: renderCard(text: viewModel.letter.fullRenderedText),
-                    preview: SharePreview(
-                        "Letter from \(viewModel.petName)",
-                        image: renderCard(text: viewModel.letter.fullRenderedText)
-                    )
-                ) {
+                Button {
+                    presentShare(variant: "full", text: viewModel.letter.fullRenderedText)
+                } label: {
                     Label("Share with task names", systemImage: "square.and.arrow.up.on.square")
                 }
-                .simultaneousGesture(TapGesture().onEnded {
-                    viewModel.trigger(.sharedTapped(variant: "full"))
-                })
             }
         } label: {
             Image(systemName: "square.and.arrow.up")
@@ -100,9 +108,9 @@ struct LetterDetailView: View {
         .accessibilityLabel("Share this letter")
     }
 
-    /// The rendered share card. Private text by default; the full variant
-    /// only ever reaches here through the explicit opt-in above.
-    private func renderCard(text: String) -> Image {
+    /// Renders the card and hands it to the share sheet. Private text by
+    /// default; the full variant only arrives via the explicit opt-in.
+    private func presentShare(variant: String, text: String) {
         let card = LetterShareCard(
             letterText: text,
             petName: viewModel.petName,
@@ -114,11 +122,26 @@ struct LetterDetailView: View {
         // through explicitly or the pet and placeholder render default.
         let renderer = ImageRenderer(content: card.environment(\.mochiTheme, theme))
         renderer.scale = 3
-        if let image = renderer.uiImage {
-            return Image(uiImage: image)
-        }
-        return Image(systemName: "envelope")
+        guard let image = renderer.uiImage else { return }
+        shareItem = ShareItem(variant: variant, image: image)
     }
+}
+
+/// The UIKit share sheet: image payload (Save Image, Messages, Mail, the
+/// works) plus the completion hook SwiftUI's ShareLink doesn't offer.
+private struct ActivityShareSheet: UIViewControllerRepresentable {
+    let image: UIImage
+    let onFinish: (Bool) -> Void
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let controller = UIActivityViewController(activityItems: [image], applicationActivities: nil)
+        controller.completionWithItemsHandler = { _, completed, _, _ in
+            onFinish(completed)
+        }
+        return controller
+    }
+
+    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }
 
 /// The shareable postcard (Personal Layer, Feature 3): letter text, the
