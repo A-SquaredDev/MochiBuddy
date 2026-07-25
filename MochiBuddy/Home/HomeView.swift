@@ -53,7 +53,10 @@ struct HomeView: View {
             .padding(EdgeInsets(top: 8, leading: 18, bottom: 24, trailing: 18))
             .animation(MochiMotion.soft, value: viewModel.isLoading)
         }
-        .background(theme.bg)
+        // ignoresSafeArea so the bg reaches under the keyboard - a plain
+        // background stops at the keyboard safe area and the strip behind
+        // its rounded top corners falls through to black.
+        .background(theme.bg.ignoresSafeArea())
         .scrollDismissesKeyboard(.interactively)
         .onAppear { viewModel.trigger(.refresh) }
         .sheet(isPresented: viewModel.collectBinding(for: \.showTreats, action: .dismissTreats)) {

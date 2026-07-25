@@ -40,11 +40,16 @@ struct ManageListsView: View {
                 listRow(list)
                     .listRowSeparator(.hidden)
                     .listRowInsets(EdgeInsets())
+                    // Clip the drag-lift preview to the card, not the cell.
+                    .contentShape(.dragPreview, RoundedRectangle(cornerRadius: MochiRadius.md))
                     // The card is the CELL background (not an inner view):
                     // a clear cell makes the drag-lift shadow render as a
-                    // solid dark slab under the row while reordering.
+                    // solid dark slab under the row while reordering. The
+                    // opaque theme.bg base keeps the snapshot's transparent
+                    // corners from compositing over black.
                     .listRowBackground(
                         ZStack {
+                            theme.bg
                             RoundedRectangle(cornerRadius: MochiRadius.md)
                                 .fill(theme.surface2)
                             RoundedRectangle(cornerRadius: MochiRadius.md)
@@ -88,7 +93,10 @@ struct ManageListsView: View {
         .contentMargins(.horizontal, 18, for: .scrollContent)
         .contentMargins(.top, 8, for: .scrollContent)
         .contentMargins(.bottom, 24, for: .scrollContent)
-        .background(theme.bg)
+        // ignoresSafeArea so the bg reaches under the keyboard raised by
+        // the name field - otherwise the strip behind its rounded top
+        // corners falls through to black.
+        .background(theme.bg.ignoresSafeArea())
         .onLoad { viewModel.trigger(.load) }
         .sheet(
             item: viewModel.collectBinding(for: \.editingSeries, action: { _ in .seriesEditorDismissed })
