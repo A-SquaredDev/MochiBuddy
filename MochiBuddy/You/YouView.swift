@@ -92,6 +92,7 @@ struct YouView: View {
         .onReceive(viewModel.navigationEvents) { event in
             switch event {
             case .editBedtime: router.navigateToBedtime()
+            case .showStats: router.navigateToStats()
             case .showNotifications: router.navigateToNotifications()
             case .showReminders: router.navigateToAppleReminders()
             case .showVacation: router.navigateToVacation()
@@ -330,13 +331,18 @@ struct YouView: View {
         .background(theme.bg)
     }
 
-    // Stats and the interim letters row retired with the Journal tab
-    // (Feature 6, edge 18) - You is pure settings again.
+    // The interim letters row retired with the Journal tab (Feature 6,
+    // edge 18); Streaks & stats returned by request, rebuilt over the
+    // Personal Layer engines.
     private var navigationRows: some View {
         VStack(spacing: 8) {
             // Lapsed hides what's meaningless with Mochi asleep: nudge
-            // prefs, new Reminders imports, vacation mode.
+            // prefs, new Reminders imports, vacation mode, live stats
+            // (the Journal keeps the frozen record).
             if !viewModel.isLapsed {
+                MochiListRow(title: "Streaks & stats", subtitle: "Your gentle momentum") {
+                    viewModel.trigger(.statsTapped)
+                }
                 MochiListRow(title: "Notifications", subtitle: viewModel.notificationsSub) {
                     viewModel.trigger(.notificationsTapped)
                 }

@@ -76,6 +76,7 @@ enum YouBehavior {
         // Row taps routed through the ViewModel so future logic (e.g. gating)
         // stays out of the View.
         case bedtimeTapped
+        case statsTapped
         case notificationsTapped
         case remindersTapped
         case vacationTapped
@@ -93,6 +94,7 @@ enum YouBehavior {
         case showDevScheduler
         #endif
         case editBedtime
+        case showStats
         case showNotifications
         case showReminders
         case showVacation

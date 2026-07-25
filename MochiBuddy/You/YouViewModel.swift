@@ -151,6 +151,7 @@ final class YouViewModel: ObservableStateViewModel<
             }
 
         case .bedtimeTapped: setNavigationEvent(.editBedtime)
+        case .statsTapped: setNavigationEvent(.showStats)
         case .notificationsTapped: setNavigationEvent(.showNotifications)
         case .remindersTapped: setNavigationEvent(.showReminders)
         case .vacationTapped: setNavigationEvent(.showVacation)

@@ -12,6 +12,7 @@ import SwiftUI
 @MainActor
 protocol YouRouting: BackRouting {
     func navigateToBedtime()
+    func navigateToStats()
     func navigateToNotifications()
     func navigateToAppleReminders()
     func navigateToVacation()
@@ -90,6 +91,22 @@ final class YouRouter: YouRouting {
         navController.navigate(
             route: AdHocRoute(key: "you.bedtime"),
             view: AnyView(BedtimeSettingsView(viewModel: viewModel, router: self))
+        )
+    }
+
+    func navigateToStats() {
+        let viewModel = StatsViewModel(
+            authRepository: container.authRepository,
+            profileRepository: container.profileRepository,
+            taskRepository: container.taskRepository,
+            listRepository: container.listRepository,
+            petIdentityStore: container.petIdentityStore,
+            observationService: container.observationService,
+            observationLedger: container.observationLedger
+        )
+        navController.navigate(
+            route: AdHocRoute(key: "you.stats"),
+            view: AnyView(StatsView(viewModel: viewModel, router: self))
         )
     }
 
