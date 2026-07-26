@@ -96,3 +96,32 @@ end tell
 ## Tests
 
 Same xcodebuild command with `test`. Full suite ≈ 4–6 min.
+
+## Membership / defaults manipulation (learned 2026-07-25)
+
+- `simctl spawn <udid> defaults write com.aaronmckain.MochiBuddy …` writes the
+  SIM-GLOBAL domain, NOT the app sandbox — the app never sees it. The app's
+  real prefs live at
+  `$(xcrun simctl get_app_container <udid> com.aaronmckain.MochiBuddy data)/Library/Preferences/com.aaronmckain.MochiBuddy.plist`.
+  Edit with PlistBuddy while the app is TERMINATED (a running process caches
+  UserDefaults and flushes over external edits on exit). Back the plist up
+  first and restore after — it holds the tester's live membership state.
+- PlistBuddy date Set: format `"%a %b %d %H:%M:%S %Y"` works
+  (`Set :membership.expiresAt Sat Jul 25 17:55:52 2026`); slash formats
+  silently parse wrong. Always `Print` to confirm.
+- Foreground-lapse test recipe: set `membership.expiresAt` ~2 min ahead,
+  launch with `-mochiLocalMembership` (Splash → home), background via the
+  Simulator toolbar "Home" AXButton, wait past expiry, `simctl launch`
+  again (same PID = foreground, not relaunch) → the scenePhase hook must
+  route to Welcome Back.
+- Software keyboard may be hidden (hardware kb mode) — toggle with ⌘K
+  before screenshotting keyboard-related layouts.
+- iOS 26 renders `ToolbarItemGroup(placement: .keyboard)` as a floating
+  circular button above the keyboard, not a full-width accessory bar.
+- SwiftUI: `.ignoresSafeArea(.keyboard)` on a child inside a sheet's
+  NavigationStack does NOT exempt it from the sheet's keyboard avoidance —
+  the pinned-footer ZStack recipe floats mid-sheet. Hide the footer on
+  focus instead (TaskEditorView pattern).
+- Multiple sim windows: `window 1` in AppleScript is the frontmost device;
+  enumerate `windows` by name when two devices are booted, or cliclick
+  with that window's bounds.
