@@ -20,7 +20,6 @@ struct TaskEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @FocusState private var titleFocused: Bool
     @FocusState private var notesFocused: Bool
-    @State private var footerHeight: CGFloat = 0
 
     var body: some View {
         // NavigationStack solely as a toolbar host - without it the keyboard
@@ -32,18 +31,17 @@ struct TaskEditorView: View {
     }
 
     private var editorContent: some View {
-        // The footer is pinned in a ZStack and ignores the keyboard safe
-        // area: letting it ride the sheet's keyboard avoidance stacked it
-        // above the accessory bar with a dead gap in between. While typing
-        // the keyboard slides over it; the accessory checkmark dismisses.
-        ZStack(alignment: .bottom) {
+        // The footer hides while a field is focused: letting it ride the
+        // sheet's keyboard avoidance stacked it above the accessory bar
+        // with a dead gap in between. The accessory checkmark is the
+        // affordance while typing; dismissing brings the footer back.
+        VStack(spacing: 0) {
             editorFields
-            footer
-                .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) {
-                    footerHeight = $0
-                }
-                .ignoresSafeArea(.keyboard, edges: .bottom)
+            if !titleFocused && !notesFocused {
+                footer
+            }
         }
+        .animation(MochiMotion.soft, value: titleFocused || notesFocused)
         .background(theme.bg.ignoresSafeArea())
         .toolbar {
             // Notes is a multiline field, so return inserts a newline;
@@ -171,9 +169,7 @@ struct TaskEditorView: View {
                         )
                     }
                 }
-                // Reserve the footer's height so the last field can scroll
-                // clear of the pinned footer.
-                .padding(EdgeInsets(top: 0, leading: 18, bottom: 16 + footerHeight, trailing: 18))
+                .padding(EdgeInsets(top: 0, leading: 18, bottom: 16, trailing: 18))
             }
             .scrollDismissesKeyboard(.interactively)
         }
