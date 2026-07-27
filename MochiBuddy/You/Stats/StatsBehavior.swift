@@ -61,11 +61,38 @@ enum StatsBehavior {
         let subtitle: String
     }
 
-    /// One time-of-day band's share of the 4-week completions.
-    struct BandBar: Equatable, Identifiable {
-        let id: String
-        let label: String
+    /// One hourly bar of the "Your best hours" histogram; id is the axis
+    /// bucket index (0 = the 5a bucket, D3's axis origin).
+    struct HourBar: Equatable, Identifiable {
+        let id: Int
         let count: Int
+        let inPeak: Bool
+    }
+
+    /// "Your best hours" - histogram, the C1 tile pair, and the state-
+    /// generated Mochi caption. nil until any completion exists (D1).
+    struct BestHoursCard: Equatable {
+        let bars: [HourBar]
+        /// "10a to 1p" - the highlighted 3-hour window as a range.
+        let peakText: String
+        /// "55%" - the peak window's share, same ±90 window as the
+        /// suggestion engine (D10).
+        let inWindowText: String
+        let caption: String
+    }
+
+    /// One "Day by day" weekday row. All positions are fractions of the
+    /// shared 5a-to-5a axis; a thin row carries only the typical dot (D4).
+    struct WeekdayRowUI: Equatable, Identifiable {
+        let id: Int
+        let label: String
+        let first: Double?
+        let last: Double?
+        let q1: Double?
+        let q3: Double?
+        let typical: Double?
+        /// "10:50a" right-hand label, from the typical dot.
+        let timeText: String?
     }
 
     /// One list's share of the 4-week completions.
@@ -97,11 +124,13 @@ enum StatsBehavior {
         /// for 3 months. Empty until any completion exists.
         var trend: [TrendPoint] = []
         var trendUnit: TrendUnit = .day
-        /// Caption under the trend - "82% on time · busiest on Tuesdays".
+        /// Caption under the trend - "82% on time".
         var trendCaption: String?
-        /// Morning/afternoon/evening/night, fixed order, zero-filled.
-        var rhythm: [BandBar] = []
-        var rhythmCaption: String?
+        /// "Your best hours" - shows whenever there is data (D1).
+        var bestHours: BestHoursCard?
+        /// "Day by day" rows - empty until a row qualifies, and always
+        /// empty on the Week range (D6).
+        var dayByDay: [WeekdayRowUI] = []
         var listBreakdown: [ListSlice] = []
         /// Qualified observation lines in the pet's voice, rendered
         /// read-only (the Journal owns live surfacing bookkeeping).

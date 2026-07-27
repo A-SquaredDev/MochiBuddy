@@ -85,8 +85,8 @@ struct RemoteTuningTests {
     func consoleKeysMatch() {
         // The exact list for the Firebase console: the Jul 19 2026 set,
         // the 24 obs_* observation keys (Feature 4), the 6 letter_* keys
-        // (Feature 3), the 6 callback_* keys (Feature 2), and the 14
-        // suggest_* keys (Feature 5).
+        // (Feature 3), the 6 callback_* keys (Feature 2), the 14
+        // suggest_* keys (Feature 5), and the 4 bh_* Best Hours keys.
         let published: Set<String> = [
             "mood_anchor", "mood_lateness_cap_hours", "mood_base_sting",
             "mood_stress_saturation", "mood_momentum_max", "mood_momentum_saturation",
@@ -118,12 +118,14 @@ struct RemoteTuningTests {
             "suggest_list_min_series", "suggest_list_series_share",
             "suggest_retime_mismatch_hours", "suggest_min_lead_min",
             "suggest_dismiss_rearm_min", "suggest_reschedule_weight",
+            "bh_row_min", "bh_row_dates",
+            "bh_second_wind_min", "bh_second_wind_dates",
         ]
         #expect(Set(RemoteTuning.allKeys) == published)
-        #expect(RemoteTuning.allKeys.count == 74, "no duplicates")
+        #expect(RemoteTuning.allKeys.count == 78, "no duplicates")
     }
 
-    @Test("EVERY published key is consumed with its declared type - override all 74, every field moves")
+    @Test("EVERY published key is consumed with its declared type - override all 78, every field moves")
     @MainActor
     func everyKeyDecodes() {
         let source = StubTuningSource(
@@ -197,6 +199,10 @@ struct RemoteTuningTests {
                 "suggest_min_lead_min": 45,
                 "suggest_dismiss_rearm_min": 90,
                 "suggest_reschedule_weight": 0.5,
+                "bh_row_min": 6,
+                "bh_row_dates": 2,
+                "bh_second_wind_min": 7,
+                "bh_second_wind_dates": 4,
             ],
             jsons: [
                 "notif_floor_taper": "[5,4,3,2,1]",
@@ -244,7 +250,8 @@ struct RemoteTuningTests {
             suggestSeriesMin: 6, suggestSeriesDates: 4,
             suggestListMinSeries: 2, suggestListSeriesShare: 0.5,
             suggestRetimeMismatchHours: 2, suggestMinLeadMin: 45,
-            suggestDismissRearmMin: 90, suggestRescheduleWeight: 0.5
+            suggestDismissRearmMin: 90, suggestRescheduleWeight: 0.5,
+            bhRowMin: 6, bhRowDates: 2, bhSecondWindMin: 7, bhSecondWindDates: 4
         )
         #expect(tuning == expected, "every parameter must land in exactly one field")
     }
@@ -308,6 +315,8 @@ struct RemoteTuningTests {
         #expect(ObservationConstants.marginRatio == 1.5)
         #expect(ObservationConstants.stickyDays == 14)
         #expect(ObservationConstants.rundownWeeklyCap == 2)
+        #expect(BestHoursConstants.rowMin == 5)
+        #expect(BestHoursConstants.secondWindDates == 3)
         #expect(LetterConstants.sendWeekday == 1)
         #expect(LetterConstants.sendHour == 19)
         #expect(LetterConstants.maxBeats == 3)

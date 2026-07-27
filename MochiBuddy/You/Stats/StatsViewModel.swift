@@ -112,12 +112,18 @@ final class StatsViewModel: StateViewModel<
             : (range == .threeMonths
                 ? Self.weeklyTrendPoints(stats: stats, start: rangeStart, weeks: range.days / 7, calendar: calendar)
                 : JournalTimeline.trendPoints(stats: stats, start: rangeStart, calendar: calendar, days: range.days))
-        next.trendCaption = stats.isEmpty
-            ? nil
-            : "\(Self.onTimeText(stats)) on time · busiest on \(Self.busiestWeekday(stats: stats, calendar: calendar) ?? "–")"
+        // "busiest on Tuesdays" is deliberately gone (D9): Day by day
+        // supersedes it, and it was computed on the device calendar rather
+        // than the stored completion context.
+        next.trendCaption = stats.isEmpty ? nil : "\(Self.onTimeText(stats)) on time"
 
-        next.rhythm = Self.bandBars(stats: stats)
-        next.rhythmCaption = Self.rhythmCaption(bars: next.rhythm)
+        let bestHoursEntries = BestHours.entries(stats: stats)
+        let histogram = BestHours.histogram(entries: bestHoursEntries)
+        let weekdayRows = BestHours.weekdayRows(entries: bestHoursEntries, calendar: calendar)
+        next.bestHours = Self.bestHoursCard(
+            histogram: histogram, rows: weekdayRows, petName: next.petName, calendar: calendar
+        )
+        next.dayByDay = Self.dayByDayRows(weekdayRows, range: range, calendar: calendar)
         next.listBreakdown = Self.listSlices(stats: stats, lists: lists)
 
         next.noticedLines = await noticedLines(
@@ -240,42 +246,50 @@ final class StatsViewModel: StateViewModel<
         return "\(Int((Double(onTime) / Double(stats.count) * 100).rounded()))%"
     }
 
-    static func busiestWeekday(stats: [CompletedTaskStat], calendar: Calendar) -> String? {
-        guard !stats.isEmpty else { return nil }
-        var countsByWeekday: [Int: Int] = [:]
-        for stat in stats {
-            countsByWeekday[calendar.component(.weekday, from: stat.completedAt), default: 0] += 1
-        }
-        guard let busiest = countsByWeekday.max(by: {
-            ($0.value, $1.key) < ($1.value, $0.key) // ties break to the earlier weekday
-        })?.key else { return nil }
-        return calendar.standaloneWeekdaySymbols[busiest - 1] + "s"
+    /// The "Your best hours" card - nil until any completion exists (D1).
+    static func bestHoursCard(
+        histogram: BestHours.Histogram,
+        rows: [BestHours.WeekdayRow],
+        petName: String,
+        calendar: Calendar
+    ) -> StatsBehavior.BestHoursCard? {
+        guard let peakStart = histogram.peakStart else { return nil }
+        let inPeak = Set((0..<3).map { (peakStart + $0) % 24 })
+        return StatsBehavior.BestHoursCard(
+            bars: histogram.buckets.enumerated().map { bucket, count in
+                .init(id: bucket, count: count, inPeak: inPeak.contains(bucket))
+            },
+            peakText: BestHours.peakRangeLabel(start: peakStart),
+            inWindowText: "\(Int((histogram.inWindowShare * 100).rounded()))%",
+            caption: BestHours.caption(
+                histogram: histogram, rows: rows, petName: petName, calendar: calendar
+            )
+        )
     }
 
-    /// Completion counts per time-of-day band, in the completion's own
-    /// zone (the local minute each record carries), zero-filled.
-    static func bandBars(stats: [CompletedTaskStat]) -> [StatsBehavior.BandBar] {
-        guard !stats.isEmpty else { return [] }
-        var counts: [TimeOfDayBand: Int] = [:]
-        for stat in stats {
-            counts[TimeOfDayBand(minute: stat.completedLocalMinute), default: 0] += 1
+    /// "Day by day" rows as axis fractions. Empty until a row earns its
+    /// capsule (D1's ladder) and always empty on the Week range (D6) -
+    /// a box plot over at most one sample per row is a lie.
+    static func dayByDayRows(
+        _ rows: [BestHours.WeekdayRow],
+        range: StatsBehavior.TimeRange,
+        calendar: Calendar
+    ) -> [StatsBehavior.WeekdayRowUI] {
+        guard range != .week, rows.contains(where: { $0.qualifies }) else { return [] }
+        func fraction(_ minute: Int?) -> Double? {
+            minute.map { Double($0) / 1440 }
         }
-        let order: [(TimeOfDayBand, String)] = [
-            (.morning, "Morning"), (.afternoon, "Afternoon"),
-            (.evening, "Evening"), (.night, "Night"),
-        ]
-        return order.map { band, label in
-            .init(id: band.rawValue, label: label, count: counts[band] ?? 0)
-        }
-    }
-
-    static func rhythmCaption(bars: [StatsBehavior.BandBar]) -> String? {
-        guard let top = bars.max(by: { $0.count < $1.count }), top.count > 0 else { return nil }
-        switch top.id {
-        case TimeOfDayBand.morning.rawValue: return "Mornings do the heavy lifting"
-        case TimeOfDayBand.afternoon.rawValue: return "Afternoons do the heavy lifting"
-        case TimeOfDayBand.evening.rawValue: return "Evenings do the heavy lifting"
-        default: return "The late hours do the heavy lifting"
+        return rows.map { row in
+            .init(
+                id: row.weekday,
+                label: calendar.shortStandaloneWeekdaySymbols[row.weekday - 1],
+                first: fraction(row.qualifies ? row.first : nil),
+                last: fraction(row.qualifies ? row.last : nil),
+                q1: fraction(row.q1),
+                q3: fraction(row.q3),
+                typical: fraction(row.typical),
+                timeText: row.typical.map(BestHours.timeLabel(axisMinute:))
+            )
         }
     }
 

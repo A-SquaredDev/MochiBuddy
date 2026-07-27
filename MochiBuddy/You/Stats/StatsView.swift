@@ -46,8 +46,12 @@ struct StatsView: View {
                     trendCard
                 }
 
-                if !viewModel.rhythm.isEmpty {
-                    rhythmCard
+                if let bestHours = viewModel.bestHours {
+                    bestHoursCard(bestHours)
+                }
+
+                if !viewModel.dayByDay.isEmpty {
+                    dayByDayCard
                 }
 
                 if !viewModel.memoryRows.isEmpty {
@@ -238,43 +242,144 @@ struct StatsView: View {
         }
     }
 
-    /// When things get done - four bands, magnitude bars, one hue.
-    private var rhythmCard: some View {
-        MochiCard(padding: EdgeInsets(top: 14, leading: 15, bottom: 14, trailing: 15)) {
-            VStack(alignment: .leading, spacing: 10) {
-                MochiEyebrow(text: "Your rhythm · \(viewModel.range.suffix)")
-                let maxCount = max(viewModel.rhythm.map(\.count).max() ?? 1, 1)
-                ForEach(viewModel.rhythm) { bar in
-                    HStack(spacing: 8) {
-                        Text(bar.label)
-                            .font(MochiFont.body(11, weight: .heavy))
-                            .foregroundStyle(theme.ink)
-                            .frame(width: 88, alignment: .leading)
-                        GeometryReader { proxy in
-                            Capsule()
-                                .fill(theme.primary.opacity(bar.count == 0 ? 0.25 : 1))
-                                .frame(
-                                    width: max(6, proxy.size.width * CGFloat(bar.count) / CGFloat(maxCount)),
-                                    height: 8
-                                )
-                                .frame(maxHeight: .infinity, alignment: .center)
-                        }
-                        .frame(height: 12)
-                        Text("\(bar.count)")
-                            .font(MochiFont.body(10.5, weight: .heavy))
-                            .foregroundStyle(theme.muted)
-                            .frame(minWidth: 20, alignment: .trailing)
-                    }
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("\(bar.label): \(bar.count) tasks done")
-                }
-                if let caption = viewModel.rhythmCaption {
-                    Text(caption)
-                        .font(MochiFont.body(10.5, weight: .bold))
-                        .foregroundStyle(theme.muted)
-                }
+    /// The three shared axis ticks (12p / 6p / 11p), exact fractions of
+    /// the 5a-to-5a span - both cards draw the same ruler.
+    private static let axisTicks: [(fraction: Double, label: String)] = [
+        (420.0 / 1440, "12p"), (780.0 / 1440, "6p"), (1080.0 / 1440, "11p"),
+    ]
+
+    private func axisRow() -> some View {
+        GeometryReader { proxy in
+            ForEach(Self.axisTicks, id: \.label) { tick in
+                Text(tick.label)
+                    .font(MochiFont.body(9, weight: .bold))
+                    .foregroundStyle(theme.muted)
+                    .position(x: proxy.size.width * tick.fraction, y: 6)
             }
         }
+        .frame(height: 12)
+    }
+
+    /// When things get done - 24 hourly bars on the 5a-to-5a axis, the
+    /// best 3-hour window highlighted, with the peak/in-window tile pair.
+    private func bestHoursCard(_ card: StatsBehavior.BestHoursCard) -> some View {
+        MochiCard(padding: EdgeInsets(top: 14, leading: 15, bottom: 14, trailing: 15)) {
+            VStack(alignment: .leading, spacing: 10) {
+                MochiEyebrow(text: "Your best hours · \(viewModel.range.suffix)")
+                let maxCount = max(card.bars.map(\.count).max() ?? 1, 1)
+                HStack(alignment: .bottom, spacing: 2) {
+                    ForEach(card.bars) { bar in
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(bar.inPeak ? theme.primary : theme.primary.opacity(0.3))
+                            .frame(height: max(3, 72 * CGFloat(bar.count) / CGFloat(maxCount)))
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+                .frame(height: 76, alignment: .bottom)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Best hours: peak \(card.peakText), \(card.inWindowText) of tasks in that window")
+                axisRow()
+                HStack(spacing: 9) {
+                    bestHoursTile(title: "Peak", value: card.peakText)
+                    bestHoursTile(title: "In window", value: card.inWindowText)
+                }
+                Text(card.caption)
+                    .font(MochiFont.body(10.5, weight: .bold))
+                    .foregroundStyle(theme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private func bestHoursTile(title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(title.uppercased())
+                .font(MochiFont.body(9, weight: .heavy))
+                .foregroundStyle(theme.muted)
+            Text(value)
+                .font(MochiFont.display(15, weight: .semibold))
+                .foregroundStyle(theme.primaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(EdgeInsets(top: 8, leading: 10, bottom: 8, trailing: 10))
+        .background(theme.surface2, in: RoundedRectangle(cornerRadius: 10))
+    }
+
+    /// Seven weekday box plots on the same axis as the histogram: a thin
+    /// first-to-last line, the middle-half capsule once a row earns it,
+    /// and the typical dot. Thin rows show the dot alone - honest about
+    /// "we know roughly when, not how consistently".
+    private var dayByDayCard: some View {
+        MochiCard(padding: EdgeInsets(top: 14, leading: 15, bottom: 14, trailing: 15)) {
+            VStack(alignment: .leading, spacing: 9) {
+                MochiEyebrow(text: "Day by day · \(viewModel.range.suffix)")
+                ForEach(viewModel.dayByDay) { row in
+                    HStack(spacing: 8) {
+                        Text(row.label)
+                            .font(MochiFont.body(11, weight: .heavy))
+                            .foregroundStyle(theme.ink)
+                            .frame(width: 34, alignment: .leading)
+                        GeometryReader { proxy in
+                            let width = proxy.size.width
+                            ZStack(alignment: .leading) {
+                                if let first = row.first, let last = row.last {
+                                    Capsule()
+                                        .fill(theme.line)
+                                        .frame(width: max(2, width * (last - first)), height: 2)
+                                        .offset(x: width * first)
+                                }
+                                if let q1 = row.q1, let q3 = row.q3 {
+                                    Capsule()
+                                        .fill(theme.primary.opacity(0.45))
+                                        .frame(width: max(8, width * (q3 - q1)), height: 8)
+                                        .offset(x: width * q1)
+                                }
+                                if let typical = row.typical {
+                                    Circle()
+                                        .fill(theme.primary)
+                                        .frame(width: 9, height: 9)
+                                        .offset(x: width * typical - 4.5)
+                                }
+                            }
+                            .frame(maxHeight: .infinity, alignment: .center)
+                        }
+                        .frame(height: 14)
+                        Text(row.timeText ?? "")
+                            .font(MochiFont.body(10, weight: .heavy))
+                            .foregroundStyle(theme.muted)
+                            .frame(width: 46, alignment: .trailing)
+                    }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(rowAccessibilityLabel(row))
+                }
+                HStack(spacing: 8) {
+                    Spacer().frame(width: 34)
+                    axisRow()
+                    Spacer().frame(width: 46)
+                }
+                HStack(spacing: 12) {
+                    HStack(spacing: 5) {
+                        Capsule().fill(theme.primary.opacity(0.45)).frame(width: 16, height: 6)
+                        Text("Middle half")
+                    }
+                    HStack(spacing: 5) {
+                        Circle().fill(theme.primary).frame(width: 7, height: 7)
+                        Text("Typical")
+                    }
+                }
+                .font(MochiFont.body(9.5, weight: .bold))
+                .foregroundStyle(theme.muted)
+            }
+        }
+    }
+
+    private func rowAccessibilityLabel(_ row: StatsBehavior.WeekdayRowUI) -> String {
+        guard let timeText = row.timeText else { return "\(row.label): still quiet" }
+        return row.q1 == nil
+            ? "\(row.label): typically around \(timeText), still learning"
+            : "\(row.label): typically around \(timeText)"
     }
 
     /// Magnitude comparison - bars stay one hue; identity lives in the
