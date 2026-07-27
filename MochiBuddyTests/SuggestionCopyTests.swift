@@ -23,18 +23,20 @@ struct SuggestionCopyTests {
         trigger: SuggestionTrigger = .newTime,
         tier: SuggestionScopeTier,
         listId: String? = nil,
-        minute: Int = 600
+        minute: Int = 600,
+        weekday: Int? = nil
     ) -> SuggestionProposal {
         SuggestionProposal(
             trigger: trigger, tier: tier, listId: listId,
             peakMinute: minute, displayedMinute: minute,
-            evidenceCount: 20, isRecurring: false
+            evidenceCount: 20, isRecurring: false, weekday: weekday
         )
     }
 
     private var allRenderedCopy: [String] {
         let tiers: [(SuggestionScopeTier, String?)] = [
             (.series, nil), (.list, "Personal"), (.list, nil), (.global, nil),
+            (.listWeekday, "Personal"), (.listWeekday, nil), (.globalWeekday, nil),
         ]
         var lines: [String] = []
         for (tier, listName) in tiers {
@@ -78,6 +80,26 @@ struct SuggestionCopyTests {
         // the tier is the only voice selector.
         let handed = SuggestionCopy.reason(proposal(tier: .global), listName: "Personal", locale: locale)
         #expect(handed == global)
+    }
+
+    @Test("weekday tiers name the day with a distinct verb, never the pooled voice (A4)")
+    func weekdayTierMapping() {
+        let list = SuggestionCopy.reason(
+            proposal(tier: .listWeekday, listId: "l1", weekday: 5),
+            listName: "Personal", locale: locale
+        )
+        #expect(list == "On Thursdays, Personal usually gets done in the morning.")
+
+        let listNameGone = SuggestionCopy.reason(
+            proposal(tier: .listWeekday, listId: "l1", weekday: 5), listName: nil, locale: locale
+        )
+        #expect(listNameGone == "On Thursdays you usually wrap up in the morning.")
+
+        let global = SuggestionCopy.reason(
+            proposal(tier: .globalWeekday, weekday: 3), listName: nil, locale: locale
+        )
+        #expect(global == "On Tuesdays you usually wrap up in the morning.")
+        #expect(!global.contains("finish things"), "audibly different from the pooled voice")
     }
 
     @Test("a list whose name is gone narrows to the global claim, never widens")

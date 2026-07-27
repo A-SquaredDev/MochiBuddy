@@ -118,14 +118,15 @@ struct RemoteTuningTests {
             "suggest_list_min_series", "suggest_list_series_share",
             "suggest_retime_mismatch_hours", "suggest_min_lead_min",
             "suggest_dismiss_rearm_min", "suggest_reschedule_weight",
+            "suggest_weekday_min", "suggest_weekday_dates",
             "bh_row_min", "bh_row_dates",
             "bh_second_wind_min", "bh_second_wind_dates",
         ]
         #expect(Set(RemoteTuning.allKeys) == published)
-        #expect(RemoteTuning.allKeys.count == 78, "no duplicates")
+        #expect(RemoteTuning.allKeys.count == 80, "no duplicates")
     }
 
-    @Test("EVERY published key is consumed with its declared type - override all 78, every field moves")
+    @Test("EVERY published key is consumed with its declared type - override all 80, every field moves")
     @MainActor
     func everyKeyDecodes() {
         let source = StubTuningSource(
@@ -199,6 +200,8 @@ struct RemoteTuningTests {
                 "suggest_min_lead_min": 45,
                 "suggest_dismiss_rearm_min": 90,
                 "suggest_reschedule_weight": 0.5,
+                "suggest_weekday_min": 5,
+                "suggest_weekday_dates": 2,
                 "bh_row_min": 6,
                 "bh_row_dates": 2,
                 "bh_second_wind_min": 7,
@@ -251,6 +254,7 @@ struct RemoteTuningTests {
             suggestListMinSeries: 2, suggestListSeriesShare: 0.5,
             suggestRetimeMismatchHours: 2, suggestMinLeadMin: 45,
             suggestDismissRearmMin: 90, suggestRescheduleWeight: 0.5,
+            suggestWeekdayMin: 5, suggestWeekdayDates: 2,
             bhRowMin: 6, bhRowDates: 2, bhSecondWindMin: 7, bhSecondWindDates: 4
         )
         #expect(tuning == expected, "every parameter must land in exactly one field")

@@ -24,6 +24,9 @@ enum TasksBehavior {
         var listColor: Color? = nil
         var sourceBadge: String? = nil
         var isRecurring: Bool = false
+        /// B4/B6: computed once per fetch by the Tasks/ListDetail VMs;
+        /// Home builds its own item type and can never set this.
+        var showsRetimeBadge: Bool = false
     }
 
     /// A labelled run of rows ("Overdue · 2", "Tomorrow · Wed", "Yesterday").

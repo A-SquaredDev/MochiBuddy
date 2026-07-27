@@ -30,10 +30,14 @@ final class TasksViewModel: ObservableStateViewModel<
     private let membershipSession: MembershipSession
     private let recurrenceRoller: RecurrenceRoller
     private let relay: NotificationRelaying
+    private let suggestionService: SuggestionService?
     private let defaults: UserDefaults
 
     // Domain source of truth - UIState is derived from these.
     private var incomplete: [TaskItem] = []
+    /// Re-time badge ids, computed once per fetch (guide B4) - never
+    /// re-evaluated per row render.
+    private var retimeBadgeIds: Set<String> = []
     private var completed: [TaskItem] = []
     private var lists: [TaskList] = []
     private var reminders: [ReminderTaskItem] = []
@@ -53,6 +57,7 @@ final class TasksViewModel: ObservableStateViewModel<
         membershipSession: MembershipSession,
         recurrenceRoller: RecurrenceRoller,
         relay: NotificationRelaying,
+        suggestionService: SuggestionService? = nil,
         defaults: UserDefaults = .standard
     ) {
         self.authRepository = authRepository
@@ -64,6 +69,7 @@ final class TasksViewModel: ObservableStateViewModel<
         self.membershipSession = membershipSession
         self.recurrenceRoller = recurrenceRoller
         self.relay = relay
+        self.suggestionService = suggestionService
         self.defaults = defaults
         super.init(initialState: TasksBehavior.UIState())
     }
@@ -155,6 +161,7 @@ final class TasksViewModel: ObservableStateViewModel<
             userId: userId
         )
         state.isLapsed = membershipSession.isLapsed
+        retimeBadgeIds = await suggestionService?.retimeBadgeTaskIds(tasks: incomplete) ?? []
         await refreshReminders(syncedListIds: syncedReminderListIds)
         rebuild()
     }
@@ -492,7 +499,8 @@ final class TasksViewModel: ObservableStateViewModel<
             meta: display.meta, state: display.state, chip: display.chip,
             listName: listTag?.name,
             listColor: listTag?.color,
-            isRecurring: task.repeatRule != nil
+            isRecurring: task.repeatRule != nil,
+            showsRetimeBadge: retimeBadgeIds.contains(task.id)
         )
     }
 }

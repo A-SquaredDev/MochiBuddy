@@ -78,25 +78,91 @@ enum SuggestionEngine {
         attempts.append((.global, qualify(context.global, floors: .general)))
 
         let gates = attempts.flatMap(\.result.gates)
-        guard let winner = attempts.first(where: { $0.result.peak != nil }),
-              let peak = winner.result.peak
-        else {
-            let reason = attempts.last?.result.firstFailure ?? .evidence
-            return SuggestionEvaluation(
-                trigger: .newTime, proposal: nil, blocked: reason, gates: gates
+        if let winner = attempts.first(where: { $0.result.peak != nil }),
+           let peak = winner.result.peak {
+            let proposal = SuggestionProposal(
+                trigger: .newTime,
+                tier: winner.tier,
+                listId: winner.tier == .list ? task.listId : nil,
+                peakMinute: peak.peakMinute,
+                displayedMinute: friendlyRounded(peak.peakMinute),
+                evidenceCount: peak.evidenceCount,
+                isRecurring: task.isRecurring
             )
+            return guarded(proposal, task: task, context: context, dismissedAt: dismissedAt, gates: gates)
         }
 
-        let proposal = SuggestionProposal(
-            trigger: .newTime,
-            tier: winner.tier,
-            listId: winner.tier == .list ? task.listId : nil,
-            peakMinute: peak.peakMinute,
-            displayedMinute: friendlyRounded(peak.peakMinute),
-            evidenceCount: peak.evidenceCount,
-            isRecurring: task.isRecurring
+        // Weekday fallback (A1): tried ONLY when a pooled scope was
+        // silenced by the bimodal runner-up gate - a user whose history is
+        // structurally bimodal (8am weekdays, 2pm weekends) can never be
+        // served by more pooled data. List and global scope only (A2);
+        // lower floors (A3); the tier names the provenance (A4).
+        var fallbackGates: [ObservationGateCheck] = []
+        if let dueDay = task.dueDay, let weekday = CivilDay(dueDay)?.weekday {
+            func silencedByRunnerUp(_ tier: SuggestionScopeTier) -> Bool {
+                attempts.first { $0.tier == tier }?.result.firstFailure == .runnerUp
+            }
+            var fallbacks: [(tier: SuggestionScopeTier, result: ScopeResult)] = []
+            if let list = context.list, task.listId != nil, silencedByRunnerUp(.list) {
+                fallbacks.append((.listWeekday, qualify(
+                    weekdayFiltered(list, weekday: weekday), floors: .weekday, listGuards: true
+                )))
+            }
+            if silencedByRunnerUp(.global) {
+                fallbacks.append((.globalWeekday, qualify(
+                    weekdayFiltered(context.global, weekday: weekday), floors: .weekday
+                )))
+            }
+            if !fallbacks.isEmpty {
+                // Inspector marker: makes the retry visible as a distinct
+                // pass rather than a repeated gate table.
+                fallbackGates = [ObservationGateCheck(
+                    name: "weekday fallback", achieved: "weekday \(weekday)",
+                    required: "pooled runner-up silence", passed: true
+                )] + fallbacks.flatMap(\.result.gates)
+            }
+            if let winner = fallbacks.first(where: { $0.result.peak != nil }),
+               let peak = winner.result.peak {
+                let proposal = SuggestionProposal(
+                    trigger: .newTime,
+                    tier: winner.tier,
+                    listId: winner.tier == .listWeekday ? task.listId : nil,
+                    peakMinute: peak.peakMinute,
+                    displayedMinute: friendlyRounded(peak.peakMinute),
+                    evidenceCount: peak.evidenceCount,
+                    isRecurring: task.isRecurring,
+                    weekday: weekday
+                )
+                return guarded(
+                    proposal, task: task, context: context,
+                    dismissedAt: dismissedAt, gates: gates + fallbackGates
+                )
+            }
+        }
+
+        // Global is the last pooled resort; its failure stays the reported
+        // silence even when a weekday retry also came up empty.
+        let reason = attempts.last?.result.firstFailure ?? .evidence
+        return SuggestionEvaluation(
+            trigger: .newTime, proposal: nil, blocked: reason, gates: gates + fallbackGates
         )
-        return guarded(proposal, task: task, context: context, dismissedAt: dismissedAt, gates: gates)
+    }
+
+    /// A pooled distribution narrowed to one calendar weekday (A1/A2).
+    /// Filtering keeps or drops whole civil days, so it commutes exactly
+    /// with the per-day cap already applied to the entries.
+    static func weekdayFiltered(
+        _ distribution: DistributionResult, weekday: Int
+    ) -> DistributionResult {
+        let entries = distribution.entries.filter { CivilDay($0.day)?.weekday == weekday }
+        let scope: DistributionResult.Scope = switch distribution.scopeUsed {
+        case .list(let id): .listWeekday(id, weekday: weekday)
+        case .globalFallback: .globalWeekday(weekday: weekday)
+        // Series never weekday-filters (A2); an already-filtered scope
+        // keeps its provenance.
+        case .series, .listWeekday, .globalWeekday: distribution.scopeUsed
+        }
+        return DistributionResult(entries: entries, scopeUsed: scope)
     }
 
     /// Re-time trigger: a recurring Mochi series with a due time whose
@@ -204,17 +270,22 @@ enum SuggestionEngine {
     enum Floors {
         case general
         case series
+        /// Weekday-filtered fallback (A3) - about 1/7 the evidence, so
+        /// its own lower floors; share and margin gates stay pooled.
+        case weekday
 
         var evidence: Int {
             switch self {
             case .general: SuggestionConstants.minEvidence
             case .series: SuggestionConstants.seriesMin
+            case .weekday: SuggestionConstants.weekdayMin
             }
         }
         var dates: Int {
             switch self {
             case .general: SuggestionConstants.minDates
             case .series: SuggestionConstants.seriesDates
+            case .weekday: SuggestionConstants.weekdayDates
             }
         }
     }

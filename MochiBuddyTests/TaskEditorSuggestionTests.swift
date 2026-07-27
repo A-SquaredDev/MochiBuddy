@@ -362,3 +362,75 @@ struct TaskEditorReTimeSuggestionTests {
         #expect(Set(outcomes.map(\.0)) == Set([.newTime, .reTime]))
     }
 }
+
+// MARK: - Re-time row badge (guide B)
+
+@Suite("Suggestions · re-time row badge")
+@MainActor
+struct RetimeBadgeTests {
+
+    private func nineAMTomorrow() -> Date {
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: .now))!
+        return calendar.date(bySettingHour: 9, minute: 0, second: 0, of: tomorrow)!
+    }
+
+    private func makeBadgeService(
+        stats: [CompletedTaskStat]
+    ) -> (service: SuggestionService, ledger: SuggestionLedger) {
+        let taskRepo = StubTaskRepository()
+        taskRepo.completedStats = stats
+        let auth = StubAuthRepository()
+        let profileRepo = StubProfileRepository()
+        let ledger = SuggestionLedger(defaults: freshSuggestionDefaults())
+        let service = SuggestionService(
+            authRepository: auth,
+            profileRepository: profileRepo,
+            taskRepository: taskRepo,
+            observationService: ObservationService(
+                authRepository: auth,
+                profileRepository: profileRepo,
+                taskRepository: taskRepo,
+                listRepository: StubListRepository(),
+                ledger: ObservationLedger(defaults: freshSuggestionDefaults())
+            ),
+            membershipSession: MembershipSession(),
+            ledger: ledger
+        )
+        return (service, ledger)
+    }
+
+    @Test("the badge fires for the recurring timed series far from its habit - and nothing else")
+    func badgeSet() async {
+        let (service, _) = makeBadgeService(stats: seriesStats(seriesId: "s1"))
+        let recurring = makeTask(
+            id: "s1", title: "Journal", dueAt: nineAMTomorrow(), hasTime: true, repeatRule: .daily
+        )
+        let oneOff = makeTask(id: "o1", title: "Call", dueAt: nineAMTomorrow(), hasTime: true)
+        let untimed = makeTask(
+            id: "u1", title: "Water", dueAt: calendar.startOfDay(for: .now), repeatRule: .daily
+        )
+        let ids = await service.retimeBadgeTaskIds(tasks: [recurring, oneOff, untimed])
+        #expect(ids == ["s1"], "one-offs and untimed rows are structurally excluded (B5)")
+    }
+
+    @Test("a series scheduled at its habitual time earns no badge - nothing to re-time")
+    func noMismatchNoBadge() async {
+        let (service, _) = makeBadgeService(stats: seriesStats(seriesId: "s1", minute: 9 * 60))
+        let recurring = makeTask(
+            id: "s1", title: "Journal", dueAt: nineAMTomorrow(), hasTime: true, repeatRule: .daily
+        )
+        let ids = await service.retimeBadgeTaskIds(tasks: [recurring])
+        #expect(ids.isEmpty)
+    }
+
+    @Test("a ledger dismissal hides the badge on the chip's exact cadence")
+    func dismissalHidesBadge() async {
+        let (service, ledger) = makeBadgeService(stats: seriesStats(seriesId: "s1"))
+        let recurring = makeTask(
+            id: "s1", title: "Journal", dueAt: nineAMTomorrow(), hasTime: true, repeatRule: .daily
+        )
+        ledger.recordDismissed(.reTime, id: "s1", displayedMinute: 1200, userId: "user1")
+        let ids = await service.retimeBadgeTaskIds(tasks: [recurring])
+        #expect(ids.isEmpty, "the badge signposts the chip; a dismissed chip means no badge")
+    }
+}

@@ -165,7 +165,7 @@ struct DevSuggestionsSection: View {
         MochiCard(padding: EdgeInsets(top: 12, leading: 15, bottom: 12, trailing: 15)) {
             VStack(alignment: .leading, spacing: 8) {
                 MochiEyebrow(text: "Suggested times")
-                Text("Feature 5: both editor triggers evaluated for the picked task at the time-travel cursor - scope gates on raw day-capped counts, window scan, unrounded peak vs the friendly-rounded proposal, guardrails. Cadence from the dismissal ledger.")
+                Text("Feature 5: both editor triggers evaluated for the picked task at the time-travel cursor - scope gates on raw day-capped counts, window scan, unrounded peak vs the friendly-rounded proposal, guardrails. A 'weekday fallback' row marks the due-weekday retry after a runner-up silence, with its own lower floors. Cadence from the dismissal ledger.")
                     .font(MochiFont.body(9.5, weight: .bold))
                     .foregroundStyle(theme.muted)
 

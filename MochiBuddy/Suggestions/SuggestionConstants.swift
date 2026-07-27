@@ -27,6 +27,12 @@ enum SuggestionConstants {
     /// Primary share must beat the strongest window centered >= 3 circular
     /// hours away by this much. Bimodal means silence, by construction.
     static var runnerUpMargin = 0.10
+    /// Weekday-filtered fallback floors (A3): a weekday slice holds about
+    /// 1/7 the evidence, and a 42-day window at most 6 of any weekday, so
+    /// the pooled floors would make the fallback unreachable. Share and
+    /// runner-up gates reuse the pooled values.
+    static var weekdayMin = 4
+    static var weekdayDates = 3
     /// Series scope evidence floor (timed completions).
     static var seriesMin = 8
     /// Series scope distinct-date floor.

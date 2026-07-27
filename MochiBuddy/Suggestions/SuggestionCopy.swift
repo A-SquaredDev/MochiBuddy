@@ -57,7 +57,28 @@ enum SuggestionCopy {
             return "\(listName) things usually get done \(bandPhrase(proposal.band))."
         case .global:
             return "You usually finish things \(bandPhrase(proposal.band))."
+        // Weekday tiers (A4): name the day and use a distinct verb ("wrap
+        // up" vs the pooled "finish things") so a user who sees both over
+        // time does not hear a template.
+        case .listWeekday:
+            let dayName = weekdayName(proposal.weekday ?? 1, locale: locale)
+            guard let listName else {
+                return "On \(dayName)s you usually wrap up \(bandPhrase(proposal.band))."
+            }
+            return "On \(dayName)s, \(listName) usually gets done \(bandPhrase(proposal.band))."
+        case .globalWeekday:
+            let dayName = weekdayName(proposal.weekday ?? 1, locale: locale)
+            return "On \(dayName)s you usually wrap up \(bandPhrase(proposal.band))."
         }
+    }
+
+    /// "Tuesday" for calendar weekday 3 (1 = Sunday).
+    static func weekdayName(_ weekday: Int, locale: Locale = .current) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = locale
+        let symbols = formatter.standaloneWeekdaySymbols ?? []
+        guard (1...symbols.count).contains(weekday) else { return "" }
+        return symbols[weekday - 1]
     }
 
     static func confirmed(minute: Int, locale: Locale = .current) -> String {

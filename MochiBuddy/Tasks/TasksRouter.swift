@@ -46,7 +46,8 @@ final class TasksRouter: TasksRouting {
             remindersGateway: container.remindersGateway,
             membershipSession: container.membershipSession,
             recurrenceRoller: container.recurrenceRoller,
-            relay: container.notificationOrchestrator
+            relay: container.notificationOrchestrator,
+            suggestionService: container.suggestionService
         )
         return AnyView(TasksView(viewModel: viewModel, router: self))
     }
@@ -75,7 +76,8 @@ final class TasksRouter: TasksRouting {
             remindersGateway: container.remindersGateway,
             membershipSession: container.membershipSession,
             recurrenceRoller: container.recurrenceRoller,
-            relay: container.notificationOrchestrator
+            relay: container.notificationOrchestrator,
+            suggestionService: container.suggestionService
         )
         navController.navigate(
             route: AdHocRoute(key: "tasks.listDetail"),

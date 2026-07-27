@@ -126,6 +126,8 @@ struct ResolvedTuning: Equatable {
     var suggestMinLeadMin = 30
     var suggestDismissRearmMin = 60
     var suggestRescheduleWeight = 0.25
+    var suggestWeekdayMin = 4
+    var suggestWeekdayDates = 3
     // Best Hours cards (D5 row floors + C4 second-wind floor). The
     // half-the-peak-share ratio stays a code constant, not a key.
     var bhRowMin = 5
@@ -257,6 +259,8 @@ struct ResolvedTuning: Equatable {
         count("suggest_min_lead_min", 0...240, into: &tuning.suggestMinLeadMin)
         count("suggest_dismiss_rearm_min", 0...720, into: &tuning.suggestDismissRearmMin)
         number("suggest_reschedule_weight", 0...2, into: &tuning.suggestRescheduleWeight)
+        count("suggest_weekday_min", 1...50, into: &tuning.suggestWeekdayMin)
+        count("suggest_weekday_dates", 1...50, into: &tuning.suggestWeekdayDates)
 
         count("bh_row_min", 1...100, into: &tuning.bhRowMin)
         count("bh_row_dates", 1...50, into: &tuning.bhRowDates)
@@ -347,6 +351,8 @@ enum RemoteTuning {
         "suggest_min_lead_min",
         "suggest_dismiss_rearm_min",
         "suggest_reschedule_weight",
+        "suggest_weekday_min",
+        "suggest_weekday_dates",
         "bh_row_min",
         "bh_row_dates",
         "bh_second_wind_min",
@@ -459,6 +465,8 @@ enum RemoteTuning {
         SuggestionConstants.minLeadMin = tuning.suggestMinLeadMin
         SuggestionConstants.dismissRearmMin = tuning.suggestDismissRearmMin
         SuggestionConstants.rescheduleWeight = tuning.suggestRescheduleWeight
+        SuggestionConstants.weekdayMin = tuning.suggestWeekdayMin
+        SuggestionConstants.weekdayDates = tuning.suggestWeekdayDates
 
         // Best Hours: pure per-load derivations - the next Stats load
         // simply reads the new floors.

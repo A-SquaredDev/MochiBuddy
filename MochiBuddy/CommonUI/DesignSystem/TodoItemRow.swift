@@ -31,6 +31,10 @@ struct TodoItemRow: View {
     var sourceBadge: String? = nil
     /// Repeat glyph after the title - this row is an occurrence of a series.
     var isRecurring: Bool = false
+    /// Passive re-time signpost (suggestions guide B): a clock-with-arrow
+    /// glyph on the meta line when the editor's chip has a time to offer.
+    /// Caller-supplied - Home and Reminders rows never set it (B6).
+    var showsRetimeBadge: Bool = false
     /// Row-body tap (opens detail/edit); the checkbox stays independent.
     var onTap: (() -> Void)?
     let onToggle: () -> Void
@@ -111,6 +115,15 @@ struct TodoItemRow: View {
                             Text(meta)
                                 .font(MochiFont.body(10.5, weight: metaEmphasized ? .heavy : .bold))
                                 .foregroundStyle(metaColor)
+                        }
+                        // B2: clock.arrow.circlepath, never a plain clock -
+                        // the due state's clock.fill sits in this same
+                        // HStack. Icon only, accent tint, no chrome (B3).
+                        if showsRetimeBadge {
+                            Image(systemName: "clock.arrow.circlepath")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundStyle(theme.primaryText)
+                                .accessibilityLabel("Mochi has a time idea for this")
                         }
                         if let listName {
                             if meta != nil {

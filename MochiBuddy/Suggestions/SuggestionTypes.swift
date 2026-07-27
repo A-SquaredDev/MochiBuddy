@@ -25,6 +25,10 @@ enum SuggestionScopeTier: String, Codable {
     case series
     case list
     case global
+    /// Weekday-filtered fallbacks (A1) - their own tier, so weekday-scoped
+    /// answers get their own phrasing and can never borrow the pooled voice.
+    case listWeekday
+    case globalWeekday
 }
 
 /// A fully-formed suggestion - every gate and guardrail already passed.
@@ -41,6 +45,9 @@ struct SuggestionProposal: Equatable {
     /// Day-capped completions behind the winning scope (telemetry bucket).
     let evidenceCount: Int
     let isRecurring: Bool
+    /// Calendar weekday (1 = Sunday) for the weekday-filtered tiers -
+    /// their reason copy names the day. nil on pooled tiers.
+    var weekday: Int? = nil
 
     /// Copy band of the displayed time (list/global reason phrasing).
     var band: TimeOfDayBand { TimeOfDayBand(minute: displayedMinute) }

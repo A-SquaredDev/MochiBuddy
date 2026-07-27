@@ -585,3 +585,91 @@ struct SuggestionReTimeTests {
         #expect(result.proposal == nil && result.blocked == nil)
     }
 }
+
+// MARK: - Weekday fallback (guide A)
+
+@Suite("Suggestions · weekday fallback")
+struct SuggestionWeekdayFallbackTests {
+
+    /// The anchor 2026-07-08 is a Wednesday, so the default due day
+    /// (day(1) = 2026-07-09) is a THURSDAY - weekday 5. Offsets -6, -13,
+    /// -20, -27, -34 are the past Thursdays inside the window.
+    private static let thursdayOffsets = [-6, -13, -20, -27, -34]
+
+    /// A textbook bimodal pool: mornings and afternoons in a dead heat,
+    /// silenced by the runner-up gate - but every Thursday is a morning.
+    private func bimodal(thursdayCount: Int = 5) -> [DistributionResult.Entry] {
+        let thursdays = Self.thursdayOffsets.prefix(thursdayCount)
+            .map { entry(minute: 480, day: day($0), identity: "thu\($0)") }
+        let otherMornings = [-1, -2, -3, -4, -5, -8, -9]
+            .map { entry(minute: 480, day: day($0), identity: "am\($0)") }
+        let afternoons = [-10, -11, -12, -15, -16, -17, -18, -19, -22, -23, -24, -26]
+            .map { entry(minute: 840, day: day($0), identity: "pm\($0)") }
+        return thursdays + otherMornings + afternoons
+    }
+
+    @Test("a pool silenced by the runner-up gate retries the due weekday and serves the bimodal user")
+    func fallbackFires() {
+        let result = SuggestionEngine.evaluateNewTime(
+            task: makeSnapshot(),
+            context: makeContext(global: dist(bimodal())),
+            dismissedAt: nil
+        )
+        let proposal = try! #require(result.proposal)
+        #expect(proposal.tier == .globalWeekday)
+        #expect(proposal.weekday == 5, "the due day is a Thursday")
+        #expect(proposal.displayedMinute == 480, "Thursdays are all mornings")
+        #expect(result.gates.contains { $0.name == "weekday fallback" })
+    }
+
+    @Test("evidence silence never falls back - only the bimodal runner-up gate does (A1)")
+    func evidenceSilenceStaysPooled() {
+        let result = SuggestionEngine.evaluateNewTime(
+            task: makeSnapshot(),
+            context: makeContext(global: dist(cluster(10, minute: 480))),
+            dismissedAt: nil
+        )
+        #expect(result.proposal == nil)
+        #expect(result.blocked == .evidence)
+        #expect(!result.gates.contains { $0.name == "weekday fallback" },
+                "no retry was owed - the pool is thin, not bimodal")
+    }
+
+    @Test("a thin weekday slice keeps the pooled silence, with the retry visible in the gates")
+    func thinSliceStaysSilent() {
+        let result = SuggestionEngine.evaluateNewTime(
+            task: makeSnapshot(),
+            context: makeContext(global: dist(bimodal(thursdayCount: 3))),
+            dismissedAt: nil
+        )
+        #expect(result.proposal == nil)
+        #expect(result.blocked == .runnerUp, "the pooled reason stays the reported silence")
+        #expect(result.gates.contains { $0.name == "weekday fallback" })
+    }
+
+    @Test("a bimodal list falls back at list scope first and keeps its listId for copy")
+    func listPrecedence() {
+        let result = SuggestionEngine.evaluateNewTime(
+            task: makeSnapshot(listId: "l1"),
+            context: makeContext(list: dist(bimodal(), scope: .list("l1")), global: dist([])),
+            dismissedAt: nil
+        )
+        let proposal = try! #require(result.proposal)
+        #expect(proposal.tier == .listWeekday)
+        #expect(proposal.listId == "l1")
+        #expect(proposal.weekday == 5)
+    }
+
+    @Test("weekday filtering keeps whole Thursdays and names its provenance")
+    func filteredScope() {
+        let filtered = SuggestionEngine.weekdayFiltered(
+            dist(bimodal(), scope: .list("l1")), weekday: 5
+        )
+        #expect(filtered.scopeUsed == .listWeekday("l1", weekday: 5))
+        #expect(filtered.entries.count == 5)
+        #expect(filtered.entries.allSatisfy { $0.minute == 480 })
+
+        let globalFiltered = SuggestionEngine.weekdayFiltered(dist(bimodal()), weekday: 5)
+        #expect(globalFiltered.scopeUsed == .globalWeekday(weekday: 5))
+    }
+}

@@ -105,6 +105,62 @@ final class SuggestionService {
         return (parts.hour ?? 0) * 60 + (parts.minute ?? 0)
     }
 
+    // MARK: - Row badge (guide B)
+
+    /// One evaluation pass per fetch (B4): the ids of saved, recurring,
+    /// timed Mochi tasks whose re-time trigger fires right now - the same
+    /// gates and guardrails the editor chip applies, including ledger
+    /// dismissals. Deliberately NOT a telemetry denominator: evaluated
+    /// events belong to editor sessions only.
+    func retimeBadgeTaskIds(tasks: [TaskItem], now: Date = .now) async -> Set<String> {
+        guard let userId = authRepository.currentAccount?.uid else { return [] }
+        let candidates = tasks.filter {
+            !$0.completed && $0.hasTime && $0.dueAt != nil
+                && ($0.repeatRule != nil || $0.seriesId != nil)
+        }
+        guard !candidates.isEmpty,
+              let inputs = await observationService.engineInputs(now: now, calendar: calendar)
+        else { return [] }
+        let profile = try? await profileRepository.fetchProfile(userId: userId)
+        let bedtime = (profile?.bedtime ?? .standard).sanitized
+        let isLapsed = membershipSession.isLapsed
+        let today = CivilDay(of: now, in: calendar).dateString
+        let nowMinute = minuteOfDay(now)
+        let global = ObservationEngine.suggestionDistribution(scope: .global, inputs: inputs)
+
+        var ids: Set<String> = []
+        for task in candidates {
+            let identity = task.seriesId ?? task.id
+            let context = SuggestionEngine.Context(
+                series: ObservationEngine.suggestionDistribution(
+                    scope: .series(identity), inputs: inputs
+                ),
+                list: nil,
+                global: global,
+                bedtime: bedtime,
+                isLapsed: isLapsed,
+                today: today,
+                nowMinute: nowMinute
+            )
+            let snapshot = SuggestionEngine.TaskSnapshot(
+                listId: task.listId,
+                isRecurring: true,
+                hasTime: true,
+                scheduledMinute: task.dueAt.map(minuteOfDay),
+                dueDay: task.dueAt.map { CivilDay(of: $0, in: calendar).dateString },
+                isAppleSource: false
+            )
+            let evaluation = SuggestionEngine.evaluateReTime(
+                task: snapshot, context: context,
+                dismissedAt: ledger.dismissedMinute(.reTime, id: identity, userId: userId)
+            )
+            if evaluation.proposal != nil {
+                ids.insert(task.id)
+            }
+        }
+        return ids
+    }
+
     // MARK: - Ledger reads/writes
 
     func dismissedMinute(_ trigger: SuggestionTrigger, id: String, userId: String) -> Int? {

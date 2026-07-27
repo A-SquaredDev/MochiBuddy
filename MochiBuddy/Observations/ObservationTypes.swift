@@ -99,6 +99,12 @@ struct DistributionResult: Equatable {
         case series(String)
         case list(String)
         case globalFallback
+        /// Weekday-filtered fallbacks (suggestions guide A1/A2): the list
+        /// or global pool narrowed to one calendar weekday (1 = Sunday).
+        /// Never series - a 42-day window holds at most 6 of any weekday,
+        /// unreachable under the series floors.
+        case listWeekday(String, weekday: Int)
+        case globalWeekday(weekday: Int)
     }
 
     /// One day-capped completion, with the provenance Feature 5's gates

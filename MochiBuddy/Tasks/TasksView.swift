@@ -207,6 +207,7 @@ struct TasksView: View {
             listColor: item.listColor,
             sourceBadge: item.sourceBadge,
             isRecurring: item.isRecurring,
+            showsRetimeBadge: item.showsRetimeBadge,
             onTap: { viewModel.trigger(.taskTapped(item.id)) },
             onToggle: { viewModel.trigger(.toggleTask(item.id)) }
         )

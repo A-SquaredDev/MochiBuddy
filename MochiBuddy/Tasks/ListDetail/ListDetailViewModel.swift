@@ -22,9 +22,12 @@ final class ListDetailViewModel: StateViewModel<
     private let membershipSession: MembershipSession
     private let recurrenceRoller: RecurrenceRoller
     private let relay: NotificationRelaying
+    private let suggestionService: SuggestionService?
 
     // Domain source of truth - UIState is derived from these.
     private var open: [TaskItem] = []
+    /// Re-time badge ids, computed once per fetch (guide B4).
+    private var retimeBadgeIds: Set<String> = []
     private var done: [TaskItem] = []
     private var reminders: [ReminderTaskItem] = []
     private var coins = 0
@@ -38,7 +41,8 @@ final class ListDetailViewModel: StateViewModel<
         remindersGateway: RemindersGateway,
         membershipSession: MembershipSession,
         recurrenceRoller: RecurrenceRoller,
-        relay: NotificationRelaying
+        relay: NotificationRelaying,
+        suggestionService: SuggestionService? = nil
     ) {
         self.source = source
         self.authRepository = authRepository
@@ -49,6 +53,7 @@ final class ListDetailViewModel: StateViewModel<
         self.membershipSession = membershipSession
         self.recurrenceRoller = recurrenceRoller
         self.relay = relay
+        self.suggestionService = suggestionService
 
         var initial = ListDetailBehavior.UIState()
         switch source {
@@ -138,6 +143,7 @@ final class ListDetailViewModel: StateViewModel<
         done = ((try? await taskRepository.completedTasks(limit: 50, userId: userId)) ?? [])
             .filter { $0.listId == scopedListId }
         coins = profile?.coins ?? coins
+        retimeBadgeIds = await suggestionService?.retimeBadgeTaskIds(tasks: open) ?? []
         rebuild()
     }
 
@@ -258,7 +264,8 @@ final class ListDetailViewModel: StateViewModel<
         return TasksBehavior.TodoUIItem(
             id: task.id, title: task.title,
             meta: display.meta, state: display.state, chip: display.chip,
-            isRecurring: task.repeatRule != nil
+            isRecurring: task.repeatRule != nil,
+            showsRetimeBadge: retimeBadgeIds.contains(task.id)
         )
     }
 }
