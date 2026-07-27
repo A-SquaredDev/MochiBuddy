@@ -292,3 +292,58 @@ was. Also `RootView.swift:32` and `HomeView.swift:61` are not sequenced, so a
 - [ ] Nothing surfaces effort in letters or observations yet. Deliberate; revisit
       once there is real data. (A "you took on three Large tasks this week" letter
       beat is the obvious future consumer.)
+
+---
+
+## 11. Implementation status and human test cases
+
+**Built 2026-07-27** (commit "Add the optional Effort rating with weighted
+momentum and a Stats tile"). Model, persistence, weighted momentum with the
+sidecar entries (§5), the editor pill (D8), the Stats tile (§7), recurring
+inheritance, and the four effort_weight_* keys are in code with unit coverage in
+`MoodEngineTests`, `MoodForecastTests`, `NotificationDeliveryTests` (D10
+regression), `TaskCompletionStoreTests`, `TaskEditorViewModelTests`, and
+`StatsViewModelTests`. The items below need a human.
+
+### Console
+
+- [ ] Publish `effort_weight_tiny` = 1.0, `effort_weight_small` = 1.4,
+      `effort_weight_medium` = 2.0, `effort_weight_large` = 3.0 (completes the
+      batch's 74 → 84 pin move; audit check per the Best Hours guide).
+
+### Editor (D8/D1b), against Task Size Control.dc.html states 2a-2c
+
+- [ ] PRIORITY and EFFORT share one row with two eyebrows on a 320pt device -
+      the priority chips may wrap within their own block but the pill must not
+      fall to a new full-width row.
+- [ ] Unset reads "Set effort" in the muted style; set reads the level in the
+      filled pill; the menu lists Tiny / Small / Medium / Large plus Clear and
+      shows no clock times anywhere (D1).
+- [ ] D1b watch item: with priority "Medium" selected AND effort "Medium" set,
+      confirm the row reads as two named questions, not a duplicate. If it reads
+      as a duplicate in real use, revisit per D1b.
+- [ ] The comp file cleanup from §10: delete the superseded food-metaphor states
+      (1a-1c) from `Task Size Control.dc.html` in the Design project.
+
+### Mood behavior, on device
+
+- [ ] Complete one Large task vs three unsized tasks on two test accounts: the
+      pet lift is visibly comparable (§4 table). Coins stay flat either way (D5).
+- [ ] Rate a task Tiny vs leave it unset: identical mood effect (D4).
+- [ ] Overdue: a 2h task overdue accrues the same stress as a 15m one at equal
+      priority (D9 - duration is credit-side only).
+- [ ] Widget check-off of a rated task still completes normally (the drain
+      re-reads the document; no queue change was needed, §9).
+
+### Stats
+
+- [ ] The Effort tile shows "~Nh" style values with "N of M rated" coverage,
+      a dash before anything is rated, and includes recurring completions (D12).
+- [ ] §7 open confirm: live with the time-based total for a while; if it feels
+      too clock-like beside a clockless picker, the fallback is the
+      effort-count subtitle ("mostly Small this month").
+
+### Accessibility
+
+- [ ] VoiceOver on the pill announces "Effort: Medium" / "Set effort" and the
+      menu items read their plain labels.

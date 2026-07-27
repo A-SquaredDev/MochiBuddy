@@ -192,3 +192,48 @@ and using a distinct verb, without the clumsy "on Tuesdays you usually...":
 - [ ] **No consumer for `rescheduleCount` yet.** C is infrastructure and ships first
       regardless (C4); the "you have pushed this five times" surface is a later,
       separate decision, deliberately out of scope here.
+
+---
+
+## 8. Implementation status and human test cases
+
+**Built 2026-07-27**, three commits: push counting (C, shipped first per C4), the
+weekday fallback (A), and the row badge (B). Unit coverage in
+`SuggestionEngineTests` (fallback gates), `SuggestionCopyTests` (A4 voices),
+`TaskEditorSuggestionTests` (badge evaluation + ledger cadence), and
+`TaskEditorViewModelTests` (push-counting intents). The items below need a human.
+
+### Console
+
+- [ ] Publish `suggest_weekday_min` = 4 and `suggest_weekday_dates` = 3 (part of
+      the batch's 74 → 84 pin move; see the Best Hours guide for the audit check).
+
+### Row badge (B), on device
+
+- [ ] The `clock.arrow.circlepath` badge appears on Tasks and ListDetail rows for
+      a recurring timed series completed far from its due time, and NEVER on
+      Home's today list or on a Reminders row (B6).
+- [ ] A row that is both due-soon and badged shows the warn `clock.fill` AND the
+      accent badge, visually distinct (the B2 revision) - check all five flavors.
+- [ ] Long title + badge + list dot + priority chip on a 320pt device: the title
+      truncates, nothing wraps or clips.
+- [ ] Tapping a badged row opens the editor with the re-time chip visible;
+      dismissing the chip removes the badge on the next visit to the list (same
+      ledger, same 60-minute re-arm).
+- [ ] Scrolling a long list stays smooth (the evaluation runs once per fetch,
+      never per row render - B4).
+
+### Weekday fallback (A), via the DEBUG inspector
+
+- [ ] Pick a task with a bimodal pooled history in DevSuggestionsInspector: the
+      gate table shows the pooled runner-up failure, then a "weekday fallback"
+      row and the weekday floors, and the verdict names the listWeekday or
+      globalWeekday scope.
+- [ ] The chip's reason line reads "On {weekday}s..." with the "wrap up" verb,
+      never the pooled phrasing (A4).
+
+### Push counting (C)
+
+- [ ] Editor-move a task's due date to a later day, then check the document in
+      the Firestore console: `rescheduleCount` incremented by exactly 1. Moving
+      it earlier or re-timing within the day leaves it untouched.

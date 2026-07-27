@@ -200,3 +200,49 @@ consumes it, so this dies with the caption rather than needing a separate fix.
 - [x] **Design comp revision** (C1 tiles, C5 correct tab, C6 legend) plus a
       caption/data consistency pass. Reviewed and approved 2026-07-26. The comp is
       now a faithful reference for all four states.
+
+---
+
+## 8. Implementation status and human test cases
+
+**Built 2026-07-27** (commit "Replace the rhythm card with Best Hours and Day by day cards").
+Derivations, cards, caption states, D9 caption trim, and the four bh_* keys are in
+code with unit coverage in `StatsViewModelTests.swift` (histogram, weekday rows,
+caption states, RC resolution). The items below need a human.
+
+### Console (blocking for tuned floors, not for shipping defaults)
+
+- [ ] Publish `bh_row_min` = 5, `bh_row_dates` = 3, `bh_second_wind_min` = 5,
+      `bh_second_wind_dates` = 3 in the Firebase console. The whole discovery
+      batch moves the pin 74 → 84; after publishing all ten new keys, launch a
+      DEBUG build and confirm the startup audit logs
+      `remote_tuning_audit all 84 keys remote-sourced`.
+
+### Visual, against the approved comp (Best Hours Cards.dc.html)
+
+- [ ] Both cards in all five flavors. Especially C7: the In window value and any
+      `--primary-text`-on-`--surface-2` text must pass contrast outside Black Sesame.
+- [ ] The two cards stack as a matched pair: the 12p / 6p / 11p ticks align
+      between the histogram and the Day by day rows.
+- [ ] 320pt-wide device (SE class): tiles do not wrap, the legend stays on one
+      line (C6 dropped "First to last" for exactly this).
+- [ ] A normal-schedule account: the right quarter of both cards is empty and
+      reads as intended (the 5a-to-5a axis, accepted cost in §4).
+
+### Behavior with real data
+
+- [ ] Week range hides Day by day even when Month shows it (D6).
+- [ ] A fresh account shows neither card; after one completion the histogram
+      appears alone (D1 ladder).
+- [ ] A recurring daily chore does NOT drag the peak (D2) but a burst of one-off
+      completions does.
+- [ ] Caption sanity: the second-wind clause only appears when the secondary
+      window is real (C4); the thin-days line names the actually-quiet days and
+      folds Sat+Sun into "the weekend".
+- [ ] After changing the device timezone, buckets stay put (completions render
+      in the zone where they happened, not the current one).
+
+### Accessibility
+
+- [ ] VoiceOver on the histogram reads the peak range and in-window share as one
+      summary element; each Day by day row reads its typical time or "still quiet".
