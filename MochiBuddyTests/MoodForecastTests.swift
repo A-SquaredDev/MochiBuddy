@@ -384,11 +384,19 @@ struct MoodForecastHorizonTests {
                 "the due-crossing at +36h lies beyond the horizon")
     }
 
-    @Test("an empty or inverted horizon yields nothing rather than a degenerate curve")
-    func degenerateHorizon() {
+    @Test("an expiry already behind capture is stale cache, not a lapse - it never caps")
+    func staleExpiryDoesNotCap() {
         let snapshot = makeSnapshot(entitlementExpiry: Dates.hours(-1))
-        #expect(MoodForecast.curve(until: Dates.days(1), snapshot: snapshot).isEmpty)
-        #expect(MoodForecast.bandCrossings(until: Dates.days(1), snapshot: snapshot).isEmpty)
+        let end = Dates.days(1)
+        #expect(MoodForecast.horizonEnd(requested: end, snapshot: snapshot) == end)
+        #expect(MoodForecast.curve(until: end, snapshot: snapshot).last?.date == end)
+    }
+
+    @Test("an inverted requested horizon yields nothing rather than a degenerate curve")
+    func degenerateHorizon() {
+        let snapshot = makeSnapshot()
+        #expect(MoodForecast.curve(until: Dates.hours(-1), snapshot: snapshot).isEmpty)
+        #expect(MoodForecast.bandCrossings(until: Dates.hours(-1), snapshot: snapshot).isEmpty)
     }
 }
 

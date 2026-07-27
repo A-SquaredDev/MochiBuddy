@@ -58,14 +58,21 @@ struct MochiTimelineProvider: TimelineProvider {
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<MochiEntry>) -> Void) {
         // Future-dated entries straight off the stored curve: the widget
-        // ages honestly with zero wasted reloads. Half-hour steps over the
-        // next 12h; interactions and app foregrounds reload immediately.
+        // ages honestly with zero wasted reloads. A half-hour grid over
+        // the next 12h keeps chrome fresh, plus one entry at each instant
+        // the face or label is due to change, so a predicted mood drop
+        // lands on time instead of at the next grid step. Interactions
+        // and app foregrounds reload immediately; .atEnd re-extends.
         let now = Date.now
-        var entries: [MochiEntry] = []
-        for step in 0..<24 {
-            entries.append(entry(at: now.addingTimeInterval(Double(step) * 30 * 60)))
+        var dates = (0..<24).map { now.addingTimeInterval(Double($0) * 30 * 60) }
+        if let state = WidgetStateStore.load() {
+            let boosts = UserDefaultsComfortBufferStore(defaults: MochiAppGroup.defaults)
+                .activeBoosts(now: now)
+            dates += state.visibleMoodChanges(
+                from: now, until: now.addingTimeInterval(12 * 3600), boosts: boosts
+            )
         }
-        completion(Timeline(entries: entries, policy: .atEnd))
+        completion(Timeline(entries: dates.sorted().map(entry(at:)), policy: .atEnd))
     }
 
     private func entry(at date: Date) -> MochiEntry {
@@ -163,6 +170,7 @@ struct MochiWidgetEntryView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
             statusLine
+            debugStamp
         }
     }
 
@@ -174,6 +182,7 @@ struct MochiWidgetEntryView: View {
                     .font(.system(size: 10.5, weight: .bold, design: .rounded))
                     .foregroundStyle(theme.ink)
                     .lineLimit(1)
+                debugStamp
             }
             VStack(alignment: .leading, spacing: 5) {
                 switch entry.state?.displayState {
@@ -255,6 +264,22 @@ struct MochiWidgetEntryView: View {
                 }
             }
         }
+    }
+
+    /// DEBUG-only diagnosis line: this entry's own date vs when the app
+    /// last mirrored state. A frozen left time means iOS is not advancing
+    /// timeline entries; an old right time means the mirror went stale.
+    /// Compiled out of release builds entirely.
+    @ViewBuilder
+    private var debugStamp: some View {
+        #if DEBUG
+        let laid = entry.state?.lastComputed.formatted(date: .omitted, time: .shortened) ?? "none"
+        Text("\(entry.date.formatted(date: .omitted, time: .shortened)) · laid \(laid)")
+            .font(.system(size: 7.5, weight: .semibold, design: .monospaced))
+            .foregroundStyle(theme.muted)
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+        #endif
     }
 
     /// VoiceOver reads the full name and keeps the two calm states

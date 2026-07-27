@@ -70,6 +70,44 @@ struct WidgetStateEvaluationTests {
         #expect(state.displayedValue(at: Dates.now, boosts: stacked) == 50 + MochiComfort.bufferCap,
                 "the +30 cap holds on the widget too")
     }
+
+    @Test("mood changes land at band boundaries, on the new side, deduped when face and label share one")
+    func visibleMoodChanges() {
+        // 58 → 20 over one hour: crosses 50 (label AND face - one change),
+        // then 35 (label only), then 25 (face only). Flat afterwards.
+        let state = makeState(baseline: [
+            .init(date: Dates.now, value: 58),
+            .init(date: Dates.hours(1), value: 20),
+            .init(date: Dates.hours(12), value: 20),
+        ])
+        let changes = state.visibleMoodChanges(from: Dates.now, until: Dates.hours(12), boosts: [])
+
+        #expect(changes.count == 3)
+        let exact: [TimeInterval] = [8.0 / 38 * 3600, 23.0 / 38 * 3600, 33.0 / 38 * 3600]
+        for (change, offset) in zip(changes, exact) {
+            #expect(abs(change.timeIntervalSince(Dates.now) - offset) <= 60,
+                    "each change is located to within the minute")
+        }
+        // Each returned instant already renders the NEW mood.
+        #expect(MoodBand(value: state.displayedValue(at: changes[0], boosts: [])) == .uneasy)
+        #expect(MoodBand(value: state.displayedValue(at: changes[1], boosts: [])) == .anxious)
+        #expect(MochiMood(vitality: state.displayedValue(at: changes[2], boosts: [])) == .unwell)
+    }
+
+    @Test("a fading boost alone schedules a change - the face drops when the lift runs out")
+    func boostDecayChange() {
+        let state = makeState(baseline: [.init(date: Dates.now, value: 48)])
+        let boost = BufferBoost(lift: 10, startedAt: Dates.now, duration: 2 * 3600)
+
+        #expect(state.visibleMoodChanges(from: Dates.now, until: Dates.hours(12), boosts: []).isEmpty,
+                "a flat curve with no boost schedules nothing")
+
+        // 48 + 10 decaying over 2h drops through 50 when 8 of the lift is
+        // spent: at 80% of the duration.
+        let changes = state.visibleMoodChanges(from: Dates.now, until: Dates.hours(12), boosts: [boost])
+        #expect(changes.count == 1)
+        #expect(abs((changes.first?.timeIntervalSince(Dates.now) ?? 0) - 0.8 * 2 * 3600) <= 60)
+    }
 }
 
 @Suite("WidgetStateStore")

@@ -126,6 +126,57 @@ struct MochiWidgetState: Codable, Equatable {
         let buffer = min(MochiComfort.bufferCap, boosts.reduce(0) { $0 + $1.value(at: date) })
         return min(100, max(0, baselineValue(at: date) + buffer))
     }
+
+    /// Every instant in (start, end] where the widget's rendering would
+    /// visibly change: the displayed value crossing a label band (MoodBand)
+    /// or face bucket (MochiMood) boundary - whether driven by the stored
+    /// curve or by a boost fading out. Scanned at `resolution`, each change
+    /// bisected to the minute; a plunge through several boundaries inside
+    /// one step yields one date per boundary. Returned dates sit on the NEW
+    /// side of their crossing, so a timeline entry there renders the new
+    /// mood.
+    func visibleMoodChanges(
+        from start: Date,
+        until end: Date,
+        boosts: [BufferBoost],
+        resolution: TimeInterval = 5 * 60
+    ) -> [Date] {
+        guard end > start else { return [] }
+        func look(_ date: Date) -> (MoodBand, MochiMood) {
+            let value = displayedValue(at: date, boosts: boosts)
+            return (MoodBand(value: value), MochiMood(vitality: value))
+        }
+
+        var changes: [Date] = []
+        var anchor = start
+        var anchorLook = look(start)
+        var t = start
+        while t < end {
+            t = min(t.addingTimeInterval(resolution), end)
+            let stepLook = look(t)
+            while anchorLook != stepLook {
+                var lo = anchor
+                var hi = t
+                var hiLook = stepLook
+                while hi.timeIntervalSince(lo) > 60 {
+                    let mid = lo.addingTimeInterval(hi.timeIntervalSince(lo) / 2)
+                    let midLook = look(mid)
+                    if midLook == anchorLook {
+                        lo = mid
+                    } else {
+                        hi = mid
+                        hiLook = midLook
+                    }
+                }
+                changes.append(hi)
+                anchor = hi
+                anchorLook = hiLook
+            }
+            anchor = t
+            anchorLook = stepLook
+        }
+        return changes
+    }
 }
 
 /// Reads/writes the contract in the shared suite, plus the tiny queue a

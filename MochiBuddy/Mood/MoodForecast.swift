@@ -110,9 +110,15 @@ enum MoodForecast {
     // MARK: - Horizon
 
     /// The requested horizon, hard-capped at entitlement expiry so no
-    /// mood ping is ever laid into a lapsed state.
+    /// mood ping is ever laid into a lapsed state. An expiry at or before
+    /// capture never caps: the account is still entitled (a real lapse
+    /// arrives as the lapsed flag and blanks the plan), so a past date is
+    /// a renewal the store cache hasn't confirmed yet - capping on it
+    /// would silence the whole scheduler.
     static func horizonEnd(requested: Date, snapshot: MoodSnapshot) -> Date {
-        guard let expiry = snapshot.entitlementExpiry else { return requested }
+        guard let expiry = snapshot.entitlementExpiry,
+              expiry > snapshot.capturedAt
+        else { return requested }
         return min(requested, expiry)
     }
 

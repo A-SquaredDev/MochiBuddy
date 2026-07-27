@@ -32,7 +32,29 @@ final class RevenueCatMembershipStore: MembershipStore {
         guard let info = try? await Purchases.shared.customerInfo() else {
             return .notSubscribed
         }
-        return Self.status(from: info)
+        let status = Self.status(from: info)
+        // Entitled, but the known expiry is already behind us: the cached
+        // CustomerInfo predates a renewal. Bypass the cache once so the
+        // fresh expiry lands as soon as the backend has it (the scheduler
+        // ignores a stale expiry either way; this just shortens the gap).
+        guard let expiry = Self.knownExpiry(of: status), expiry <= Date() else {
+            return status
+        }
+        guard let fresh = try? await Purchases.shared.customerInfo(fetchPolicy: .fetchCurrent) else {
+            return status
+        }
+        return Self.status(from: fresh)
+    }
+
+    /// The forward-looking expiry a status carries - nil once lapsed
+    /// (nothing left to go stale) or when RevenueCat sent no date.
+    private static func knownExpiry(of status: MembershipStatus) -> Date? {
+        switch status {
+        case .trial(let endsAt): endsAt
+        case .active(_, let renewsAt): renewsAt
+        case .billingGrace(_, let renewsAt): renewsAt
+        case .lapsed, .notSubscribed: nil
+        }
     }
 
     func planOptions() async -> [MembershipPlanOption] {
