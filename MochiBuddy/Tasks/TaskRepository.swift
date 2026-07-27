@@ -43,6 +43,9 @@ struct CompletedTaskStat: Equatable {
     let source: Source
     /// nil = unknown (never treated as 0; 0 means known-unmoved).
     let rescheduleCount: Int?
+    /// Nominal effort minutes the task carried at completion; nil = unrated.
+    /// Read-path only (D6) - the stat is never written, it reads the task doc.
+    let estimatedMinutes: Int?
 
     init(
         taskId: String = "",
@@ -54,6 +57,7 @@ struct CompletedTaskStat: Equatable {
         isRecurring: Bool = false,
         source: Source = .mochi,
         rescheduleCount: Int? = nil,
+        estimatedMinutes: Int? = nil,
         localContext: CompletionLocalContext? = nil,
         localContextDerived: Bool = false
     ) {
@@ -66,6 +70,7 @@ struct CompletedTaskStat: Equatable {
         self.isRecurring = isRecurring
         self.source = source
         self.rescheduleCount = rescheduleCount
+        self.estimatedMinutes = estimatedMinutes
         // No stored context: interpret under the current zone, marked
         // derived - the documented fallback for legacy rows.
         let context = localContext ?? .capture(at: completedAt)
@@ -180,6 +185,9 @@ final class FirestoreTaskRepository: TaskRepository {
         if let seriesId = draft.seriesId {
             fields["seriesId"] = seriesId
         }
+        if let estimatedMinutes = draft.estimatedMinutes {
+            fields["estimatedMinutes"] = estimatedMinutes
+        }
         // Not awaited: offline persistence applies the write to the local
         // cache instantly; awaiting would block until a server ack.
         if let id {
@@ -224,6 +232,7 @@ final class FirestoreTaskRepository: TaskRepository {
         fields["dueAt"] = task.dueAt.map(Timestamp.init(date:)) ?? FieldValue.delete()
         fields["listId"] = task.listId ?? FieldValue.delete()
         fields["repeatRule"] = task.repeatRule.map(Self.repeatRuleFields) ?? FieldValue.delete()
+        fields["estimatedMinutes"] = task.estimatedMinutes ?? FieldValue.delete()
         if countingReschedule {
             // Server-side increment, never a value off the domain model -
             // an offline queue of edits still counts each push exactly once.
@@ -325,7 +334,8 @@ final class FirestoreTaskRepository: TaskRepository {
             completedAt: (data["completedAt"] as? Timestamp)?.dateValue(),
             createdAt: (data["createdAt"] as? Timestamp)?.dateValue(),
             seriesId: data["seriesId"] as? String,
-            rescheduleCount: data["rescheduleCount"] as? Int
+            rescheduleCount: data["rescheduleCount"] as? Int,
+            estimatedMinutes: data["estimatedMinutes"] as? Int
         )
     }
 
@@ -402,6 +412,7 @@ final class FirestoreTaskRepository: TaskRepository {
                 isRecurring: data["repeatRule"] != nil || data["seriesId"] != nil,
                 source: CompletedTaskStat.Source(rawValue: data["source"] as? String ?? "") ?? .mochi,
                 rescheduleCount: data["rescheduleCount"] as? Int,
+                estimatedMinutes: data["estimatedMinutes"] as? Int,
                 localContext: context
             )
         }

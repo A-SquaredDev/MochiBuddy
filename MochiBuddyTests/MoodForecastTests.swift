@@ -26,7 +26,8 @@ private func makeSnapshot(
     capturedAt: Date = Dates.now
 ) -> MoodSnapshot {
     MoodSnapshot(
-        tasks: tasks, completionTimes: completionTimes, boosts: boosts,
+        tasks: tasks, completionTimes: completionTimes.map { WeightedCompletion(date: $0) },
+        boosts: boosts,
         vacationMode: vacationMode, vacationResumeAt: vacationResumeAt,
         vacationStartedAt: vacationStartedAt,
         entitlementExpiry: entitlementExpiry, capturedAt: capturedAt
@@ -264,6 +265,26 @@ struct MoodForecastRecurrenceTests {
 
 @Suite("MoodForecast · momentum & buffer")
 struct MoodForecastDecayTests {
+
+    @Test("the forecast sums effort weights: one Large completion lifts like three Tiny (effort §4)")
+    func weightedMomentumEquivalence() {
+        let oneLarge = MoodSnapshot(
+            completionTimes: [WeightedCompletion(date: Dates.hours(-2), weight: 3.0)],
+            capturedAt: Dates.now
+        )
+        let threeUnsized = MoodSnapshot(
+            completionTimes: (0..<3).map { WeightedCompletion(date: Dates.hours(-2 - Double($0))) },
+            capturedAt: Dates.now
+        )
+        #expect(MoodForecast.baseline(at: Dates.now, snapshot: oneLarge)
+            == MoodForecast.baseline(at: Dates.now, snapshot: threeUnsized))
+
+        // The weight ages out WITH its completion - past the window the
+        // big task lifts nothing, exactly like a small one.
+        let later = Dates.hours(23)
+        #expect(MoodForecast.baseline(at: later, snapshot: oneLarge)
+            == MoodForecast.baseline(at: later, snapshot: makeSnapshot()))
+    }
 
     @Test("momentum ages out: a lone completion stops lifting 24h after it happened")
     func momentumAgesOut() {

@@ -94,6 +94,74 @@ enum TaskRepeat: Equatable {
     }
 }
 
+/// The optional effort rating (effort-implementation-guide.md). The user
+/// only ever picks a magnitude label; each maps to a nominal duration and
+/// the STORED value is the minutes (D1a) - the math stays independent of
+/// label wording, and only these four values are ever written, so
+/// minutes-to-label display is an exact lookup. The minutes are internal
+/// nominals, never shown in the picker (D1).
+enum EffortLevel: String, CaseIterable {
+    case tiny
+    case small
+    case medium
+    case large
+
+    var minutes: Int {
+        switch self {
+        case .tiny: 15
+        case .small: 30
+        case .medium: 60
+        case .large: 120
+        }
+    }
+
+    var label: String {
+        switch self {
+        case .tiny: "Tiny"
+        case .small: "Small"
+        case .medium: "Medium"
+        case .large: "Large"
+        }
+    }
+
+    /// Exact reverse lookup - the pill and Stats read the stored minutes
+    /// back into a label. Unknown values (hand-edited docs) read as nil.
+    init?(minutes: Int) {
+        guard let level = Self.allCases.first(where: { $0.minutes == minutes }) else {
+            return nil
+        }
+        self = level
+    }
+}
+
+/// Momentum weights per level (D3), Remote Config tunable. Unset is never
+/// penalized (D4): an unsized task keeps exactly weight 1, so honestly
+/// sizing a small task is a no-op on mood and honesty stays free.
+enum EffortConstants {
+    static var tinyWeight = 1.0
+    static var smallWeight = 1.4
+    static var mediumWeight = 2.0
+    static var largeWeight = 3.0
+
+    static func weight(_ level: EffortLevel) -> Double {
+        switch level {
+        case .tiny: tinyWeight
+        case .small: smallWeight
+        case .medium: mediumWeight
+        case .large: largeWeight
+        }
+    }
+
+    /// The weight a stored minutes value earns toward momentum. nil or an
+    /// unknown value is weight 1 - unknown, never penalized (D4).
+    static func weight(estimatedMinutes: Int?) -> Double {
+        guard let minutes = estimatedMinutes, let level = EffortLevel(minutes: minutes) else {
+            return 1
+        }
+        return weight(level)
+    }
+}
+
 /// A task as it exists - the mood engine and every task surface read this.
 struct TaskItem: Equatable, Identifiable {
     let id: String
@@ -118,6 +186,8 @@ struct TaskItem: Equatable, Identifiable {
     /// editor move to a later day). nil = unknown (never treated as 0;
     /// 0 means known-unmoved) - matches `CompletedTaskStat.rescheduleCount`.
     var rescheduleCount: Int? = nil
+    /// Nominal minutes behind the chosen EffortLevel; nil = unrated (D2).
+    var estimatedMinutes: Int? = nil
 }
 
 /// What the user provides when capturing a task.
@@ -131,4 +201,6 @@ struct TaskDraft {
     var repeatRule: TaskRepeat?
     /// Set only when spawning the next occurrence of a recurring task.
     var seriesId: String? = nil
+    /// Nominal minutes behind the chosen EffortLevel; nil = unrated (D2).
+    var estimatedMinutes: Int? = nil
 }

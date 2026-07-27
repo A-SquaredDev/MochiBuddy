@@ -401,17 +401,29 @@ struct NotificationRequestBuilderTests {
 
         let productive = NotificationRequestBuilder.request(
             for: plan, tasksById: [:], allTasks: [],
-            completionTimes: (0..<5).map { Dates.hours(Double(-$0)) },
+            completionTimes: (0..<5).map { WeightedCompletion(date: Dates.hours(Double(-$0))) },
             floorPhase: .acute, hideTaskNames: false, deck: &deck
         )
         #expect(productive.content.title == "You crushed yesterday")
 
         let ordinary = NotificationRequestBuilder.request(
             for: plan, tasksById: [:], allTasks: [],
-            completionTimes: [Dates.hours(-1)],
+            completionTimes: [WeightedCompletion(date: Dates.hours(-1))],
             floorPhase: .acute, hideTaskNames: false, deck: &deck
         )
         #expect(ordinary.content.title != "You crushed yesterday")
+
+        // Effort D10 regression: crushed is a COUNT of things done. Two
+        // Large completions carry a big momentum weight but must never
+        // announce a crushed day.
+        let twoLarge = NotificationRequestBuilder.request(
+            for: plan, tasksById: [:], allTasks: [],
+            completionTimes: (0..<2).map {
+                WeightedCompletion(date: Dates.hours(Double(-$0)), weight: 3.0)
+            },
+            floorPhase: .acute, hideTaskNames: false, deck: &deck
+        )
+        #expect(twoLarge.content.title != "You crushed yesterday")
     }
 
     @Test("a resolved Personal-Layer slot governs the rundown (Feature 2)")
@@ -421,7 +433,7 @@ struct NotificationRequestBuilderTests {
         )!
         let plan = PlannedNotification(id: "rundown-2026-07-09", kind: .rundown, fireAt: fireAt)
         var deck = CopyDeck()
-        let crushedWorthy = (0..<5).map { Dates.hours(Double(-$0)) }
+        let crushedWorthy = (0..<5).map { WeightedCompletion(date: Dates.hours(Double(-$0))) }
         let tasks = [makeTask(id: "a", title: "Pay rent", dueAt: Dates.hours(-2), hasTime: true)]
         let byId = ["a": tasks[0]]
 

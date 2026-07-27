@@ -121,12 +121,14 @@ struct RemoteTuningTests {
             "suggest_weekday_min", "suggest_weekday_dates",
             "bh_row_min", "bh_row_dates",
             "bh_second_wind_min", "bh_second_wind_dates",
+            "effort_weight_tiny", "effort_weight_small",
+            "effort_weight_medium", "effort_weight_large",
         ]
         #expect(Set(RemoteTuning.allKeys) == published)
-        #expect(RemoteTuning.allKeys.count == 80, "no duplicates")
+        #expect(RemoteTuning.allKeys.count == 84, "no duplicates")
     }
 
-    @Test("EVERY published key is consumed with its declared type - override all 80, every field moves")
+    @Test("EVERY published key is consumed with its declared type - override all 84, every field moves")
     @MainActor
     func everyKeyDecodes() {
         let source = StubTuningSource(
@@ -206,6 +208,10 @@ struct RemoteTuningTests {
                 "bh_row_dates": 2,
                 "bh_second_wind_min": 7,
                 "bh_second_wind_dates": 4,
+                "effort_weight_tiny": 1.1,
+                "effort_weight_small": 1.5,
+                "effort_weight_medium": 2.2,
+                "effort_weight_large": 3.5,
             ],
             jsons: [
                 "notif_floor_taper": "[5,4,3,2,1]",
@@ -255,7 +261,9 @@ struct RemoteTuningTests {
             suggestRetimeMismatchHours: 2, suggestMinLeadMin: 45,
             suggestDismissRearmMin: 90, suggestRescheduleWeight: 0.5,
             suggestWeekdayMin: 5, suggestWeekdayDates: 2,
-            bhRowMin: 6, bhRowDates: 2, bhSecondWindMin: 7, bhSecondWindDates: 4
+            bhRowMin: 6, bhRowDates: 2, bhSecondWindMin: 7, bhSecondWindDates: 4,
+            effortWeightTiny: 1.1, effortWeightSmall: 1.5,
+            effortWeightMedium: 2.2, effortWeightLarge: 3.5
         )
         #expect(tuning == expected, "every parameter must land in exactly one field")
     }
@@ -321,6 +329,8 @@ struct RemoteTuningTests {
         #expect(ObservationConstants.rundownWeeklyCap == 2)
         #expect(BestHoursConstants.rowMin == 5)
         #expect(BestHoursConstants.secondWindDates == 3)
+        #expect(EffortConstants.smallWeight == 1.4)
+        #expect(EffortConstants.largeWeight == 3.0)
         #expect(LetterConstants.sendWeekday == 1)
         #expect(LetterConstants.sendHour == 19)
         #expect(LetterConstants.maxBeats == 3)

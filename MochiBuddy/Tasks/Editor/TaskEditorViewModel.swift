@@ -65,7 +65,8 @@ final class TaskEditorViewModel: ObservableStateViewModel<
                 hasTime: task.hasTime,
                 priority: task.priority,
                 listId: task.listId,
-                repeatRule: task.repeatRule
+                repeatRule: task.repeatRule,
+                estimatedMinutes: task.estimatedMinutes
             )
         } else {
             // Fast capture defaults to due today (date-only). Callers may
@@ -142,6 +143,12 @@ final class TaskEditorViewModel: ObservableStateViewModel<
 
         case .selectPriority(let id):
             draft.priority = TaskPriority(rawValue: id) ?? .med
+            rebuild(picker: uiState.activePicker)
+
+        case .selectEffort(let id):
+            // The label is the user's choice; the stored value is the
+            // level's nominal minutes (effort guide D1a). nil clears.
+            draft.estimatedMinutes = id.flatMap { EffortLevel(rawValue: $0)?.minutes }
             rebuild(picker: uiState.activePicker)
 
         case .selectList(let id):
@@ -311,6 +318,7 @@ final class TaskEditorViewModel: ObservableStateViewModel<
             updated.priority = draft.priority
             updated.listId = draft.listId
             updated.repeatRule = draft.repeatRule
+            updated.estimatedMinutes = draft.estimatedMinutes
             try? await taskRepository.updateTask(
                 updated,
                 countingReschedule: Self.pushesDueDateLater(task, to: draft.dueAt),
@@ -345,6 +353,7 @@ final class TaskEditorViewModel: ObservableStateViewModel<
         detached.priority = draft.priority
         detached.listId = draft.listId
         detached.repeatRule = nil
+        detached.estimatedMinutes = draft.estimatedMinutes
         try? await taskRepository.updateTask(
             detached,
             countingReschedule: Self.pushesDueDateLater(task, to: draft.dueAt),
@@ -358,7 +367,8 @@ final class TaskEditorViewModel: ObservableStateViewModel<
             hasTime: task.hasTime,
             priority: task.priority,
             listId: task.listId,
-            repeatRule: rule
+            repeatRule: rule,
+            estimatedMinutes: task.estimatedMinutes
         )
         _ = try? await taskRepository.addTask(continuation, userId: userId)
         Haptics.success()
@@ -653,6 +663,13 @@ final class TaskEditorViewModel: ObservableStateViewModel<
             .init(id: TaskPriority.high.rawValue, label: "High", dot: .danger),
         ]
         next.selectedPriorityId = draft.priority.rawValue
+
+        let effortLevel = draft.estimatedMinutes.flatMap(EffortLevel.init(minutes:))
+        next.effortText = effortLevel?.label ?? "Set effort"
+        next.hasEffort = effortLevel != nil
+        next.effortOptions = EffortLevel.allCases.map {
+            .init(id: $0.rawValue, label: $0.label)
+        }
 
         next.listOptions = [.init(id: Self.inboxId, label: "Inbox", dot: .custom(Color(hexString: TaskListDefaults.colorChoices[0])))]
             + lists.map { .init(id: $0.id, label: $0.name, dot: .custom(Color(hexString: $0.colorHex))) }

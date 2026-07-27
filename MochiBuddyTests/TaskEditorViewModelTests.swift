@@ -412,6 +412,55 @@ struct TaskEditorEditTests {
     }
 }
 
+@Suite("TaskEditor · effort")
+@MainActor
+struct TaskEditorEffortTests {
+
+    @Test("a new task defaults to no effort; picking a level stores its nominal minutes")
+    func newTaskEffort() async {
+        let (vm, repo) = makeEditorVM()
+        await vm.triggerAsync(.load)
+        #expect(vm.uiState.hasEffort == false)
+        #expect(vm.uiState.effortText == "Set effort")
+        #expect(vm.uiState.effortOptions.map(\.label) == ["Tiny", "Small", "Medium", "Large"])
+
+        await vm.triggerAsync(.titleChanged("Deep clean"))
+        await vm.triggerAsync(.selectEffort("large"))
+        #expect(vm.uiState.effortText == "Large")
+        await vm.triggerAsync(.saveTapped)
+        #expect(repo.addedDrafts.first?.estimatedMinutes == 120)
+    }
+
+    @Test("editing prefills the level from stored minutes; Clear deletes them on save")
+    func editRoundTrip() async {
+        let task = makeTask(id: "t1", title: "Report", estimatedMinutes: 60)
+        let (vm, repo) = makeEditorVM(editing: task)
+        await vm.triggerAsync(.load)
+        #expect(vm.uiState.effortText == "Medium")
+        #expect(vm.uiState.hasEffort == true)
+
+        await vm.triggerAsync(.selectEffort(nil))
+        #expect(vm.uiState.effortText == "Set effort")
+        await vm.triggerAsync(.saveTapped)
+        #expect(repo.updatedTasks.first?.estimatedMinutes == nil)
+    }
+
+    @Test("a detached occurrence keeps its effort and the continuation inherits the series'")
+    func detachKeepsEffort() async {
+        let task = makeTask(
+            id: "r1", title: "Water", dueAt: calendar.startOfDay(for: .now),
+            repeatRule: .daily, estimatedMinutes: 30
+        )
+        let (vm, repo) = makeEditorVM(editing: task)
+        await vm.triggerAsync(.load)
+        await vm.triggerAsync(.selectEffort("large"))
+        await vm.triggerAsync(.saveTapped)
+        await vm.triggerAsync(.confirmSaveOccurrence)
+        #expect(repo.updatedTasks.first?.estimatedMinutes == 120, "the edited occurrence takes the new size")
+        #expect(repo.addedDrafts.first?.estimatedMinutes == 30, "the series continues with its original size")
+    }
+}
+
 @Suite("TaskEditor · push counting")
 @MainActor
 struct TaskEditorPushCountingTests {

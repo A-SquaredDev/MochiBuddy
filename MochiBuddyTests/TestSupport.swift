@@ -73,12 +73,14 @@ func makeTask(
     repeatRule: TaskRepeat? = nil,
     completed: Bool = false,
     completedAt: Date? = nil,
-    createdAt: Date? = Dates.now
+    createdAt: Date? = Dates.now,
+    estimatedMinutes: Int? = nil
 ) -> TaskItem {
     TaskItem(
         id: id, title: title, notes: notes, dueAt: dueAt, hasTime: hasTime,
         priority: priority, listId: listId, repeatRule: repeatRule,
-        completed: completed, completedAt: completedAt, createdAt: createdAt
+        completed: completed, completedAt: completedAt, createdAt: createdAt,
+        estimatedMinutes: estimatedMinutes
     )
 }
 
@@ -135,7 +137,8 @@ func makeStat(
     hasTime: Bool = false,
     isRecurring: Bool = false,
     source: CompletedTaskStat.Source = .mochi,
-    rescheduleCount: Int? = 0
+    rescheduleCount: Int? = 0,
+    estimatedMinutes: Int? = nil
 ) -> CompletedTaskStat {
     let day = CivilDay(localDate)!
     let instant = completedAt ?? Date(
@@ -151,6 +154,7 @@ func makeStat(
         isRecurring: isRecurring,
         source: source,
         rescheduleCount: rescheduleCount,
+        estimatedMinutes: estimatedMinutes,
         localContext: CompletionLocalContext(
             localDate: localDate, localMinute: localMinute, timeZoneId: timeZoneId
         )

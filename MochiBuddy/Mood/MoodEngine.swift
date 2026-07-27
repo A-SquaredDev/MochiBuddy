@@ -33,9 +33,12 @@ enum MoodEngine {
     }
 
     /// Baseline mood 0–100. Pets/treats never touch this - see ComfortBuffer.
+    /// `completionsLast24h` is the effort-WEIGHTED completion sum (effort
+    /// guide §4): one Large task (3.0) lifts like three Tiny ones, through
+    /// the unchanged saturation curve. Unrated completions weigh 1.
     static func baseline(
         incompleteTasks: [TaskItem],
-        completionsLast24h: Int,
+        completionsLast24h: Double,
         vacationMode: Bool,
         now: Date = .now,
         calendar: Calendar = .current
@@ -56,7 +59,7 @@ enum MoodEngine {
         }
 
         let momentum = Constants.momentumMax
-            * (1 - exp(-Double(completionsLast24h) / Constants.momentumSaturation))
+            * (1 - exp(-completionsLast24h / Constants.momentumSaturation))
         let gate = min(1, max(0, 1 - stress / Constants.gate))
 
         return min(100, max(0, Constants.anchor - stress + momentum * gate))

@@ -18,14 +18,24 @@
 
 import Foundation
 
+/// One completion inside the momentum window: its instant plus its effort
+/// weight (effort guide D3; unset = 1 per D4). The weight rides sidecar
+/// on the date so count consumers - crushedYesterday stays a count of
+/// things done, per D10 - keep counting with `.count`, and only the
+/// momentum path sums weights.
+struct WeightedCompletion: Equatable {
+    var date: Date
+    var weight: Double = 1
+}
+
 /// Everything mood(t) needs, captured at one instant. Pure data - the
 /// forecast never touches a repository or a clock.
 struct MoodSnapshot {
     /// Incomplete tasks as loaded (already rolled forward to capturedAt).
     var tasks: [TaskItem] = []
-    /// Completion times inside the momentum window before capturedAt.
+    /// Completions inside the momentum window before capturedAt.
     /// Timestamps, not a count, so momentum ages out mid-forecast.
-    var completionTimes: [Date] = []
+    var completionTimes: [WeightedCompletion] = []
     /// Active pets/treats - the exact store type, so decay math is shared.
     var boosts: [BufferBoost] = []
     var vacationMode = false
@@ -74,7 +84,7 @@ enum MoodForecast {
     ) -> Double {
         MoodEngine.baseline(
             incompleteTasks: tasks(at: t, snapshot: snapshot, calendar: calendar),
-            completionsLast24h: completionCount(at: t, snapshot: snapshot),
+            completionsLast24h: completionWeight(at: t, snapshot: snapshot),
             vacationMode: vacationActive(at: t, snapshot: snapshot),
             now: t,
             calendar: calendar
@@ -225,9 +235,13 @@ enum MoodForecast {
         }
     }
 
-    private static func completionCount(at t: Date, snapshot: MoodSnapshot) -> Int {
-        snapshot.completionTimes.count { time in
-            time >= t.addingTimeInterval(-momentumWindow) && time <= t
+    /// Effort-weighted momentum input at t - the only consumer that sums
+    /// weights; everything else counts entries.
+    private static func completionWeight(at t: Date, snapshot: MoodSnapshot) -> Double {
+        snapshot.completionTimes.reduce(0) { sum, completion in
+            completion.date >= t.addingTimeInterval(-momentumWindow) && completion.date <= t
+                ? sum + completion.weight
+                : sum
         }
     }
 

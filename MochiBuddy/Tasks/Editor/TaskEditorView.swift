@@ -131,10 +131,20 @@ struct TaskEditorView: View {
                         overdueBanner(banner)
                     }
                     whenBlock
-                    fieldBlock("Priority") {
-                        choiceRow(viewModel.priorityOptions, selected: viewModel.selectedPriorityId) {
-                            viewModel.trigger(.selectPriority($0))
+                    // D8: EFFORT shares the Priority row under its own
+                    // eyebrow - two labeled controls, distinct shapes
+                    // (chips vs a pill+menu), never an eighth block.
+                    HStack(alignment: .top, spacing: 12) {
+                        fieldBlock("Priority") {
+                            choiceRow(viewModel.priorityOptions, selected: viewModel.selectedPriorityId) {
+                                viewModel.trigger(.selectPriority($0))
+                            }
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        fieldBlock("Effort") {
+                            effortPill
+                        }
+                        .fixedSize(horizontal: true, vertical: false)
                     }
                     fieldBlock("List") {
                         choiceRow(viewModel.listOptions, selected: viewModel.selectedListId) {
@@ -340,6 +350,47 @@ struct TaskEditorView: View {
             MochiEyebrow(text: label)
             content()
         }
+    }
+
+    /// The EFFORT pill (effort guide D8): the valuePill recipe as a menu
+    /// label - four magnitude levels plus Clear, no clock times anywhere.
+    private var effortPill: some View {
+        Menu {
+            ForEach(viewModel.effortOptions) { option in
+                Button(option.label) {
+                    Haptics.selection()
+                    viewModel.trigger(.selectEffort(option.id))
+                }
+            }
+            if viewModel.hasEffort {
+                Divider()
+                Button("Clear", role: .destructive) {
+                    Haptics.impact(.light)
+                    viewModel.trigger(.selectEffort(nil))
+                }
+            }
+        } label: {
+            HStack(spacing: 6) {
+                Text(viewModel.effortText)
+                    .font(MochiFont.display(13, weight: .medium))
+                    .foregroundStyle(viewModel.hasEffort ? theme.primaryInk : theme.muted)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(viewModel.hasEffort ? theme.primaryInk : theme.muted)
+            }
+            .padding(EdgeInsets(top: 10, leading: 14, bottom: 10, trailing: 14))
+            .background(
+                viewModel.hasEffort ? theme.primary : theme.surface,
+                in: RoundedRectangle(cornerRadius: 14)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(viewModel.hasEffort ? theme.primary : theme.line, lineWidth: 1.5)
+            )
+        }
+        .accessibilityLabel(
+            viewModel.hasEffort ? "Effort: \(viewModel.effortText)" : "Set effort"
+        )
     }
 
     private func valuePill(icon: String?, text: String, active: Bool, onTap: @escaping () -> Void) -> some View {

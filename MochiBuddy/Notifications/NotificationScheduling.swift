@@ -63,7 +63,7 @@ enum NotificationRequestBuilder {
         for plan: PlannedNotification,
         tasksById: [String: TaskItem],
         allTasks: [TaskItem],
-        completionTimes: [Date] = [],
+        completionTimes: [WeightedCompletion] = [],
         floorPhase: NotificationCopy.FloorPhase,
         hideTaskNames: Bool,
         petName: String = PetNameSanitizer.defaultName,
@@ -129,9 +129,11 @@ enum NotificationRequestBuilder {
                 // at lay time on the prior calendar day. Pessimistic like
                 // the forecast - future completions can only add, and
                 // adding re-lays.
+                // A COUNT of things done, never a weighted sum (effort
+                // D10) - two long tasks are not "you crushed yesterday".
                 let yesterdayCount = calendar.date(byAdding: .day, value: -1, to: plan.fireAt)
                     .map { yesterday in
-                        completionTimes.count { calendar.isDate($0, inSameDayAs: yesterday) }
+                        completionTimes.count { calendar.isDate($0.date, inSameDayAs: yesterday) }
                     } ?? 0
                 crushed = yesterdayCount >= NotificationCopy.crushedYesterdayThreshold
             }

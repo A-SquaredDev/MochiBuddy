@@ -22,7 +22,7 @@ struct MoodEngineBaselineTests {
     ) -> Double {
         MoodEngine.baseline(
             incompleteTasks: tasks,
-            completionsLast24h: completions,
+            completionsLast24h: Double(completions),
             vacationMode: vacation,
             now: now,
             calendar: Dates.calendar
@@ -251,5 +251,53 @@ struct MoodEngineBoundaryTests {
         #expect(MoodEngine.weight(.low) == 1)
         #expect(MoodEngine.weight(.med) == 1.5)
         #expect(MoodEngine.weight(.high) == 2)
+    }
+}
+
+@Suite("Effort levels & weights")
+struct EffortLevelTests {
+
+    @Test("the four levels round-trip through their nominal minutes exactly")
+    func minutesRoundTrip() {
+        for level in EffortLevel.allCases {
+            #expect(EffortLevel(minutes: level.minutes) == level)
+        }
+        #expect(EffortLevel(minutes: 45) == nil, "only the four nominal values ever read back")
+        #expect(EffortLevel.tiny.minutes == 15)
+        #expect(EffortLevel.small.minutes == 30)
+        #expect(EffortLevel.medium.minutes == 60)
+        #expect(EffortLevel.large.minutes == 120)
+    }
+
+    @Test("unset is never penalized: nil and unknown minutes weigh exactly 1, same as Tiny (D4)")
+    func unsetWeight() {
+        #expect(EffortConstants.weight(estimatedMinutes: nil) == 1)
+        #expect(EffortConstants.weight(estimatedMinutes: 999) == 1, "hand-edited docs degrade to unknown")
+        #expect(EffortConstants.weight(estimatedMinutes: 15) == 1,
+                "sizing a small task is a no-op on mood - honesty stays free")
+    }
+
+    @Test("shipped weights match the intent: one Large lifts like three Tiny (D3)")
+    func shippedWeights() {
+        #expect(EffortConstants.weight(estimatedMinutes: 120) == 3.0)
+        #expect(EffortConstants.weight(estimatedMinutes: 60) == 2.0)
+        #expect(EffortConstants.weight(estimatedMinutes: 30) == 1.4)
+        let threeTiny = 3 * EffortConstants.weight(estimatedMinutes: 15)
+        #expect(EffortConstants.weight(estimatedMinutes: 120) == threeTiny)
+    }
+
+    @Test("momentum feeds on the weighted sum: 3.0 from one task equals 3.0 from three")
+    func weightedMomentum() {
+        let oneLarge = MoodEngine.baseline(
+            incompleteTasks: [], completionsLast24h: 3.0, vacationMode: false, now: Dates.now
+        )
+        let threeTiny = MoodEngine.baseline(
+            incompleteTasks: [], completionsLast24h: 1.0 + 1.0 + 1.0, vacationMode: false, now: Dates.now
+        )
+        #expect(oneLarge == threeTiny)
+        let unsized = MoodEngine.baseline(
+            incompleteTasks: [], completionsLast24h: 1.0, vacationMode: false, now: Dates.now
+        )
+        #expect(unsized < oneLarge, "one unsized task keeps exactly today's lift")
     }
 }

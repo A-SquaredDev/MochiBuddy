@@ -87,7 +87,7 @@ final class NotificationOrchestrator {
         let rundowns: [PlannedNotification]
         let snapshot: MoodSnapshot
         let taper: TaperState
-        let completionTimes: [Date]
+        let completionTimes: [WeightedCompletion]
         let now: Date
     }
 
@@ -155,7 +155,14 @@ final class NotificationOrchestrator {
         )
         let dayAgo = now.addingTimeInterval(-MoodForecast.momentumWindow)
         let completions = ((try? await taskRepository.completedTasks(since: dayAgo, userId: userId)) ?? [])
-            .compactMap(\.completedAt)
+            .compactMap { task in
+                task.completedAt.map {
+                    WeightedCompletion(
+                        date: $0,
+                        weight: EffortConstants.weight(estimatedMinutes: task.estimatedMinutes)
+                    )
+                }
+            }
 
         return RelayContext(
             userId: userId,

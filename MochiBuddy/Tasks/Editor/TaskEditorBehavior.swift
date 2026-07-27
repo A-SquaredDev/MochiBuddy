@@ -80,6 +80,14 @@ enum TaskEditorBehavior {
         var selectedRepeatId = "none"
         /// Non-empty only while the custom repeat cadence is selected.
         var repeatDayOptions: [DayChip] = []
+        /// EFFORT pill text: the chosen level's label, or the muted unset
+        /// prompt (effort guide D8). The pill shares the Priority row under
+        /// its own eyebrow - never an eighth block.
+        var effortText = "Set effort"
+        var hasEffort = false
+        /// The four magnitude levels for the pill's menu. No clock times
+        /// anywhere in the picker (D1).
+        var effortOptions: [ChoiceChip] = []
         var notes = ""
         var isWorking = false
         /// Recurring task: "skip this occurrence vs delete series" dialog.
@@ -99,6 +107,8 @@ enum TaskEditorBehavior {
         case suggestionTapped
         case suggestionDismissed
         case selectPriority(String)
+        /// An EffortLevel rawValue, or nil for Clear.
+        case selectEffort(String?)
         case selectList(String)
         case selectRepeat(String)
         case toggleRepeatDay(Int)

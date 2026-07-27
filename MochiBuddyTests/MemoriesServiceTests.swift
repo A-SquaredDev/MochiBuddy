@@ -188,7 +188,7 @@ struct MemoriesServiceTests {
             rundowns: [rundown(daysFromNow: 0)],
             snapshot: MoodSnapshot(capturedAt: Dates.hours(-2)),
             taper: TaperState(),
-            completionTimes: Array(repeating: yesterday, count: 6),
+            completionTimes: (0..<6).map { _ in WeightedCompletion(date: yesterday) },
             now: Dates.hours(-2)
         )
         let today = CivilDay(of: Dates.now, in: Dates.calendar).dateString

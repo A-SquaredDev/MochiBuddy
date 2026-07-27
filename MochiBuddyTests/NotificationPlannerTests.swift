@@ -37,7 +37,8 @@ private func makeInput(
     prefs.moodDips = moodDips
     return NotificationPlanInput(
         snapshot: MoodSnapshot(
-            tasks: tasks, completionTimes: completionTimes, boosts: [],
+            tasks: tasks, completionTimes: completionTimes.map { WeightedCompletion(date: $0) },
+            boosts: [],
             vacationMode: vacationMode, vacationResumeAt: vacationResumeAt,
             vacationStartedAt: vacationStartedAt,
             entitlementExpiry: entitlementExpiry, capturedAt: Dates.now

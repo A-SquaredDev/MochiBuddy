@@ -36,7 +36,9 @@ final class HomeViewModel: StateViewModel<
     private var tasks: [TaskItem] = []
     private var completedToday: [TaskItem] = []
     private var lists: [TaskList] = []
-    private var completionsLast24h = 0
+    /// Effort-WEIGHTED completion sum feeding momentum (effort guide §4);
+    /// unrated completions weigh 1, so with no ratings this is the count.
+    private var completionsLast24h = 0.0
     private var vacationMode = false
     private var vacationResumeAt: Date?
     private var vacationStartedAt: Date?
@@ -212,7 +214,7 @@ final class HomeViewModel: StateViewModel<
             moved.completed = true
             moved.completedAt = .now
             completedToday.insert(moved, at: 0)
-            completionsLast24h += 1
+            completionsLast24h += EffortConstants.weight(estimatedMinutes: moved.estimatedMinutes)
             let outcome = await completionStore.setCompleted(
                 moved, completed: true, currentCoins: coins, userId: userId
             )
@@ -318,7 +320,8 @@ final class HomeViewModel: StateViewModel<
         completedToday = (try? await taskRepository.completedTasks(since: startOfToday, userId: userId)) ?? []
         lists = (try? await listRepository.fetchLists(userId: userId)) ?? []
         let dayAgo = Date.now.addingTimeInterval(-24 * 3600)
-        completionsLast24h = (try? await taskRepository.completedTaskStats(since: dayAgo, userId: userId).count) ?? 0
+        completionsLast24h = ((try? await taskRepository.completedTaskStats(since: dayAgo, userId: userId)) ?? [])
+            .reduce(0) { $0 + EffortConstants.weight(estimatedMinutes: $1.estimatedMinutes) }
 
         // A pending triage pile (left by re-entry, wherever it happened)
         // surfaces here; ids whose tasks are gone silently drop out.
@@ -400,12 +403,13 @@ final class HomeViewModel: StateViewModel<
             return
         }
 
+        let effortWeight = EffortConstants.weight(estimatedMinutes: task.estimatedMinutes)
         if nowCompleted {
-            completionsLast24h += 1
+            completionsLast24h += effortWeight
             Haptics.success()
             state.petSquishTrigger += 1  // Mochi does a happy wiggle
         } else {
-            completionsLast24h = max(0, completionsLast24h - 1)
+            completionsLast24h = max(0, completionsLast24h - effortWeight)
         }
 
         let outcome = await completionStore.setCompleted(

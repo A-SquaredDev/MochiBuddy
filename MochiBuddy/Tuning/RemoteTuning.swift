@@ -134,6 +134,12 @@ struct ResolvedTuning: Equatable {
     var bhRowDates = 3
     var bhSecondWindMin = 5
     var bhSecondWindDates = 3
+    // Effort momentum weights (effort guide D3). The level-to-minutes
+    // mapping stays code-fixed in EffortLevel; only the weights tune.
+    var effortWeightTiny = 1.0
+    var effortWeightSmall = 1.4
+    var effortWeightMedium = 2.0
+    var effortWeightLarge = 3.0
 
     static let defaults = ResolvedTuning()
 
@@ -266,6 +272,11 @@ struct ResolvedTuning: Equatable {
         count("bh_row_dates", 1...50, into: &tuning.bhRowDates)
         count("bh_second_wind_min", 1...100, into: &tuning.bhSecondWindMin)
         count("bh_second_wind_dates", 1...50, into: &tuning.bhSecondWindDates)
+
+        number("effort_weight_tiny", 0...10, into: &tuning.effortWeightTiny)
+        number("effort_weight_small", 0...10, into: &tuning.effortWeightSmall)
+        number("effort_weight_medium", 0...10, into: &tuning.effortWeightMedium)
+        number("effort_weight_large", 0...10, into: &tuning.effortWeightLarge)
         if let data = source.json("streak_milestones"),
            let parsed = try? JSONDecoder().decode(Milestones.self, from: data),
            !parsed.fixed.isEmpty, parsed.fixed.allSatisfy({ $0 > 0 }), parsed.thenEvery > 0 {
@@ -357,6 +368,10 @@ enum RemoteTuning {
         "bh_row_dates",
         "bh_second_wind_min",
         "bh_second_wind_dates",
+        "effort_weight_tiny",
+        "effort_weight_small",
+        "effort_weight_medium",
+        "effort_weight_large",
     ]
     static let jsonKeys: [String] = [
         "notif_floor_taper",
@@ -474,6 +489,13 @@ enum RemoteTuning {
         BestHoursConstants.rowDates = tuning.bhRowDates
         BestHoursConstants.secondWindMin = tuning.bhSecondWindMin
         BestHoursConstants.secondWindDates = tuning.bhSecondWindDates
+
+        // Effort: weights land in the same launch-frozen constants the
+        // mood engine reads, so mood(t) stays deterministic per session.
+        EffortConstants.tinyWeight = tuning.effortWeightTiny
+        EffortConstants.smallWeight = tuning.effortWeightSmall
+        EffortConstants.mediumWeight = tuning.effortWeightMedium
+        EffortConstants.largeWeight = tuning.effortWeightLarge
     }
 
     /// Activate whatever last session fetched, apply it, then fetch in

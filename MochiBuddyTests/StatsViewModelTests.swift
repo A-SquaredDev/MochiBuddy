@@ -23,7 +23,8 @@ private func liveStat(
     minuteOfDay: Int = 600,
     dueAt: Date? = nil,
     listId: String? = nil,
-    isRecurring: Bool = false
+    isRecurring: Bool = false,
+    estimatedMinutes: Int? = nil
 ) -> CompletedTaskStat {
     let instant = daysAgo(d).addingTimeInterval(TimeInterval(minuteOfDay * 60))
     return CompletedTaskStat(
@@ -36,6 +37,7 @@ private func liveStat(
         isRecurring: isRecurring,
         source: .mochi,
         rescheduleCount: 0,
+        estimatedMinutes: estimatedMinutes,
         localContext: CompletionLocalContext(
             localDate: CivilDay(of: instant, in: calendar).dateString,
             localMinute: minuteOfDay,
@@ -377,6 +379,37 @@ struct StatsTilesTests {
         #expect(tiles.contains { $0.id == "coins" && $0.value == "40" })
         let best = tiles.first { $0.id == "best" }
         #expect(best?.subtitle == "day", "singular at 1")
+    }
+
+    @Test("the effort tile shows a rough half-hour total with honest coverage")
+    func effortTile() {
+        let stats = [
+            liveStat(daysAgo: 0, estimatedMinutes: 60),
+            liveStat(daysAgo: 1, estimatedMinutes: 60),
+            liveStat(daysAgo: 2, estimatedMinutes: 30),
+            liveStat(daysAgo: 3),
+            liveStat(daysAgo: 4, isRecurring: true, estimatedMinutes: 15),
+        ]
+        let tile = StatsViewModel.effortTile(stats: stats)
+        // 60+60+30+15 = 165, rounded to 180 - recurring time counts (D12).
+        #expect(tile.value == "~3h")
+        #expect(tile.subtitle == "4 of 5 rated")
+
+        let small = StatsViewModel.effortTile(stats: [liveStat(daysAgo: 0, estimatedMinutes: 15)])
+        #expect(small.value == "~30m", "the floor keeps a lone Tiny visible, never ~0")
+
+        let mixed = StatsViewModel.effortTile(stats: [
+            liveStat(daysAgo: 0, estimatedMinutes: 120),
+            liveStat(daysAgo: 1, estimatedMinutes: 30),
+        ])
+        #expect(mixed.value == "~2h 30m")
+    }
+
+    @Test("with nothing rated the effort tile shows a dash, matching onTimeText")
+    func effortTileUnrated() {
+        let tile = StatsViewModel.effortTile(stats: [liveStat(daysAgo: 0)])
+        #expect(tile.value == "–")
+        #expect(tile.subtitle == "nothing rated yet")
     }
 
     @Test("tile copy names the selected window")

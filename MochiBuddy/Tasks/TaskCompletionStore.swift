@@ -100,7 +100,8 @@ final class TaskCompletionStore {
                 priority: task.priority,
                 listId: task.listId,
                 repeatRule: rule,
-                seriesId: seriesId
+                seriesId: seriesId,
+                estimatedMinutes: task.estimatedMinutes
             )
             if let id = try? await taskRepository.addTask(draft, userId: userId) {
                 spawned = TaskItem(
@@ -108,7 +109,8 @@ final class TaskCompletionStore {
                     dueAt: nextDue, hasTime: task.hasTime, priority: task.priority,
                     listId: task.listId, repeatRule: rule,
                     completed: false, completedAt: nil, createdAt: .now,
-                    seriesId: seriesId
+                    seriesId: seriesId,
+                    estimatedMinutes: task.estimatedMinutes
                 )
                 spawnByCompletedTaskId[task.id] = id
             }

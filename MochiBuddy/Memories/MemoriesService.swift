@@ -82,7 +82,7 @@ final class MemoriesService {
         rundowns: [PlannedNotification],
         snapshot: MoodSnapshot,
         taper: TaperState,
-        completionTimes: [Date],
+        completionTimes: [WeightedCompletion],
         now: Date
     ) async -> [String: PersonalLayerContent] {
         guard !membershipSession.isLapsed,
@@ -225,11 +225,13 @@ final class MemoriesService {
         }
     }
 
-    private func crushedYesterday(before fireAt: Date, completionTimes: [Date]) -> Bool {
+    /// A COUNT of things done - deliberately unweighted (effort D10):
+    /// two Large tasks must never announce "you crushed yesterday".
+    private func crushedYesterday(before fireAt: Date, completionTimes: [WeightedCompletion]) -> Bool {
         guard let yesterday = calendar.date(byAdding: .day, value: -1, to: fireAt) else {
             return false
         }
-        let count = completionTimes.count { calendar.isDate($0, inSameDayAs: yesterday) }
+        let count = completionTimes.count { calendar.isDate($0.date, inSameDayAs: yesterday) }
         return count >= NotificationCopy.crushedYesterdayThreshold
     }
 

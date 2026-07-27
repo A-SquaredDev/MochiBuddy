@@ -183,3 +183,25 @@ struct TaskCompletionStoreTests {
         #expect(outcome.coinsDelta == -3)
     }
 }
+
+@Suite("TaskCompletionStore · effort inheritance")
+struct TaskCompletionStoreEffortTests {
+
+    @Test("a spawned occurrence inherits the effort the way it inherits seriesId")
+    func spawnInheritsEffort() async {
+        let taskRepo = StubTaskRepository()
+        let profileRepo = StubProfileRepository()
+        profileRepo.profile = makeProfile()
+        let store = TaskCompletionStore(
+            taskRepository: taskRepo,
+            rewardsStore: RewardsStore(profileRepository: profileRepo),
+            membershipSession: MembershipSession()
+        )
+        let task = makeTask(
+            id: "r1", dueAt: Dates.startOfToday, repeatRule: .daily, estimatedMinutes: 60
+        )
+        let outcome = await store.setCompleted(task, completed: true, currentCoins: 0, userId: "user1")
+        #expect(taskRepo.addedDrafts.first?.estimatedMinutes == 60)
+        #expect(outcome.spawnedNext?.estimatedMinutes == 60)
+    }
+}

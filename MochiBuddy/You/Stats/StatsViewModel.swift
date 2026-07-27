@@ -103,7 +103,7 @@ final class StatsViewModel: StateViewModel<
             coins: next.coins,
             adoptedOn: profile?.adoptedOn ?? petIdentityStore.adoptedOn,
             today: CivilDay(of: now, in: calendar)
-        )
+        ) + [Self.effortTile(stats: stats)]
 
         // Daily bars stay readable up to a month; 3 months buckets by week.
         next.trendUnit = range == .threeMonths ? .week : .day
@@ -212,6 +212,32 @@ final class StatsViewModel: StateViewModel<
             tiles.append(.init(id: "coins", value: "\(coins)", title: "Coins", subtitle: "balance"))
         }
         return tiles
+    }
+
+    /// The Effort tile (effort guide §7): summed nominal minutes rounded
+    /// to the nearest half hour and shown approximate - the levels are
+    /// coarse, so to-the-minute would be false precision. Coverage lives
+    /// in the subtitle ("12 of 34 rated") so a floor can never mislead;
+    /// "–" only when nothing in the range carries an effort, matching
+    /// onTimeText. Recurring completions ARE included (D12): a daily
+    /// 30-minute workout is real time spent.
+    static func effortTile(stats: [CompletedTaskStat]) -> StatsBehavior.StatTile {
+        let rated = stats.compactMap(\.estimatedMinutes)
+        guard !rated.isEmpty else {
+            return .init(id: "effort", value: "–", title: "Effort", subtitle: "nothing rated yet")
+        }
+        let rounded = max(30, 30 * Int((Double(rated.reduce(0, +)) / 30).rounded()))
+        let hours = rounded / 60
+        let minutes = rounded % 60
+        let text = switch (hours, minutes) {
+        case (0, _): "~\(minutes)m"
+        case (_, 0): "~\(hours)h"
+        default: "~\(hours)h \(minutes)m"
+        }
+        return .init(
+            id: "effort", value: text, title: "Effort",
+            subtitle: "\(rated.count) of \(stats.count) rated"
+        )
     }
 
     /// Weekly buckets for the 3-month trend - each point's `day` is that

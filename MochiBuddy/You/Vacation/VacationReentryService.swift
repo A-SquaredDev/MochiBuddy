@@ -152,7 +152,7 @@ final class VacationReentryService {
         // clamped by the same cap as every other boost.
         let baseline = MoodEngine.baseline(
             incompleteTasks: tasks,
-            completionsLast24h: 0,
+            completionsLast24h: 0.0,
             vacationMode: false,
             now: now,
             calendar: calendar
