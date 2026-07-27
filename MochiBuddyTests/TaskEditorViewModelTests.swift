@@ -412,6 +412,80 @@ struct TaskEditorEditTests {
     }
 }
 
+@Suite("TaskEditor · push counting")
+@MainActor
+struct TaskEditorPushCountingTests {
+
+    @Test("moving an incomplete task's due date to a later day counts a reschedule")
+    func laterDayCounts() async {
+        let task = makeTask(id: "t1", title: "Pay rent", dueAt: calendar.startOfDay(for: .now))
+        let (vm, repo) = makeEditorVM(editing: task)
+        await vm.triggerAsync(.load)
+        await vm.triggerAsync(.selectDateOption("tomorrow"))
+        await vm.triggerAsync(.saveTapped)
+        #expect(repo.updateRescheduleFlags == [true])
+    }
+
+    @Test("moving a due date earlier is not a push")
+    func earlierDayDoesNotCount() async {
+        let nextWeek = calendar.date(byAdding: .day, value: 7, to: calendar.startOfDay(for: .now))!
+        let task = makeTask(id: "t1", title: "Pay rent", dueAt: nextWeek)
+        let (vm, repo) = makeEditorVM(editing: task)
+        await vm.triggerAsync(.load)
+        await vm.triggerAsync(.selectDateOption("today"))
+        await vm.triggerAsync(.saveTapped)
+        #expect(repo.updateRescheduleFlags == [false])
+    }
+
+    @Test("re-timing within the same day is not a push")
+    func sameDayTimeChangeDoesNotCount() async {
+        let task = makeTask(id: "t1", title: "Pay rent", dueAt: calendar.startOfDay(for: .now))
+        let (vm, repo) = makeEditorVM(editing: task)
+        await vm.triggerAsync(.load)
+        await vm.triggerAsync(.timeTapped)
+        await vm.triggerAsync(.saveTapped)
+        #expect(repo.updateRescheduleFlags == [false])
+    }
+
+    @Test("adding a date to a dateless task is not a push")
+    func addingDateDoesNotCount() async {
+        let task = makeTask(id: "t1", title: "Pay rent", dueAt: nil)
+        let (vm, repo) = makeEditorVM(editing: task)
+        await vm.triggerAsync(.load)
+        await vm.triggerAsync(.selectDateOption("tomorrow"))
+        await vm.triggerAsync(.saveTapped)
+        #expect(repo.updateRescheduleFlags == [false])
+    }
+
+    @Test("skip-occurrence moves the date later without counting - different intent")
+    func skipOccurrenceDoesNotCount() async {
+        let task = makeTask(id: "r1", title: "Water", dueAt: calendar.startOfDay(for: .now), repeatRule: .daily)
+        let (vm, repo) = makeEditorVM(editing: task)
+        await vm.triggerAsync(.load)
+        await vm.triggerAsync(.deleteTapped)
+        await vm.triggerAsync(.confirmSkipOccurrence)
+        #expect(repo.updateRescheduleFlags == [false])
+    }
+
+    @Test("detaching an occurrence to a later day counts - it is still a user push")
+    func detachedLaterDayCounts() async {
+        let task = makeTask(id: "r1", title: "Water", dueAt: calendar.startOfDay(for: .now), repeatRule: .daily)
+        let (vm, repo) = makeEditorVM(editing: task)
+        await vm.triggerAsync(.load)
+        await vm.triggerAsync(.selectDateOption("tomorrow"))
+        await vm.triggerAsync(.saveTapped)
+        await vm.triggerAsync(.confirmSaveOccurrence)
+        #expect(repo.updateRescheduleFlags == [true])
+    }
+
+    @Test("a completed task's date move never counts")
+    func completedNeverCounts() {
+        let done = makeTask(dueAt: Dates.now, completed: true, completedAt: Dates.now)
+        let later = Dates.now.addingTimeInterval(3 * 86_400)
+        #expect(TaskEditorViewModel.pushesDueDateLater(done, to: later) == false)
+    }
+}
+
 @Suite("TaskEditor · recurring scope")
 @MainActor
 struct TaskEditorRecurringScopeTests {

@@ -311,7 +311,11 @@ final class TaskEditorViewModel: ObservableStateViewModel<
             updated.priority = draft.priority
             updated.listId = draft.listId
             updated.repeatRule = draft.repeatRule
-            try? await taskRepository.updateTask(updated, userId: userId)
+            try? await taskRepository.updateTask(
+                updated,
+                countingReschedule: Self.pushesDueDateLater(task, to: draft.dueAt),
+                userId: userId
+            )
         } else {
             // The preallocated id (when a suggestion session minted one)
             // keeps a pre-save chip dismissal attached to this task.
@@ -341,7 +345,11 @@ final class TaskEditorViewModel: ObservableStateViewModel<
         detached.priority = draft.priority
         detached.listId = draft.listId
         detached.repeatRule = nil
-        try? await taskRepository.updateTask(detached, userId: userId)
+        try? await taskRepository.updateTask(
+            detached,
+            countingReschedule: Self.pushesDueDateLater(task, to: draft.dueAt),
+            userId: userId
+        )
 
         let continuation = TaskDraft(
             title: task.title,
@@ -355,6 +363,20 @@ final class TaskEditorViewModel: ObservableStateViewModel<
         _ = try? await taskRepository.addTask(continuation, userId: userId)
         Haptics.success()
         setNavigationEvent(.done)
+    }
+
+    /// A user move of an incomplete task's due date to a LATER calendar day
+    /// is a push and counts toward rescheduleCount, same as snooze. Adding
+    /// a date, clearing one, moving earlier, or re-timing within the same
+    /// day is not a push. Skip-occurrence and vacation triage never route
+    /// through here - different intents, never counted.
+    static func pushesDueDateLater(
+        _ task: TaskItem, to newDueAt: Date?, calendar: Calendar = .current
+    ) -> Bool {
+        guard !task.completed, let oldDue = task.dueAt, let newDue = newDueAt else {
+            return false
+        }
+        return calendar.startOfDay(for: newDue) > calendar.startOfDay(for: oldDue)
     }
 
     /// Pushes the due date a day forward (design doc: snooze increments the

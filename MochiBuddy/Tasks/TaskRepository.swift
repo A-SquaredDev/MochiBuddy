@@ -98,7 +98,11 @@ protocol TaskRepository: AnyObject {
     /// Widget-drained completions pass the context stamped at tap time.
     func setCompleted(taskId: String, completed: Bool, localContext: CompletionLocalContext?, userId: String) async throws
     /// Rewrites the editable fields from the domain model.
-    func updateTask(_ task: TaskItem, userId: String) async throws
+    /// `countingReschedule` also increments the procrastination counter -
+    /// pass true only for a user move of an incomplete task's due date to
+    /// a later day (never for skip-occurrence, vacation triage, or a move
+    /// earlier - those are different intents).
+    func updateTask(_ task: TaskItem, countingReschedule: Bool, userId: String) async throws
     /// Pushes the due date and increments the procrastination counter.
     func snoozeTask(id: String, to newDueAt: Date, userId: String) async throws
     /// Re-stamps a rolled-forward recurring occurrence and silently logs
@@ -124,6 +128,10 @@ extension TaskRepository {
     @discardableResult
     func addTask(_ draft: TaskDraft, userId: String) async throws -> String {
         try await addTask(draft, id: nil, userId: userId)
+    }
+
+    func updateTask(_ task: TaskItem, userId: String) async throws {
+        try await updateTask(task, countingReschedule: false, userId: userId)
     }
 }
 
@@ -204,7 +212,7 @@ final class FirestoreTaskRepository: TaskRepository {
         return snapshot.documents.map(Self.taskItem(from:))
     }
 
-    func updateTask(_ task: TaskItem, userId: String) async throws {
+    func updateTask(_ task: TaskItem, countingReschedule: Bool, userId: String) async throws {
         var fields: [String: Any] = [
             "title": task.title,
             "hasTime": task.hasTime,
@@ -216,6 +224,11 @@ final class FirestoreTaskRepository: TaskRepository {
         fields["dueAt"] = task.dueAt.map(Timestamp.init(date:)) ?? FieldValue.delete()
         fields["listId"] = task.listId ?? FieldValue.delete()
         fields["repeatRule"] = task.repeatRule.map(Self.repeatRuleFields) ?? FieldValue.delete()
+        if countingReschedule {
+            // Server-side increment, never a value off the domain model -
+            // an offline queue of edits still counts each push exactly once.
+            fields["rescheduleCount"] = FieldValue.increment(Int64(1))
+        }
         tasks(userId).document(task.id).setData(fields, merge: true, completion: nil)
     }
 
@@ -311,7 +324,8 @@ final class FirestoreTaskRepository: TaskRepository {
             completed: data["completed"] as? Bool ?? false,
             completedAt: (data["completedAt"] as? Timestamp)?.dateValue(),
             createdAt: (data["createdAt"] as? Timestamp)?.dateValue(),
-            seriesId: data["seriesId"] as? String
+            seriesId: data["seriesId"] as? String,
+            rescheduleCount: data["rescheduleCount"] as? Int
         )
     }
 

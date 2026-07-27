@@ -114,6 +114,10 @@ struct TaskItem: Equatable, Identifiable {
     /// comeback diversity gate see one habit as one identity). Nil on the
     /// first occurrence and on one-off tasks.
     var seriesId: String? = nil
+    /// Times the user has pushed this task's due date later (snooze or an
+    /// editor move to a later day). nil = unknown (never treated as 0;
+    /// 0 means known-unmoved) - matches `CompletedTaskStat.rescheduleCount`.
+    var rescheduleCount: Int? = nil
 }
 
 /// What the user provides when capturing a task.

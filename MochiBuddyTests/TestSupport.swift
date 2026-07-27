@@ -405,6 +405,8 @@ final class StubTaskRepository: TaskRepository {
     private(set) var setCompletedCalls: [(taskId: String, completed: Bool)] = []
     private(set) var setCompletedContexts: [CompletionLocalContext?] = []
     private(set) var updatedTasks: [TaskItem] = []
+    /// Parallel to `updatedTasks`: whether each update counted a reschedule.
+    private(set) var updateRescheduleFlags: [Bool] = []
     private(set) var snoozeCalls: [(id: String, newDueAt: Date)] = []
     private(set) var rollForwardCalls: [(id: String, newDueAt: Date, missed: Int)] = []
     private(set) var deletedIds: [String] = []
@@ -428,7 +430,10 @@ final class StubTaskRepository: TaskRepository {
         setCompletedCalls.append((taskId, completed))
         setCompletedContexts.append(localContext)
     }
-    func updateTask(_ task: TaskItem, userId: String) async throws { updatedTasks.append(task) }
+    func updateTask(_ task: TaskItem, countingReschedule: Bool, userId: String) async throws {
+        updatedTasks.append(task)
+        updateRescheduleFlags.append(countingReschedule)
+    }
     func snoozeTask(id: String, to newDueAt: Date, userId: String) async throws {
         snoozeCalls.append((id, newDueAt))
     }
