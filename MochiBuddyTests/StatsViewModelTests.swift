@@ -321,11 +321,11 @@ struct BestHoursCaptionTests {
         #expect(line == "You get the most done in the morning, with a smaller second wind in the evening. Mochi sees it.")
     }
 
-    @Test("thin days are named naturally, with Sat+Sun folding into the weekend")
+    @Test("Day by day's caption names thin days naturally, with Sat+Sun folding into the weekend")
     func thinDays() {
         let rows = [qualifiedRow(weekday: 2), qualifiedRow(weekday: 3), qualifiedRow(weekday: 4),
                     thinRow(weekday: 5), qualifiedRow(weekday: 6), thinRow(weekday: 7), thinRow(weekday: 1)]
-        let line = BestHours.caption(histogram: morningPeak, rows: rows, petName: "Mochi", calendar: calendar)
+        let line = BestHours.dayByDayCaption(histogram: morningPeak, rows: rows, petName: "Mochi", calendar: calendar)
         #expect(line.hasPrefix("Mochi has a good read on your week."))
         #expect(line.contains("Thursday"))
         #expect(line.contains("the weekend"))
@@ -336,11 +336,11 @@ struct BestHoursCaptionTests {
     @Test("a single thin day reads grammatically")
     func singleThinDay() {
         let rows = (1...6).map(qualifiedRow) + [thinRow(weekday: 7)]
-        let line = BestHours.caption(histogram: morningPeak, rows: rows, petName: "Mochi", calendar: calendar)
+        let line = BestHours.dayByDayCaption(histogram: morningPeak, rows: rows, petName: "Mochi", calendar: calendar)
         #expect(line.hasSuffix("Saturday is still quiet."))
     }
 
-    @Test("a full read names the peak band; no qualified rows means still learning")
+    @Test("card 1 names the peak once rows qualify; no qualified rows means still learning")
     func fullReadAndLearning() {
         let full = BestHours.caption(
             histogram: morningPeak, rows: (1...7).map(qualifiedRow), petName: "Mochi", calendar: calendar
@@ -351,6 +351,12 @@ struct BestHoursCaptionTests {
             histogram: morningPeak, rows: (1...7).map(thinRow), petName: "Mochi", calendar: calendar
         )
         #expect(learning == "Still learning your week. Here's your day so far.")
+
+        // Card 2's full read mirrors the pattern line - the comp's 1b state.
+        let fullRead = BestHours.dayByDayCaption(
+            histogram: morningPeak, rows: (1...7).map(qualifiedRow), petName: "Mochi", calendar: calendar
+        )
+        #expect(fullRead == "You get the most done in the morning. Mochi sees the pattern.")
     }
 }
 

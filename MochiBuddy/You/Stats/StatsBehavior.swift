@@ -131,6 +131,8 @@ enum StatsBehavior {
         /// "Day by day" rows - empty until a row qualifies, and always
         /// empty on the Week range (D6).
         var dayByDay: [WeekdayRowUI] = []
+        /// Card 2's Mochi line (thin days / full read); nil when hidden.
+        var dayByDayCaption: String?
         var listBreakdown: [ListSlice] = []
         /// Qualified observation lines in the pet's voice, rendered
         /// read-only (the Journal owns live surfacing bookkeeping).

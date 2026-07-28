@@ -210,32 +210,48 @@ enum BestHours {
         return Int((Double(sorted[low]) * (1 - fraction) + Double(sorted[high]) * fraction).rounded())
     }
 
-    // MARK: - Caption (C3/C4)
+    // MARK: - Captions (C3/C4)
 
-    /// The Mochi commentary line, generated from chart state - four states
-    /// in priority order, qualitative, in the pet's voice. Generated lines
-    /// rotate by state, so there is no FNV-1a pool here.
+    /// The Mochi commentary lines, generated from chart state (C3) - the
+    /// comp splits them across the pair: Card 1 carries the peak story
+    /// (second wind / pattern / learning), Card 2 carries the week read
+    /// (thin days / full read). Qualitative, in the pet's voice; generated
+    /// lines rotate by state, so there is no FNV-1a pool here.
+
+    /// Card 1's line under the histogram.
     static func caption(
         histogram: Histogram,
         rows: [WeekdayRow],
         petName: String,
         calendar: Calendar
     ) -> String {
-        let anyQualified = rows.contains { $0.qualifies }
-        let thin = rows.filter { !$0.qualifies }
-
         if let peakStart = histogram.peakStart, let secondaryStart = histogram.secondaryStart {
             let peak = bandPhrase(windowStart: peakStart)
             let secondary = bandPhrase(windowStart: secondaryStart)
             return "You get the most done in the \(peak), with a smaller second wind in the \(secondary). \(petName) sees it."
         }
-        if anyQualified, !thin.isEmpty {
-            return "\(petName) has a good read on your week. \(thinDaysPhrase(thin, calendar: calendar))"
-        }
-        if anyQualified, let peakStart = histogram.peakStart {
+        if rows.contains(where: { $0.qualifies }), let peakStart = histogram.peakStart {
             return "You get the most done in the \(bandPhrase(windowStart: peakStart)). \(petName) sees the pattern."
         }
         return "Still learning your week. Here's your day so far."
+    }
+
+    /// Card 2's line under the weekday rows - only rendered while the
+    /// card itself has earned its place.
+    static func dayByDayCaption(
+        histogram: Histogram,
+        rows: [WeekdayRow],
+        petName: String,
+        calendar: Calendar
+    ) -> String {
+        let thin = rows.filter { !$0.qualifies }
+        if !thin.isEmpty {
+            return "\(petName) has a good read on your week. \(thinDaysPhrase(thin, calendar: calendar))"
+        }
+        if let peakStart = histogram.peakStart {
+            return "You get the most done in the \(bandPhrase(windowStart: peakStart)). \(petName) sees the pattern."
+        }
+        return "\(petName) has a good read on your week."
     }
 
     /// The TimeOfDayBand of a 3-hour window's center, spoken lowercase -

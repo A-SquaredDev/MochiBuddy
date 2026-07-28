@@ -124,6 +124,9 @@ final class StatsViewModel: StateViewModel<
             histogram: histogram, rows: weekdayRows, petName: next.petName, calendar: calendar
         )
         next.dayByDay = Self.dayByDayRows(weekdayRows, range: range, calendar: calendar)
+        next.dayByDayCaption = next.dayByDay.isEmpty ? nil : BestHours.dayByDayCaption(
+            histogram: histogram, rows: weekdayRows, petName: next.petName, calendar: calendar
+        )
         next.listBreakdown = Self.listSlices(stats: stats, lists: lists)
 
         next.noticedLines = await noticedLines(
