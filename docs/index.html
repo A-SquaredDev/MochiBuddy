@@ -212,7 +212,7 @@
     <nav class="nav-links">
       <a class="hide-sm" href="#features">Features</a>
       <a class="hide-sm" href="#roadmap">Roadmap</a>
-      <a class="hide-sm" data-featurebase-feedback style="cursor:pointer">Report a bug</a>
+      <a class="hide-sm" href="https://mochibuddy.featurebase.app" target="_blank" rel="noopener">Report a bug</a>
       <a class="cta" href="#join">Join the waitlist</a>
     </nav>
   </div>
@@ -306,7 +306,7 @@
     </div>
     <div data-featurebase-embed class="fb-embed"></div>
     <div style="text-align:center; margin-top:28px">
-      <button class="btn" data-featurebase-feedback>Suggest a feature or report a bug</button>
+      <a class="btn" href="https://mochibuddy.featurebase.app" target="_blank" rel="noopener">Suggest a feature or report a bug</a>
     </div>
     <p class="shot-note" style="font-style:normal">Post an idea, upvote the ones you want most, and follow what we are building. The most-wanted rise to the top.</p>
   </div>
@@ -521,12 +521,9 @@
     }
   });
 
-  // Feedback/bug widget, opened by any [data-featurebase-feedback] trigger.
-  window.Featurebase("initialize_feedback_widget", {
-    organization: "mochibuddy",
-    theme: "dark",
-    locale: "en"
-  });
+  // Note: the popup feedback widget is a paid Featurebase feature, so the
+  // "Suggest a feature" / "Report a bug" triggers link to the hosted portal
+  // (mochibuddy.featurebase.app) where free-plan users post and upvote.
 </script>
 </body>
 </html>
