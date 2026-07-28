@@ -13,6 +13,8 @@ import SwiftUI
 protocol YouRouting: BackRouting {
     func navigateToBedtime()
     func navigateToStats()
+    /// The "?" behind the Best Hours pair - the general chart explainer.
+    func navigateToBestHoursHelp()
     func navigateToNotifications()
     func navigateToAppleReminders()
     func navigateToVacation()
@@ -107,6 +109,15 @@ final class YouRouter: YouRouting {
         navController.navigate(
             route: AdHocRoute(key: "you.stats"),
             view: AnyView(StatsView(viewModel: viewModel, router: self))
+        )
+    }
+
+    func navigateToBestHoursHelp() {
+        navController.navigate(
+            route: AdHocRoute(key: "you.stats.help"),
+            view: AnyView(BestHoursHelpView(
+                petName: container.petIdentityStore.name, router: self
+            ))
         )
     }
 

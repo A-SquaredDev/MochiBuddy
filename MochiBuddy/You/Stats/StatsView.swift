@@ -272,13 +272,28 @@ struct StatsView: View {
         .frame(height: 14)
     }
 
-    /// The card eyebrow pair: "YOUR BEST HOURS · Last 4 weeks".
+    /// Stacked card header: eyebrow, window label left-aligned beneath it,
+    /// and the "?" into the shared chart explainer on the trailing edge.
     private func cardHeader(_ title: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 7) {
-            MochiEyebrow(text: title)
-            Text("· \(viewModel.range.windowLabel)")
-                .font(MochiFont.body(10.5, weight: .heavy))
-                .foregroundStyle(theme.muted)
+        HStack(alignment: .top, spacing: 10) {
+            VStack(alignment: .leading, spacing: 3) {
+                MochiEyebrow(text: title)
+                Text(viewModel.range.windowLabel)
+                    .font(MochiFont.body(10.5, weight: .heavy))
+                    .foregroundStyle(theme.muted)
+            }
+            Spacer()
+            Button {
+                Haptics.impact(.light)
+                router.navigateToBestHoursHelp()
+            } label: {
+                Image(systemName: "questionmark.circle")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(theme.muted)
+                    .contentShape(Rectangle().inset(by: -8))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("About these charts")
         }
     }
 
@@ -435,11 +450,11 @@ struct StatsView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 14) {
                 HStack(spacing: 6) {
-                    Capsule().fill(theme.primarySoft).frame(width: 15, height: 9)
+                    Capsule().fill(theme.primarySoft).frame(width: 19, height: 12)
                     Text("Middle half")
                 }
                 HStack(spacing: 6) {
-                    Circle().fill(theme.primary).frame(width: 9, height: 9)
+                    Circle().fill(theme.primary).frame(width: 12, height: 12)
                     Text("Typical")
                 }
             }
@@ -552,25 +567,25 @@ struct StatsView: View {
                     if let first = row.first, let last = row.last {
                         Capsule()
                             .fill(theme.muted.opacity(0.45))
-                            .frame(width: max(2, width * (last - first)), height: 2)
+                            .frame(width: max(2.5, width * (last - first)), height: 2.5)
                             .offset(x: width * first)
                     }
                     if let q1 = row.q1, let q3 = row.q3 {
                         Capsule()
                             .fill(theme.primarySoft)
-                            .frame(width: max(9, width * (q3 - q1)), height: 9)
+                            .frame(width: max(12, width * (q3 - q1)), height: 12)
                             .offset(x: width * q1)
                     }
                     if let typical = row.typical {
                         Circle()
                             .fill(isThin ? theme.muted.opacity(0.75) : theme.primary)
-                            .frame(width: isThin ? 5 : 9, height: isThin ? 5 : 9)
-                            .offset(x: width * typical - (isThin ? 2.5 : 4.5))
+                            .frame(width: isThin ? 5 : 12, height: isThin ? 5 : 12)
+                            .offset(x: width * typical - (isThin ? 2.5 : 6))
                     }
                 }
                 .frame(maxHeight: .infinity, alignment: .center)
             }
-            .frame(height: 16)
+            .frame(height: 18)
             Text(row.timeText ?? "")
                 .font(MochiFont.display(11.5, weight: .semibold))
                 .foregroundStyle(isThin ? theme.muted : theme.ink)

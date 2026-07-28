@@ -286,3 +286,34 @@ decisions (settled with the user 2026-07-27):
 - [ ] VoiceOver: the pill announces "Day filter: ...", rows hint "Shows this
       day's hours", the day chart reads its peak and share (or "still
       learning").
+
+---
+
+## 10. Header, marks, and the chart explainer (user pass, 2026-07-27)
+
+Post-comp refinements requested after living with the cards:
+
+- **Stacked headers on both cards**: eyebrow, window label left-aligned
+  beneath it (no more inline "· Last 4 weeks"), and a `questionmark.circle`
+  on the trailing edge.
+- **Larger Day by day marks**: middle-half capsule and typical dot 9 → 12pt
+  (rows 16 → 18pt tall), legend swatches to match. The 5pt still-learning dot
+  deliberately stays small. The first-to-last span line thickens slightly
+  (2 → 2.5pt) but remains unlabeled in the legend (C6 stands).
+- **`BestHoursHelpView`** (`You/Stats/`, pushed via
+  `YouRouting.navigateToBestHoursHelp`, route key `you.stats.help`): a
+  general explainer in the pet's voice - the histogram and its two tiles, the
+  5a-to-5a clock, the Day by day anatomy with live swatches (including the
+  span line C6 left unlabeled, and the noon/6p gridlines), and what counts
+  (recurring exclusion, evidence patience, completion-zone dating). No
+  user-specific numbers; the cards carry those.
+
+### Human test cases
+
+- [ ] Help screen renders in all five flavors; swatches match the real card
+      marks; back returns to Stats with state intact (range + day selection).
+- [ ] The "?" is reachable from both cards and comfortably tappable.
+- [ ] Larger marks: rows still clear the noon/6p gridlines and nothing clips
+      at 320pt.
+- [ ] VoiceOver: "About these charts" on the button; each legend row on the
+      help screen reads title and description as one element.
