@@ -390,7 +390,7 @@ struct YouView: View {
 
     private var legalRows: some View {
         VStack(spacing: 8) {
-            MochiListRow(title: "Help & support", subtitle: "hello@mochibuddy.app") {
+            MochiListRow(title: "Help & support", subtitle: MochiLinks.supportEmail) {
                 openURL(MochiLinks.support)
             }
             MochiListRow(title: "Privacy Policy") {
