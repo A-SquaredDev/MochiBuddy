@@ -289,6 +289,117 @@ struct BestHoursWeekdayRowTests {
     }
 }
 
+@Suite("Stats · day picker")
+struct BestHoursDayPickerTests {
+
+    /// Wednesdays at `minute`, one per week back from a fixed Wednesday.
+    private func wednesday(weeksAgo: Int, minute: Int) -> BestHours.Entry {
+        BestHours.Entry(localMinute: minute, day: CivilDay("2026-07-08")!.advanced(by: -7 * weeksAgo))
+    }
+
+    private func makeInputs(
+        wednesdays: Int, dates: Int
+    ) -> (entries: [BestHours.Entry], rows: [BestHours.WeekdayRow]) {
+        let entries = (0..<wednesdays).map { index in
+            wednesday(weeksAgo: index % dates, minute: 600 + index)
+        }
+        return (entries, BestHours.weekdayRows(entries: entries, calendar: calendar))
+    }
+
+    @Test("a qualified day earns its curve, tiles, highlight, and watching caption")
+    func qualifiedDay() {
+        let (entries, rows) = makeInputs(wednesdays: 5, dates: 3)
+        let detail = StatsViewModel.dayDetail(
+            entries: entries, rows: rows, weekday: 4, petName: "Nori"
+        )!
+        #expect(detail.weekday == 4)
+        #expect(detail.bars.reduce(0) { $0 + $1.count } == 5)
+        #expect(detail.bars.contains { $0.inPeak })
+        // All five land in the 10a bucket; the 3h window tie breaks to
+        // the earliest start on the axis.
+        #expect(detail.peakText == "8a to 11a")
+        #expect(detail.inWindowText == "100%")
+        #expect(detail.caption == "Wednesdays usually come together in the morning. Nori has been watching.")
+    }
+
+    @Test("below the D5 floor the bars still show but the tiles and highlight wait (no 100%-of-two)")
+    func thinDayGatesTiles() {
+        let (entries, rows) = makeInputs(wednesdays: 2, dates: 2)
+        let detail = StatsViewModel.dayDetail(
+            entries: entries, rows: rows, weekday: 4, petName: "Nori"
+        )!
+        #expect(detail.bars.reduce(0) { $0 + $1.count } == 2, "bars show, they don't claim")
+        #expect(!detail.bars.contains { $0.inPeak })
+        #expect(detail.peakText == nil)
+        #expect(detail.inWindowText == nil)
+        #expect(detail.caption == "Still learning your Wednesdays. Here's what Nori has so far.")
+    }
+
+    @Test("a day with no completions yields no detail - the pick lands back on All days")
+    func emptyDay() {
+        let (entries, rows) = makeInputs(wednesdays: 5, dates: 3)
+        #expect(StatsViewModel.dayDetail(
+            entries: entries, rows: rows, weekday: 6, petName: "Nori"
+        ) == nil)
+    }
+
+    @Test("the slice respects the 5a axis day - a 2am Thursday completion is Wednesday's")
+    func axisDaySlice() {
+        let lateNight = BestHours.Entry(localMinute: 2 * 60, day: CivilDay("2026-07-09")!)
+        let slice = BestHours.dayEntries([lateNight], weekday: 4)
+        #expect(slice.count == 1)
+        #expect(BestHours.dayEntries([lateNight], weekday: 5).isEmpty)
+    }
+}
+
+@Suite("Stats · day picker · view model")
+@MainActor
+struct BestHoursDayPickerViewModelTests {
+
+    @Test("selecting a day derives its detail; selecting All days clears it; a range change resets")
+    func selectionLifecycle() async {
+        // Five one-off completions on today's weekday across 3 dates -
+        // today's weekday row qualifies whatever day the suite runs.
+        let stats = [
+            liveStat(daysAgo: 0, minuteOfDay: 600),
+            liveStat(daysAgo: 0, minuteOfDay: 620),
+            liveStat(daysAgo: 7, minuteOfDay: 640),
+            liveStat(daysAgo: 7, minuteOfDay: 660),
+            liveStat(daysAgo: 14, minuteOfDay: 680),
+        ]
+        let weekday = Calendar.current.component(.weekday, from: .now)
+        let vm = makeStatsVM(stats: stats)
+        await vm.triggerAsync(.load)
+        #expect(vm.uiState.selectedDay == nil)
+
+        await vm.triggerAsync(.selectDay(weekday))
+        #expect(vm.uiState.selectedDay == weekday)
+        #expect(vm.uiState.dayDetail?.peakText != nil)
+
+        await vm.triggerAsync(.selectDay(nil))
+        #expect(vm.uiState.selectedDay == nil)
+        #expect(vm.uiState.dayDetail == nil)
+
+        await vm.triggerAsync(.selectDay(weekday))
+        await vm.triggerAsync(.rangeChanged(.threeMonths))
+        #expect(vm.uiState.selectedDay == nil, "a range change is a fresh look")
+        #expect(vm.uiState.dayDetail == nil)
+    }
+
+    @Test("picking a day with no data is a no-op back to All days")
+    func emptyPickFallsBack() async {
+        let stats = [liveStat(daysAgo: 0, minuteOfDay: 600)]
+        let emptyWeekday = Calendar.current.component(
+            .weekday, from: Calendar.current.date(byAdding: .day, value: -1, to: .now)!
+        )
+        let vm = makeStatsVM(stats: stats)
+        await vm.triggerAsync(.load)
+        await vm.triggerAsync(.selectDay(emptyWeekday))
+        #expect(vm.uiState.selectedDay == nil)
+        #expect(vm.uiState.dayDetail == nil)
+    }
+}
+
 @Suite("Stats · best hours caption")
 struct BestHoursCaptionTests {
 

@@ -28,6 +28,11 @@ final class StatsViewModel: StateViewModel<
     /// for a window this screen already pulled.
     private var statsCache: [StatsBehavior.TimeRange: [CompletedTaskStat]] = [:]
 
+    /// The day picker recomputes from these without a refetch - the
+    /// current range's derivation inputs, refreshed on every load.
+    private var bestHoursEntries: [BestHours.Entry] = []
+    private var bestHoursRows: [BestHours.WeekdayRow] = []
+
     init(
         authRepository: AuthRepository,
         profileRepository: UserProfileRepository,
@@ -58,6 +63,18 @@ final class StatsViewModel: StateViewModel<
             guard range != uiState.range else { return }
             state.range = range
             await load()
+
+        case .selectDay(let weekday):
+            // Pure re-derivation over the cached inputs; a pick with no
+            // data (or nil) lands back on All days.
+            let detail = weekday.flatMap {
+                Self.dayDetail(
+                    entries: bestHoursEntries, rows: bestHoursRows,
+                    weekday: $0, petName: uiState.petName
+                )
+            }
+            state.dayDetail = detail
+            state.selectedDay = detail?.weekday
         }
     }
 
@@ -117,16 +134,20 @@ final class StatsViewModel: StateViewModel<
         // than the stored completion context.
         next.trendCaption = stats.isEmpty ? nil : "\(Self.onTimeText(stats)) on time"
 
-        let bestHoursEntries = BestHours.entries(stats: stats)
+        bestHoursEntries = BestHours.entries(stats: stats)
+        bestHoursRows = BestHours.weekdayRows(entries: bestHoursEntries, calendar: calendar)
         let histogram = BestHours.histogram(entries: bestHoursEntries)
-        let weekdayRows = BestHours.weekdayRows(entries: bestHoursEntries, calendar: calendar)
         next.bestHours = Self.bestHoursCard(
-            histogram: histogram, rows: weekdayRows, petName: next.petName, calendar: calendar
+            histogram: histogram, rows: bestHoursRows, petName: next.petName, calendar: calendar
         )
-        next.dayByDay = Self.dayByDayRows(weekdayRows, range: range, calendar: calendar)
+        next.dayByDay = Self.dayByDayRows(bestHoursRows, range: range, calendar: calendar)
         next.dayByDayCaption = next.dayByDay.isEmpty ? nil : BestHours.dayByDayCaption(
-            histogram: histogram, rows: weekdayRows, petName: next.petName, calendar: calendar
+            histogram: histogram, rows: bestHoursRows, petName: next.petName, calendar: calendar
         )
+        // A load is a fresh look (screen entry or range change) - the day
+        // picker returns to All days rather than carrying a stale slice.
+        next.selectedDay = nil
+        next.dayDetail = nil
         next.listBreakdown = Self.listSlices(stats: stats, lists: lists)
 
         next.noticedLines = await noticedLines(
@@ -292,6 +313,37 @@ final class StatsViewModel: StateViewModel<
             inWindowText: "\(Int((histogram.inWindowShare * 100).rounded()))%",
             caption: BestHours.caption(
                 histogram: histogram, rows: rows, petName: petName, calendar: calendar
+            )
+        )
+    }
+
+    /// One selected day's curve (comp turn 3). Bars render whatever the
+    /// slice holds - bars show, they don't claim - but the Peak/In-window
+    /// tiles and the highlight wait for the row's own D5 floor, so two
+    /// data points can never mint "100% in window". nil when the day has
+    /// no completions at all.
+    static func dayDetail(
+        entries: [BestHours.Entry],
+        rows: [BestHours.WeekdayRow],
+        weekday: Int,
+        petName: String
+    ) -> StatsBehavior.DayDetail? {
+        let slice = BestHours.dayEntries(entries, weekday: weekday)
+        guard !slice.isEmpty else { return nil }
+        let histogram = BestHours.histogram(entries: slice)
+        let qualifies = rows.first { $0.weekday == weekday }?.qualifies ?? false
+        let inPeak: Set<Int> = qualifies
+            ? Set((0..<3).compactMap { offset in histogram.peakStart.map { ($0 + offset) % 24 } })
+            : []
+        return StatsBehavior.DayDetail(
+            weekday: weekday,
+            bars: histogram.buckets.enumerated().map { bucket, count in
+                .init(id: bucket, count: count, inPeak: inPeak.contains(bucket))
+            },
+            peakText: qualifies ? histogram.peakStart.map(BestHours.peakRangeLabel(start:)) : nil,
+            inWindowText: qualifies ? "\(Int((histogram.inWindowShare * 100).rounded()))%" : nil,
+            caption: BestHours.dayCaption(
+                weekday: weekday, qualifies: qualifies, histogram: histogram, petName: petName
             )
         )
     }

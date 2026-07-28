@@ -371,65 +371,176 @@ struct StatsView: View {
         MochiCard(padding: EdgeInsets(top: 16, leading: 15, bottom: 18, trailing: 15)) {
             VStack(alignment: .leading, spacing: 0) {
                 cardHeader("Day by day")
-                    .padding(.bottom, 12)
-                HStack(spacing: 14) {
-                    HStack(spacing: 6) {
-                        Capsule().fill(theme.primarySoft).frame(width: 15, height: 9)
-                        Text("Middle half")
-                    }
-                    HStack(spacing: 6) {
-                        Circle().fill(theme.primary).frame(width: 9, height: 9)
-                        Text("Typical")
-                    }
-                }
-                .font(MochiFont.body(10, weight: .heavy))
-                .foregroundStyle(theme.muted)
-                .padding(.bottom, 12)
+                    .padding(.bottom, 11)
+                dayPicker
+                    .padding(.bottom, 13)
 
-                VStack(spacing: 9) {
-                    ForEach(viewModel.dayByDay) { row in
-                        dayByDayRow(row)
-                    }
-                }
-                .background {
-                    // Hairline gridlines at noon and 6p, spanning the rows
-                    // inside the track region - readable without a grid.
-                    GeometryReader { proxy in
-                        let trackWidth = proxy.size.width
-                            - Self.dayLabelWidth - Self.dayTimeWidth - 20
-                        ForEach([Self.axisTicks[0], Self.axisTicks[1]], id: \.label) { tick in
-                            Rectangle()
-                                .fill(theme.line)
-                                .frame(width: 1, height: proxy.size.height + 4)
-                                .offset(
-                                    x: Self.dayLabelWidth + 10 + trackWidth * tick.fraction,
-                                    y: -2
-                                )
-                        }
-                    }
+                if let detail = viewModel.dayDetail {
+                    dayDetailBody(detail)
+                } else {
+                    allDaysBody
                 }
 
-                HStack(spacing: 10) {
-                    Spacer().frame(width: Self.dayLabelWidth)
-                    axisRow()
-                    Spacer().frame(width: Self.dayTimeWidth)
-                }
-                .padding(.top, 8)
                 cardDivider
                     .padding(.top, 14)
                     .padding(.bottom, 13)
-                if let caption = viewModel.dayByDayCaption {
+                if let caption = viewModel.dayDetail?.caption ?? viewModel.dayByDayCaption {
                     mochiCaption(caption)
                 }
+            }
+            .animation(MochiMotion.soft, value: viewModel.selectedDay)
+        }
+    }
+
+    /// The comp's picker pill (turn 3) backed by a native menu - the
+    /// EFFORT pill recipe. Only days that hold any data are offered.
+    private var dayPicker: some View {
+        Menu {
+            Picker("Day", selection: viewModel.collectBinding(
+                for: \.selectedDay, action: { .selectDay($0) }
+            )) {
+                Text("All days").tag(Int?.none)
+                ForEach(viewModel.dayByDay.filter { $0.typical != nil }) { row in
+                    Text(Self.pluralDayName(row.id)).tag(Int?.some(row.id))
+                }
+            }
+        } label: {
+            HStack(spacing: 10) {
+                Text(viewModel.selectedDay.map(Self.pluralDayName) ?? "All days")
+                    .font(MochiFont.display(12.5, weight: .semibold))
+                    .foregroundStyle(theme.ink)
+                Spacer()
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 10, weight: .heavy))
+                    .foregroundStyle(theme.primaryText)
+            }
+            .padding(EdgeInsets(top: 9, leading: 13, bottom: 9, trailing: 13))
+            .background(theme.surface2, in: Capsule())
+            .overlay(Capsule().stroke(theme.line, lineWidth: 1))
+        }
+        .accessibilityLabel(
+            "Day filter: \(viewModel.selectedDay.map(Self.pluralDayName) ?? "All days")"
+        )
+    }
+
+    /// "Mondays" - the picker and caption speak the same plural currency.
+    private static func pluralDayName(_ weekday: Int) -> String {
+        ObservationCopy.weekdayNames.indices.contains(weekday) && weekday >= 1
+            ? ObservationCopy.weekdayNames[weekday]
+            : ""
+    }
+
+    /// The seven-row comparison ("All days").
+    private var allDaysBody: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 14) {
+                HStack(spacing: 6) {
+                    Capsule().fill(theme.primarySoft).frame(width: 15, height: 9)
+                    Text("Middle half")
+                }
+                HStack(spacing: 6) {
+                    Circle().fill(theme.primary).frame(width: 9, height: 9)
+                    Text("Typical")
+                }
+            }
+            .font(MochiFont.body(10, weight: .heavy))
+            .foregroundStyle(theme.muted)
+            .padding(.bottom, 12)
+
+            VStack(spacing: 9) {
+                ForEach(viewModel.dayByDay) { row in
+                    dayByDayRow(row)
+                }
+            }
+            .background {
+                // Hairline gridlines at noon and 6p, spanning the rows
+                // inside the track region - readable without a grid.
+                GeometryReader { proxy in
+                    let trackWidth = proxy.size.width
+                        - Self.dayLabelWidth - Self.dayTimeWidth - 20
+                    ForEach([Self.axisTicks[0], Self.axisTicks[1]], id: \.label) { tick in
+                        Rectangle()
+                            .fill(theme.line)
+                            .frame(width: 1, height: proxy.size.height + 4)
+                            .offset(
+                                x: Self.dayLabelWidth + 10 + trackWidth * tick.fraction,
+                                y: -2
+                            )
+                    }
+                }
+            }
+
+            HStack(spacing: 10) {
+                Spacer().frame(width: Self.dayLabelWidth)
+                axisRow()
+                Spacer().frame(width: Self.dayTimeWidth)
+            }
+            .padding(.top, 8)
+        }
+    }
+
+    /// One picked day: its own hour curve on the shared axis, plus the
+    /// day-scoped tile pair once the day has earned them (comp turn 3 -
+    /// "only the middle changes").
+    private func dayDetailBody(_ detail: StatsBehavior.DayDetail) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            let maxCount = max(detail.bars.map(\.count).max() ?? 1, 1)
+            HStack(alignment: .bottom, spacing: 2) {
+                ForEach(detail.bars) { bar in
+                    UnevenRoundedRectangle(
+                        topLeadingRadius: bar.inPeak ? 4 : 3,
+                        topTrailingRadius: bar.inPeak ? 4 : 3
+                    )
+                    .fill(barFill(inPeak: bar.inPeak))
+                    .frame(height: max(2, 96 * CGFloat(bar.count) / CGFloat(maxCount)))
+                    .frame(maxWidth: .infinity)
+                }
+            }
+            .frame(height: 96, alignment: .bottom)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(dayDetailAccessibilityLabel(detail))
+            axisRow()
+                .padding(.top, 6)
+            if let peakText = detail.peakText, let inWindowText = detail.inWindowText {
+                HStack(spacing: 8) {
+                    bestHoursTile(title: "Peak", value: peakText, valueSize: 15, valueColor: theme.ink)
+                    bestHoursTile(title: "In window", value: inWindowText, valueSize: 15, valueColor: theme.primaryText)
+                }
+                .padding(.top, 14)
             }
         }
     }
 
+    private func dayDetailAccessibilityLabel(_ detail: StatsBehavior.DayDetail) -> String {
+        guard let peakText = detail.peakText, let inWindowText = detail.inWindowText else {
+            return "\(Self.pluralDayName(detail.weekday)): still learning"
+        }
+        return "\(Self.pluralDayName(detail.weekday)): peak \(peakText), \(inWindowText) of tasks in that window"
+    }
+
+    /// Rows are the second way into the day view (comp turn 3 note) -
+    /// tappable whenever they hold any data.
     private func dayByDayRow(_ row: StatsBehavior.WeekdayRowUI) -> some View {
         // A row with a typical dot but no capsule is THIN: shrunken muted
         // dot, dimmed label and time.
         let isThin = row.q1 == nil
-        return HStack(spacing: 10) {
+        return Button {
+            guard row.typical != nil else { return }
+            Haptics.selection()
+            viewModel.trigger(.selectDay(row.id))
+        } label: {
+            dayByDayRowContent(row, isThin: isThin)
+        }
+        .buttonStyle(.plain)
+        .disabled(row.typical == nil)
+        .accessibilityLabel(rowAccessibilityLabel(row))
+        .accessibilityHint(row.typical != nil ? "Shows this day's hours" : "")
+    }
+
+    private func dayByDayRowContent(
+        _ row: StatsBehavior.WeekdayRowUI, isThin: Bool
+    ) -> some View {
+        HStack(spacing: 10) {
             Text(row.label)
                 .font(MochiFont.body(11, weight: .heavy))
                 .foregroundStyle(theme.muted)
@@ -465,8 +576,8 @@ struct StatsView: View {
                 .foregroundStyle(isThin ? theme.muted : theme.ink)
                 .frame(width: Self.dayTimeWidth, alignment: .trailing)
         }
+        .contentShape(Rectangle())
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(rowAccessibilityLabel(row))
     }
 
     private func rowAccessibilityLabel(_ row: StatsBehavior.WeekdayRowUI) -> String {

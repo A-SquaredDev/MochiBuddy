@@ -151,6 +151,18 @@ enum BestHours {
         let typical: Int?
     }
 
+    /// The 5a axis day an entry belongs to: a 2am completion is the
+    /// previous day's late night (the D3 boundary) - shared by the rows
+    /// and the day picker so both agree on what "Monday" means.
+    static func axisDay(of entry: Entry) -> CivilDay {
+        entry.localMinute < axisOriginMinute ? entry.day.advanced(by: -1) : entry.day
+    }
+
+    /// One weekday's slice for the day picker (comp turn 3).
+    static func dayEntries(_ entries: [Entry], weekday: Int) -> [Entry] {
+        entries.filter { axisDay(of: $0).weekday == weekday }
+    }
+
     /// Seven rows ordered by the calendar's first weekday. Each entry lands
     /// in its AXIS day's row: a 2am completion belongs to the previous
     /// day's late night (the 5a boundary, D3), matching where the shared
@@ -159,8 +171,7 @@ enum BestHours {
     static func weekdayRows(entries: [Entry], calendar: Calendar) -> [WeekdayRow] {
         var byWeekday: [Int: [CivilDay: [Entry]]] = [:]
         for entry in entries {
-            let axisDay = entry.localMinute < axisOriginMinute ? entry.day.advanced(by: -1) : entry.day
-            byWeekday[axisDay.weekday, default: [:]][axisDay, default: []].append(entry)
+            byWeekday[axisDay(of: entry).weekday, default: [:]][axisDay(of: entry), default: []].append(entry)
         }
 
         return (0..<7).map { offset in
@@ -289,6 +300,22 @@ enum BestHours {
         }
         let verb = names.count == 1 ? "is" : "are"
         return "\(joined.prefix(1).uppercased() + joined.dropFirst()) \(verb) still quiet."
+    }
+
+    /// The day view's Mochi line (comp turn 3). Two states, band names
+    /// only, no numbers - and a distinct verb ("come together" / "has been
+    /// watching") so it never collides with the pooled observation voice
+    /// or the suggestion chip's weekday phrasing ("wrap up").
+    static func dayCaption(
+        weekday: Int, qualifies: Bool, histogram: Histogram, petName: String
+    ) -> String {
+        let plural = ObservationCopy.weekdayNames.indices.contains(weekday) && weekday >= 1
+            ? ObservationCopy.weekdayNames[weekday]
+            : "these days"
+        guard qualifies, let peakStart = histogram.peakStart else {
+            return "Still learning your \(plural). Here's what \(petName) has so far."
+        }
+        return "\(plural) usually come together in the \(bandPhrase(windowStart: peakStart)). \(petName) has been watching."
     }
 
     // MARK: - Labels

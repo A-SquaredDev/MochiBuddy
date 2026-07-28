@@ -81,6 +81,19 @@ enum StatsBehavior {
         let caption: String
     }
 
+    /// One weekday's own hour curve (the day picker, comp turn 3): the
+    /// card's middle swaps to this while a day is selected. The tiles are
+    /// nil below the D5 evidence floor - bars show, tiles claim, and the
+    /// claim waits for evidence.
+    struct DayDetail: Equatable {
+        /// Calendar weekday, 1 = Sunday ... 7 = Saturday.
+        let weekday: Int
+        let bars: [HourBar]
+        let peakText: String?
+        let inWindowText: String?
+        let caption: String
+    }
+
     /// One "Day by day" weekday row. All positions are fractions of the
     /// shared 5a-to-5a axis; a thin row carries only the typical dot (D4).
     struct WeekdayRowUI: Equatable, Identifiable {
@@ -133,6 +146,10 @@ enum StatsBehavior {
         var dayByDay: [WeekdayRowUI] = []
         /// Card 2's Mochi line (thin days / full read); nil when hidden.
         var dayByDayCaption: String?
+        /// The day picker's selection; nil = "All days" (the seven rows).
+        var selectedDay: Int?
+        /// The selected day's curve - non-nil only while a day is picked.
+        var dayDetail: DayDetail?
         var listBreakdown: [ListSlice] = []
         /// Qualified observation lines in the pet's voice, rendered
         /// read-only (the Journal owns live surfacing bookkeeping).
@@ -143,5 +160,7 @@ enum StatsBehavior {
     enum ViewAction {
         case load
         case rangeChanged(TimeRange)
+        /// Day picker + row taps; nil returns to "All days".
+        case selectDay(Int?)
     }
 }

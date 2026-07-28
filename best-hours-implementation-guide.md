@@ -246,3 +246,43 @@ caption states, RC resolution). The items below need a human.
 
 - [ ] VoiceOver on the histogram reads the peak range and in-window share as one
       summary element; each Day by day row reads its typical time or "still quiet".
+
+---
+
+## 9. Day picker (comp turn 3, built 2026-07-27)
+
+State 3a added a picker to **Day by day**: a pill under the eyebrow ("All
+days" / a weekday) plus tappable rows. Picking a day swaps the card's middle
+for that day's own 24-bucket hour curve on the shared 5a axis with day-scoped
+Peak / In-window mini tiles; the divider and Mochi line stay. As-built
+decisions (settled with the user 2026-07-27):
+
+- **Pickable = any day with data.** Bars render whatever the slice holds -
+  bars show, they don't claim - but the tiles and the peak highlight wait for
+  the row's existing D5 floor, so two data points can never mint "100% in
+  window". A day with zero completions is not offered and a stray pick lands
+  back on All days.
+- **Day captions** (two states, generated like C3): qualified -
+  "{Weekday}s usually come together in the {band}. {name} has been watching." /
+  thin - "Still learning your {weekday}s. Here's what {name} has so far."
+  Distinct verbs from both the pooled observation voice and the suggestion
+  chip's weekday phrasing.
+- **Card 1 stays pooled** - the selection is scoped to Day by day, per the
+  comp's "only the middle changes".
+- The pill is a native Menu behind the comp's capsule look (the EFFORT pill
+  recipe). Selection is view-state only: reset on screen entry and range
+  change, never persisted, no new Remote Config keys.
+
+### Human test cases
+
+- [ ] Pill and dropdown across all five flavors against 3a; chevron in
+      primary-text, selected row treatment in the menu.
+- [ ] Tap a rich row and a thin row: both open the day view; the thin day
+      shows bars + learning caption with NO tiles and no highlight.
+- [ ] "All days" returns to the seven rows with the axis unchanged - the eye
+      test from the comp note: the single day reads against the memory of the
+      stack.
+- [ ] Range toggle while a day is selected returns to All days.
+- [ ] VoiceOver: the pill announces "Day filter: ...", rows hint "Shows this
+      day's hours", the day chart reads its peak and share (or "still
+      learning").
