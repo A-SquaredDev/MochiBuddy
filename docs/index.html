@@ -168,8 +168,6 @@
   .dot.known { background:#F2820C; } .dot.prog { background:#C9A6FF; } .dot.done { background:#3B9B5E; }
   .card { background:var(--surface2); border-radius:11px; padding:11px 13px; margin-bottom:10px; font-size:14px; font-weight:700; transition:background .5s; }
   .card span { display:block; color:var(--muted); font-weight:600; font-size:12.5px; margin-top:3px; }
-  .fb-embed { min-height:640px; border-radius:var(--radius-sm); overflow:hidden; border:1px solid var(--line); background:var(--bg); transition:background .5s, border-color .5s; }
-  .fb-embed iframe { width:100%; border:none; }
 
   /* ---- Forms ---- */
   .duo { display:grid; grid-template-columns:1fr 1fr; gap:24px; max-width:940px; margin:0 auto; }
@@ -212,7 +210,7 @@
     <nav class="nav-links">
       <a class="hide-sm" href="#features">Features</a>
       <a class="hide-sm" href="#roadmap">Roadmap</a>
-      <a class="hide-sm" href="https://mochibuddy.featurebase.app" target="_blank" rel="noopener">Report a bug</a>
+      <a class="hide-sm" href="https://github.com/A-SquaredDev/MochiBuddy/issues/new" target="_blank" rel="noopener">Report a bug</a>
       <a class="cta" href="#join">Join the waitlist</a>
     </nav>
   </div>
@@ -304,11 +302,28 @@
       <h2>Know what's coming</h2>
       <p>We track every bug and idea on a public board. See what's known, what we're building, and what just shipped.</p>
     </div>
-    <div data-featurebase-embed class="fb-embed"></div>
-    <div style="text-align:center; margin-top:28px">
-      <a class="btn" href="https://mochibuddy.featurebase.app" target="_blank" rel="noopener">Suggest a feature or report a bug</a>
+    <div class="board">
+      <div class="col">
+        <h3><span class="dot known"></span> Known issues</h3>
+        <div class="card">Widget time can lag 30 min<span>Being investigated</span></div>
+        <div class="card">Sandbox subs expire fast<span>Expected in TestFlight</span></div>
+      </div>
+      <div class="col">
+        <h3><span class="dot prog"></span> In progress</h3>
+        <div class="card">Editor layout refresh<span>Design locked, building</span></div>
+        <div class="card">Effort sizing on tasks<span>In testing</span></div>
+      </div>
+      <div class="col">
+        <h3><span class="dot done"></span> Recently shipped</h3>
+        <div class="card">Journal tab<span>Live</span></div>
+        <div class="card">Best Hours insights<span>Live</span></div>
+      </div>
     </div>
-    <p class="shot-note" style="font-style:normal">Post an idea, upvote the ones you want most, and follow what we are building. The most-wanted rise to the top.</p>
+    <div style="text-align:center; margin-top:32px; display:flex; gap:12px; justify-content:center; flex-wrap:wrap">
+      <a class="btn ghost" href="https://github.com/A-SquaredDev/MochiBuddy/issues" target="_blank" rel="noopener">See all issues</a>
+      <a class="btn" href="https://github.com/A-SquaredDev/MochiBuddy/issues/new" target="_blank" rel="noopener">Suggest a feature or report a bug</a>
+    </div>
+    <p class="shot-note" style="font-style:normal">Have a GitHub account? Open an issue or upvote one with a thumbs-up reaction. The most-wanted rise to the top.</p>
   </div>
 </section>
 
@@ -485,45 +500,6 @@
       }
     });
   });
-</script>
-
-<!-- Featurebase: embedded feedback board + roadmap + feedback widget -->
-<script>
-  (function (e, t) {
-    var a = "featurebase-sdk";
-    function n() {
-      if (!t.getElementById(a)) {
-        var s = t.createElement("script");
-        s.id = a; s.src = "https://do.featurebase.app/js/sdk.js";
-        var f = t.getElementsByTagName("script")[0];
-        f.parentNode.insertBefore(s, f);
-      }
-    }
-    if (typeof e.Featurebase !== "function") {
-      e.Featurebase = function () {
-        (e.Featurebase.q = e.Featurebase.q || []).push(arguments);
-      };
-    }
-    t.readyState === "complete" || t.readyState === "interactive"
-      ? n() : t.addEventListener("DOMContentLoaded", n);
-  })(window, document);
-
-  // Universal boot: appId from Settings > Developers > Installation.
-  window.Featurebase("boot", { appId: "6a68e9962a6ebc49c1c4b06a", theme: "dark", language: "en" });
-
-  // Embedded portal (board + roadmap + upvoting) into [data-featurebase-embed].
-  window.Featurebase("init_embed_widget", {
-    organization: "mochibuddy",
-    embedOptions: {
-      theme: "dark",
-      hideLogo: true,
-      locale: "en"
-    }
-  });
-
-  // Note: the popup feedback widget is a paid Featurebase feature, so the
-  // "Suggest a feature" / "Report a bug" triggers link to the hosted portal
-  // (mochibuddy.featurebase.app) where free-plan users post and upvote.
 </script>
 </body>
 </html>
