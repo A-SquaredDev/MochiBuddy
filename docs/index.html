@@ -514,9 +514,11 @@
   // Embedded portal (board + roadmap + upvoting) into [data-featurebase-embed].
   window.Featurebase("init_embed_widget", {
     organization: "mochibuddy",
-    theme: "dark",
-    hideLogo: true,
-    locale: "en"
+    embedOptions: {
+      theme: "dark",
+      hideLogo: true,
+      locale: "en"
+    }
   });
 
   // Feedback/bug widget, opened by any [data-featurebase-feedback] trigger.
