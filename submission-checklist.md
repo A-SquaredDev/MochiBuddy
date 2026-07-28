@@ -113,13 +113,19 @@ Companion doc: the "Outstanding external setup" section in
   business/support email on both pages, and update the App Store Connect
   seller/company name if the app should stop showing a personal name.
 
-- [ ] **Legal URLs are placeholders** (`You/MochiLinks.swift`): privacy
-  policy points at `https://mochibuddy.app/privacy`, which does not resolve
-  yet; EULA uses Apple's standard agreement (fine to keep). External-tester
-  Beta App Review needs a real privacy policy URL.
-  **Verify (when done):** both URLs in `MochiLinks.swift` open in Safari on
-  a device that is not signed in anywhere, and the ASC App Information
-  privacy policy field contains the same URL.
+- [x] **Legal URLs.** Done July 28: privacy policy and support pages
+  written (`docs/privacy/`, `docs/support/`), hosted on GitHub Pages
+  (main branch `/docs` folder), both returning 200:
+  privacy: https://a-squareddev.github.io/MochiBuddy/privacy/
+  support: https://a-squareddev.github.io/MochiBuddy/support/
+  `MochiLinks.swift` updated (privacy URL + support mailto now the real
+  Gmail; the old `hello@mochibuddy.app` bounced). EULA stays Apple's
+  standard agreement.
+  **Still to do by hand:** paste the privacy URL into ASC -> App
+  Information -> Privacy Policy URL, and use the support URL on the App
+  Store listing. When mochibuddy.app is purchased, add it as the Pages
+  custom domain; the same `/privacy/` and `/support/` paths carry over,
+  then update `MochiLinks.swift` and ASC once more.
 
 - [ ] **Subscription review screenshots** for both products in ASC.
   **Verify:** each subscription's page in ASC shows an uploaded review
