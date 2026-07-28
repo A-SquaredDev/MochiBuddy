@@ -210,7 +210,7 @@
     <nav class="nav-links">
       <a class="hide-sm" href="#features">Features</a>
       <a class="hide-sm" href="#roadmap">Roadmap</a>
-      <a class="hide-sm" href="https://github.com/A-SquaredDev/MochiBuddy/issues/new" target="_blank" rel="noopener">Report a bug</a>
+      <a class="hide-sm" href="#feedback">Report a bug</a>
       <a class="cta" href="#join">Join the waitlist</a>
     </nav>
   </div>
@@ -319,11 +319,32 @@
         <div class="card">Best Hours insights<span>Live</span></div>
       </div>
     </div>
-    <div style="text-align:center; margin-top:32px; display:flex; gap:12px; justify-content:center; flex-wrap:wrap">
-      <a class="btn ghost" href="https://github.com/A-SquaredDev/MochiBuddy/issues" target="_blank" rel="noopener">See all issues</a>
-      <a class="btn" href="https://github.com/A-SquaredDev/MochiBuddy/issues/new" target="_blank" rel="noopener">Suggest a feature or report a bug</a>
+    <div class="form-card" id="feedback" style="max-width:560px; margin:40px auto 0">
+      <h3>Found a bug or have an idea?</h3>
+      <p>Tell us. No account, no sign-up, just say the thing.</p>
+      <form class="mochi-form" action="https://formspree.io/f/YOUR_FORMSPREE_ID" method="POST">
+        <input type="hidden" name="signup_type" value="feedback">
+        <input type="hidden" name="_subject" value="MochiBuddy feedback">
+        <div class="field">
+          <label for="fb-kind">What is it?</label>
+          <select id="fb-kind" name="kind">
+            <option>A bug, something is broken</option>
+            <option>An idea for Mochi</option>
+            <option>Something else</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="fb-msg">Tell us more</label>
+          <textarea id="fb-msg" name="message" required placeholder="What happened, or what would you love to see?"></textarea>
+        </div>
+        <div class="field">
+          <label for="fb-email">Email (optional, only if you want a reply)</label>
+          <input id="fb-email" type="email" name="email" placeholder="you@example.com">
+        </div>
+        <button class="btn" type="submit">Send it to Mochi</button>
+        <div class="form-msg" role="status"></div>
+      </form>
     </div>
-    <p class="shot-note" style="font-style:normal">Have a GitHub account? Open an issue or upvote one with a thumbs-up reaction. The most-wanted rise to the top.</p>
   </div>
 </section>
 
@@ -486,8 +507,9 @@
         });
         if (res.ok) {
           form.reset();
-          msg.textContent = form.querySelector('[name=signup_type]').value === 'waitlist'
-            ? "You're on the list. Talk soon."
+          var kind = form.querySelector('[name=signup_type]').value;
+          msg.textContent = kind === 'waitlist' ? "You're on the list. Talk soon."
+            : kind === 'feedback' ? "Thank you. Mochi hears you."
             : "Got it. We'll be in touch about a TestFlight invite.";
           msg.className = 'form-msg ok';
         } else {
