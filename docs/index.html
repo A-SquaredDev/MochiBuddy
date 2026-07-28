@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en" data-flavor="sesame">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mochi - A companion for your to-dos</title>
+<meta name="description" content="Mochi is a cozy companion-pet to-do app. Care for a little friend by getting your tasks done. Join the waitlist or become a beta tester.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* ---- Flavor themes (attribute selectors so a subtree can preview a
+         flavor independently of the page theme) ---- */
+  [data-flavor="sesame"] {
+    --bg:#211E2A; --surface:#2E2A38; --surface2:#353040; --ink:#F3EEF7;
+    --muted:#A79FB5; --line:#413A50; --primary:#C9A6FF; --primary-ink:#241A33;
+    --primary-text:#C9A6FF; --primary-soft:#453A58; --accent2:#FF9DC4;
+    --pet:#7E7492; --pet2:#6A6082; --cheek:#B79DE0;
+  }
+  [data-flavor="strawberry"] {
+    --bg:#FFF3F5; --surface:#FFFFFF; --surface2:#FFF7F9; --ink:#4A2B33;
+    --muted:#886570; --line:#F3DCE2; --primary:#D6335F; --primary-ink:#FFFFFF;
+    --primary-text:#C42655; --primary-soft:#FFE0E8; --accent2:#FFB3C1;
+    --pet:#FFB6C8; --pet2:#FF9FB6; --cheek:#FF7CA0;
+  }
+  [data-flavor="matcha"] {
+    --bg:#F1F7EA; --surface:#FFFFFF; --surface2:#F7FBF1; --ink:#2E3A24;
+    --muted:#67734E; --line:#DDE9CD; --primary:#3B7827; --primary-ink:#FFFFFF;
+    --primary-text:#3B7827; --primary-soft:#E5F2D7; --accent2:#7FB85E;
+    --pet:#C6E8AE; --pet2:#AEDB90; --cheek:#8FCB6A;
+  }
+  [data-flavor="ube"] {
+    --bg:#F5F1FC; --surface:#FFFFFF; --surface2:#FAF7FE; --ink:#382A4D;
+    --muted:#786A93; --line:#E7DEF6; --primary:#7B4BC4; --primary-ink:#FFFFFF;
+    --primary-text:#7340BE; --primary-soft:#E7DBFA; --accent2:#C6A8F0;
+    --pet:#CFB6F2; --pet2:#BF9DEC; --cheek:#A97FE0;
+  }
+  [data-flavor="mango"] {
+    --bg:#FFF7EA; --surface:#FFFFFF; --surface2:#FFFBF2; --ink:#4D3A1F;
+    --muted:#8A6C45; --line:#F4E6CC; --primary:#F2820C; --primary-ink:#3D2400;
+    --primary-text:#9A5400; --primary-soft:#FFE6C0; --accent2:#FFCB77;
+    --pet:#FFD98A; --pet2:#FFC65C; --cheek:#FFA93C;
+  }
+  :root { --face:#3A2B33; --radius:26px; --radius-sm:16px; }
+
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html { scroll-behavior:smooth; }
+  body {
+    background:var(--bg); color:var(--ink);
+    font-family:"Nunito", -apple-system, BlinkMacSystemFont, sans-serif;
+    font-weight:600; line-height:1.6;
+    transition:background .5s ease, color .5s ease;
+    overflow-x:hidden;
+  }
+  h1,h2,h3,.display { font-family:"Fredoka", sans-serif; font-weight:600; line-height:1.12; letter-spacing:-.01em; }
+  a { color:inherit; }
+  section { padding:88px 24px; }
+  .wrap { max-width:1080px; margin:0 auto; }
+  .eyebrow {
+    font-family:"Fredoka",sans-serif; font-weight:600; font-size:13px;
+    text-transform:uppercase; letter-spacing:.14em; color:var(--primary-text);
+    margin-bottom:12px;
+  }
+
+  /* ---- Buttons ---- */
+  .btn {
+    display:inline-flex; align-items:center; gap:8px; border:none; cursor:pointer;
+    font-family:"Fredoka",sans-serif; font-weight:600; font-size:16px;
+    padding:15px 26px; border-radius:999px; text-decoration:none;
+    transition:transform .18s cubic-bezier(.34,1.56,.64,1), filter .18s, background .4s;
+    background:var(--primary); color:var(--primary-ink);
+  }
+  .btn:hover { transform:translateY(-2px) scale(1.03); filter:brightness(1.05); }
+  .btn:active { transform:translateY(0) scale(.98); }
+  .btn.ghost { background:var(--primary-soft); color:var(--primary-text); }
+
+  /* ---- Header ---- */
+  header {
+    position:sticky; top:0; z-index:50; backdrop-filter:blur(12px);
+    background:color-mix(in srgb, var(--bg) 82%, transparent);
+    border-bottom:1px solid var(--line); transition:background .5s, border-color .5s;
+  }
+  .nav { max-width:1080px; margin:0 auto; padding:14px 24px; display:flex; align-items:center; gap:20px; }
+  .brand { display:flex; align-items:center; gap:10px; font-family:"Fredoka",sans-serif; font-weight:600; font-size:20px; }
+  .brand svg { width:34px; height:34px; }
+  .nav-links { margin-left:auto; display:flex; align-items:center; gap:8px; }
+  .nav-links a { padding:9px 14px; border-radius:999px; text-decoration:none; font-size:15px; font-weight:700; color:var(--muted); transition:color .2s, background .2s; }
+  .nav-links a:hover { color:var(--ink); background:var(--surface2); }
+  .nav-links a.cta { color:var(--primary-text); background:var(--primary-soft); }
+  @media (max-width:720px){ .nav-links .hide-sm { display:none; } }
+
+  /* ---- Hero ---- */
+  .hero { text-align:center; padding-top:56px; }
+  .hero h1 { font-size:clamp(40px,7vw,72px); margin:18px 0 16px; }
+  .hero p.lede { font-size:clamp(17px,2.4vw,21px); color:var(--muted); max-width:560px; margin:0 auto 32px; font-weight:600; }
+  .hero-cta { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+
+  /* ---- Pet stage ---- */
+  .pet-float { display:inline-block; animation:bob 3.4s ease-in-out infinite; }
+  .pet-stage { display:inline-block; position:relative; transform-origin:bottom center; cursor:pointer; }
+  .pet-stage.squish { animation:squish .5s ease-out; }
+  .pet-stage svg.pet { width:clamp(190px,34vw,270px); height:auto; display:block; }
+  .sparkle { position:absolute; width:22px; height:22px; opacity:.85; animation:twinkle 1.8s ease-in-out infinite; }
+  .sparkle.s1 { top:34%; left:12%; color:var(--primary); }
+  .sparkle.s2 { top:38%; right:12%; width:17px; height:17px; color:var(--accent2); animation-delay:.5s; }
+  @keyframes bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+  @keyframes twinkle { 0%,100%{opacity:.3; transform:scale(.8)} 50%{opacity:1; transform:scale(1.15)} }
+  @keyframes squish {
+    0%{transform:scale(1,1)} 30%{transform:scale(1.12,.86)}
+    55%{transform:scale(.92,1.1)} 75%{transform:scale(1.04,.97)} 100%{transform:scale(1,1)}
+  }
+
+  /* ---- Flavor picker ---- */
+  .flavors { text-align:center; padding-top:8px; }
+  .flavor-row { display:flex; gap:14px; justify-content:center; flex-wrap:wrap; margin-top:20px; }
+  .swatch {
+    border:2px solid var(--line); background:transparent; cursor:pointer;
+    border-radius:20px; padding:12px 12px 9px; width:104px;
+    display:flex; flex-direction:column; align-items:center; gap:7px;
+    font-family:"Fredoka",sans-serif; font-size:12.5px; font-weight:500; color:var(--muted);
+    transition:transform .2s cubic-bezier(.34,1.56,.64,1), border-color .2s;
+  }
+  .swatch:hover { transform:translateY(-3px); }
+  .swatch .chip { width:100%; height:52px; border-radius:12px; display:flex; align-items:center; justify-content:center; }
+  .swatch svg { width:40px; height:40px; }
+  .swatch[aria-pressed="true"] { border-color:var(--primary); color:var(--ink); }
+
+  /* ---- Section headings ---- */
+  .section-head { text-align:center; max-width:640px; margin:0 auto 52px; }
+  .section-head h2 { font-size:clamp(28px,4vw,42px); margin-bottom:12px; }
+  .section-head p { color:var(--muted); font-size:17px; }
+
+  /* ---- Feature / screenshot rail ---- */
+  .shots { display:grid; grid-template-columns:repeat(3,1fr); gap:28px; }
+  @media (max-width:820px){ .shots { grid-template-columns:1fr; max-width:340px; margin:0 auto; } }
+  .shot { text-align:center; }
+  .phone {
+    background:var(--surface); border:1px solid var(--line); border-radius:30px;
+    padding:16px 14px; box-shadow:0 24px 60px -30px rgba(0,0,0,.45);
+    transition:transform .3s, background .5s, border-color .5s; text-align:left;
+    aspect-ratio:9/17; display:flex; flex-direction:column; gap:10px; overflow:hidden;
+  }
+  .shot:hover .phone { transform:translateY(-6px); }
+  .p-row { background:var(--surface2); border-radius:12px; padding:10px 12px; transition:background .5s; }
+  .p-greet { font-family:"Fredoka",sans-serif; font-size:15px; font-weight:600; }
+  .p-sub { color:var(--muted); font-size:12px; }
+  .p-mood { height:9px; border-radius:99px; background:var(--primary-soft); overflow:hidden; }
+  .p-mood > i { display:block; height:100%; width:66%; border-radius:99px; background:linear-gradient(90deg,var(--accent2),var(--primary)); }
+  .p-mini { display:flex; justify-content:center; padding:2px 0; }
+  .p-mini svg { width:74px; height:74px; }
+  .p-task { display:flex; align-items:center; gap:9px; font-size:12.5px; }
+  .p-check { width:17px; height:17px; border-radius:6px; border:2px solid var(--line); flex:none; }
+  .p-check.done { background:var(--primary); border-color:var(--primary); }
+  .p-bars { display:flex; align-items:flex-end; gap:7px; height:74px; padding-top:6px; }
+  .p-bars > i { flex:1; background:var(--primary-soft); border-radius:6px 6px 0 0; }
+  .p-bars > i.tall { background:linear-gradient(180deg,var(--primary),var(--accent2)); }
+  .shot h3 { font-size:19px; margin:18px 0 6px; }
+  .shot p { color:var(--muted); font-size:14.5px; }
+  .shot-note { text-align:center; color:var(--muted); font-size:13px; margin-top:30px; font-style:italic; }
+
+  /* ---- Roadmap ---- */
+  .roadmap { background:var(--surface); transition:background .5s; }
+  .board { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
+  @media (max-width:760px){ .board { grid-template-columns:1fr; } }
+  .col { background:var(--bg); border:1px solid var(--line); border-radius:var(--radius-sm); padding:18px; transition:background .5s, border-color .5s; }
+  .col h3 { font-size:16px; display:flex; align-items:center; gap:8px; margin-bottom:14px; }
+  .dot { width:10px; height:10px; border-radius:99px; flex:none; }
+  .dot.known { background:#F2820C; } .dot.prog { background:#C9A6FF; } .dot.done { background:#3B9B5E; }
+  .card { background:var(--surface2); border-radius:11px; padding:11px 13px; margin-bottom:10px; font-size:14px; font-weight:700; transition:background .5s; }
+  .card span { display:block; color:var(--muted); font-weight:600; font-size:12.5px; margin-top:3px; }
+
+  /* ---- Forms ---- */
+  .duo { display:grid; grid-template-columns:1fr 1fr; gap:24px; max-width:940px; margin:0 auto; }
+  @media (max-width:760px){ .duo { grid-template-columns:1fr; } }
+  .form-card { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:32px; transition:background .5s, border-color .5s; }
+  .form-card h3 { font-size:23px; margin-bottom:6px; }
+  .form-card > p { color:var(--muted); font-size:15px; margin-bottom:20px; }
+  .field { margin-bottom:14px; }
+  .field label { display:block; font-size:13px; font-weight:800; color:var(--muted); margin-bottom:6px; }
+  .field input, .field textarea, .field select {
+    width:100%; padding:13px 15px; border-radius:14px; border:1.5px solid var(--line);
+    background:var(--surface2); color:var(--ink); font-family:inherit; font-size:15px; font-weight:600;
+    transition:border-color .2s, background .5s;
+  }
+  .field textarea { resize:vertical; min-height:84px; }
+  .field input:focus, .field textarea:focus, .field select:focus { outline:none; border-color:var(--primary); }
+  .form-card .btn { width:100%; justify-content:center; margin-top:6px; }
+  .form-msg { font-size:14px; font-weight:700; margin-top:12px; text-align:center; min-height:20px; }
+  .form-msg.ok { color:var(--primary-text); }
+  .form-msg.err { color:#E0574B; }
+  .form-msg.info { color:var(--muted); }
+
+  /* ---- Footer ---- */
+  footer { border-top:1px solid var(--line); padding:44px 24px; text-align:center; color:var(--muted); font-size:14px; transition:border-color .5s; }
+  footer .brand { justify-content:center; margin-bottom:14px; color:var(--ink); }
+  footer nav { display:flex; gap:18px; justify-content:center; flex-wrap:wrap; margin-bottom:16px; }
+  footer nav a { text-decoration:none; font-weight:700; }
+  footer nav a:hover { color:var(--ink); }
+
+  @media (prefers-reduced-motion:reduce) {
+    *, ::before, ::after { animation:none !important; transition:none !important; scroll-behavior:auto !important; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nav">
+    <a class="brand" href="#top" aria-label="Mochi home"><span id="logoPet"></span> Mochi</a>
+    <nav class="nav-links">
+      <a class="hide-sm" href="#features">Features</a>
+      <a class="hide-sm" href="#roadmap">Roadmap</a>
+      <a class="hide-sm" href="https://github.com/A-SquaredDev/MochiBuddy/issues/new?labels=bug" target="_blank" rel="noopener">Report a bug</a>
+      <a class="cta" href="#join">Join the waitlist</a>
+    </nav>
+  </div>
+</header>
+
+<a id="top"></a>
+<section class="hero">
+  <div class="wrap">
+    <div class="pet-float">
+      <div class="pet-stage" id="heroPetStage">
+        <span id="heroPet"></span>
+        <svg class="sparkle s1" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 0l3 9 9 3-9 3-3 9-3-9-9-3 9-3z"/></svg>
+        <svg class="sparkle s2" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 0l3 9 9 3-9 3-3 9-3-9-9-3 9-3z"/></svg>
+      </div>
+    </div>
+    <h1>Get things done.<br>Keep Mochi happy.</h1>
+    <p class="lede">Mochi is a cozy little companion who thrives when you do. Check off your to-dos, watch your friend light up, and build a rhythm that actually sticks.</p>
+    <div class="hero-cta">
+      <a class="btn" href="#join">Join the waitlist</a>
+      <a class="btn ghost" href="#tester">Become a tester</a>
+    </div>
+  </div>
+</section>
+
+<section class="flavors" id="flavors">
+  <div class="wrap">
+    <p class="eyebrow">Pick your flavor</p>
+    <h2 class="display" style="font-size:clamp(24px,3.4vw,34px)">Mochi comes in five moods of color</h2>
+    <div class="flavor-row" id="flavorRow" role="group" aria-label="Choose a color theme">
+      <button class="swatch" data-flavor="sesame" aria-pressed="true"><span class="chip" data-flavor="sesame"></span>Black Sesame</button>
+      <button class="swatch" data-flavor="strawberry" aria-pressed="false"><span class="chip" data-flavor="strawberry"></span>Strawberry</button>
+      <button class="swatch" data-flavor="matcha" aria-pressed="false"><span class="chip" data-flavor="matcha"></span>Matcha</button>
+      <button class="swatch" data-flavor="ube" aria-pressed="false"><span class="chip" data-flavor="ube"></span>Ube</button>
+      <button class="swatch" data-flavor="mango" aria-pressed="false"><span class="chip" data-flavor="mango"></span>Mango</button>
+    </div>
+  </div>
+</section>
+
+<section id="features">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">Why it works</p>
+      <h2>A to-do list that roots for you</h2>
+      <p>Every task you finish feeds a real little friend. The care loop turns "I should" into "I want to."</p>
+    </div>
+    <div class="shots">
+      <div class="shot">
+        <div class="phone">
+          <div class="p-greet">Hi, friend</div>
+          <div class="p-sub">Let's keep Mochi happy</div>
+          <div class="p-mood"><i></i></div>
+          <div class="p-mini" id="mockPet"></div>
+          <div class="p-row p-task"><span class="p-check"></span> Water the plants</div>
+          <div class="p-row p-task"><span class="p-check done"></span> Morning walk</div>
+        </div>
+        <h3>A friend who feels it</h3>
+        <p>Mochi's mood rises and falls with your momentum, gently, never naggy.</p>
+      </div>
+      <div class="shot">
+        <div class="phone">
+          <div class="p-greet">Your journal</div>
+          <div class="p-sub">Little moments, remembered</div>
+          <div class="p-row">A letter from Mochi<span style="display:block;color:var(--muted);font-size:12px;font-weight:600;margin-top:3px">A quiet note about your week</span></div>
+          <div class="p-row">Day 30 together<span style="display:block;color:var(--muted);font-size:12px;font-weight:600;margin-top:3px">A month of showing up</span></div>
+          <div class="p-row">Back from vacation<span style="display:block;color:var(--muted);font-size:12px;font-weight:600;margin-top:3px">Welcome home</span></div>
+        </div>
+        <h3>Moments worth keeping</h3>
+        <p>Weekly letters and small milestones quietly become a journal of your progress.</p>
+      </div>
+      <div class="shot">
+        <div class="phone">
+          <div class="p-greet">Best hours</div>
+          <div class="p-sub">When you do your best work</div>
+          <div class="p-bars"><i style="height:40%"></i><i style="height:62%"></i><i class="tall" style="height:100%"></i><i style="height:78%"></i><i style="height:50%"></i><i style="height:30%"></i></div>
+          <div class="p-row p-task"><span class="p-check done"></span> Suggested: 9:30 AM</div>
+        </div>
+        <h3>Smart, quiet nudges</h3>
+        <p>Mochi learns your rhythm and suggests the times you're most likely to follow through.</p>
+      </div>
+    </div>
+    <p class="shot-note">Illustrative previews. Real screenshots land as the beta opens.</p>
+  </div>
+</section>
+
+<section class="roadmap" id="roadmap">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">Built in the open</p>
+      <h2>Know what's coming</h2>
+      <p>We track every bug and idea on a public board. See what's known, what we're building, and what just shipped.</p>
+    </div>
+    <div class="board">
+      <div class="col">
+        <h3><span class="dot known"></span> Known issues</h3>
+        <div class="card">Widget time can lag 30 min<span>Being investigated</span></div>
+        <div class="card">Sandbox subs expire fast<span>Expected in TestFlight</span></div>
+      </div>
+      <div class="col">
+        <h3><span class="dot prog"></span> In progress</h3>
+        <div class="card">Editor layout refresh<span>Design locked, building</span></div>
+        <div class="card">Effort sizing on tasks<span>In testing</span></div>
+      </div>
+      <div class="col">
+        <h3><span class="dot done"></span> Recently shipped</h3>
+        <div class="card">Journal tab<span>Live</span></div>
+        <div class="card">Best Hours insights<span>Live</span></div>
+      </div>
+    </div>
+    <div style="text-align:center; margin-top:32px; display:flex; gap:12px; justify-content:center; flex-wrap:wrap">
+      <a class="btn ghost" href="https://github.com/A-SquaredDev/MochiBuddy/projects" target="_blank" rel="noopener">See the full board</a>
+      <a class="btn ghost" href="https://github.com/A-SquaredDev/MochiBuddy/issues/new?labels=enhancement" target="_blank" rel="noopener">Suggest a feature</a>
+    </div>
+    <p class="shot-note" style="font-style:normal">Have a GitHub account? Upvote any idea with a thumbs-up reaction, the most-wanted rise to the top.</p>
+  </div>
+</section>
+
+<section id="join">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">Be early</p>
+      <h2>Two ways to get in</h2>
+      <p>Join the waitlist for launch news, or ask to test the beta right now and help shape Mochi.</p>
+    </div>
+    <div class="duo">
+      <!-- To go live: replace YOUR_FORMSPREE_ID in both form actions below
+           with your Formspree endpoint (e.g. https://formspree.io/f/abcd1234). -->
+      <div class="form-card">
+        <h3>Join the waitlist</h3>
+        <p>One email when Mochi hits the App Store. No spam, no pestering.</p>
+        <form class="mochi-form" action="https://formspree.io/f/YOUR_FORMSPREE_ID" method="POST">
+          <input type="hidden" name="signup_type" value="waitlist">
+          <input type="hidden" name="_subject" value="MochiBuddy waitlist signup">
+          <div class="field">
+            <label for="wl-email">Email</label>
+            <input id="wl-email" type="email" name="email" required placeholder="you@example.com">
+          </div>
+          <button class="btn" type="submit">Keep me posted</button>
+          <div class="form-msg" role="status"></div>
+        </form>
+      </div>
+      <div class="form-card" id="tester">
+        <h3>Become a tester</h3>
+        <p>Tell us a little about you. If you're a fit, we'll send a TestFlight invite.</p>
+        <form class="mochi-form" action="https://formspree.io/f/YOUR_FORMSPREE_ID" method="POST">
+          <input type="hidden" name="signup_type" value="beta_tester">
+          <input type="hidden" name="_subject" value="MochiBuddy tester request">
+          <div class="field">
+            <label for="t-name">Name</label>
+            <input id="t-name" type="text" name="name" required placeholder="Your name">
+          </div>
+          <div class="field">
+            <label for="t-email">Email (your Apple Account)</label>
+            <input id="t-email" type="email" name="email" required placeholder="you@example.com">
+          </div>
+          <div class="field">
+            <label for="t-why">Why do you want in? (optional)</label>
+            <textarea id="t-why" name="reason" placeholder="What draws you to Mochi?"></textarea>
+          </div>
+          <button class="btn" type="submit">Request an invite</button>
+          <div class="form-msg" role="status"></div>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="brand"><span id="footPet"></span> Mochi</div>
+    <nav>
+      <a href="privacy/">Privacy</a>
+      <a href="support/">Support</a>
+      <a href="https://github.com/A-SquaredDev/MochiBuddy" target="_blank" rel="noopener">GitHub</a>
+      <a href="#join">Waitlist</a>
+    </nav>
+    <div>A companion for your to-dos. Made by A-Squared Dev.</div>
+  </div>
+</footer>
+
+<script>
+  // ---- Pet SVG builder (ported from MochiPetView, viewBox 180x170) ----
+  function petSVG(track) {
+    const eye = (cx, hx) => `
+      <g class="${track ? 'eye-track' : ''}" data-cx="${cx}" data-cy="88">
+        <circle cx="${cx}" cy="88" r="6" fill="var(--face)"/>
+        <circle cx="${hx}" cy="86" r="2" fill="#fff"/>
+      </g>`;
+    return `
+      <svg class="pet" viewBox="0 0 180 170" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Mochi the companion pet">
+        <ellipse cx="90" cy="150" rx="50" ry="9" fill="rgba(0,0,0,.08)"/>
+        <path d="M90 24 C52 24 28 50 28 86 C28 116 50 138 90 138 C130 138 152 116 152 86 C152 50 128 24 90 24 Z" fill="var(--pet)"/>
+        <path d="M90 24 C52 24 28 50 28 86 C28 92 29 97 31 102 C37 72 61 52 90 52 C119 52 143 72 149 102 C151 97 152 92 152 86 C152 50 128 24 90 24 Z" fill="var(--pet2)" opacity=".55"/>
+        <ellipse cx="56" cy="100" rx="11" ry="8" fill="var(--cheek)" opacity=".55"/>
+        <ellipse cx="124" cy="100" rx="11" ry="8" fill="var(--cheek)" opacity=".55"/>
+        ${eye(72, 74)}
+        ${eye(108, 110)}
+        <path d="M80 104 C84 109 96 109 100 104" fill="none" stroke="var(--face)" stroke-width="3.4" stroke-linecap="round"/>
+      </svg>`;
+  }
+
+  // Inject pets
+  document.getElementById('heroPet').innerHTML = petSVG(true);
+  document.getElementById('mockPet').innerHTML = petSVG(true);
+  document.getElementById('logoPet').innerHTML = petSVG(false);
+  document.getElementById('footPet').innerHTML = petSVG(false);
+  // Swatch mini pets (each chip previews its own flavor)
+  document.querySelectorAll('.swatch .chip').forEach(c => c.innerHTML = petSVG(false));
+
+  // ---- Flavor picker ----
+  const root = document.documentElement;
+  document.querySelectorAll('.swatch').forEach(btn => {
+    btn.addEventListener('click', () => {
+      root.dataset.flavor = btn.dataset.flavor;
+      document.querySelectorAll('.swatch').forEach(s =>
+        s.setAttribute('aria-pressed', String(s === btn)));
+    });
+  });
+
+  // ---- Eye tracking + blink (rAF eased) ----
+  const reduce = window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+  const eyes = [...document.querySelectorAll('.eye-track')].map(el => ({
+    el, cx:+el.dataset.cx, cy:+el.dataset.cy, x:0, y:0
+  }));
+  let ptr = { x: innerWidth/2, y: innerHeight/2 };
+  addEventListener('pointermove', e => { ptr.x = e.clientX; ptr.y = e.clientY; });
+  let nextBlink = performance.now() + 3000, blinkStart = -1;
+  function blinkFactor(now) {
+    if (reduce) return 1;
+    if (blinkStart < 0) { if (now >= nextBlink) blinkStart = now; return 1; }
+    const t = (now - blinkStart) / 150;
+    if (t >= 1) { blinkStart = -1; nextBlink = now + 3000 + Math.random()*3500; return 1; }
+    return t < 0.5 ? 1 - (t/0.5)*0.9 : 0.1 + ((t-0.5)/0.5)*0.9;
+  }
+  function tick(now) {
+    const b = blinkFactor(now);
+    for (const g of eyes) {
+      const svg = g.el.ownerSVGElement; if (!svg) continue;
+      const r = svg.getBoundingClientRect(); if (!r.width) continue;
+      const vb = svg.viewBox.baseVal;
+      const sx = r.left + (g.cx/vb.width) * r.width;
+      const sy = r.top + (g.cy/vb.height) * r.height;
+      const dx = ptr.x - sx, dy = ptr.y - sy, d = Math.hypot(dx, dy) || 1;
+      const max = 3.4;
+      const tx = (dx/d)*max, ty = (dy/d)*max;
+      g.x += (tx - g.x) * 0.16; g.y += (ty - g.y) * 0.16;
+      const t = `translate(${g.x.toFixed(2)} ${g.y.toFixed(2)}) translate(${g.cx} ${g.cy}) scale(1 ${b.toFixed(3)}) translate(${-g.cx} ${-g.cy})`;
+      g.el.setAttribute('transform', t);
+    }
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+
+  // ---- Click to squish ----
+  const stage = document.getElementById('heroPetStage');
+  stage.addEventListener('click', () => {
+    stage.classList.remove('squish'); void stage.offsetWidth; stage.classList.add('squish');
+  });
+  stage.addEventListener('animationend', () => stage.classList.remove('squish'));
+
+  // ---- Forms (AJAX to Formspree, inline result) ----
+  document.querySelectorAll('.mochi-form').forEach(form => {
+    const msg = form.querySelector('.form-msg');
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      if (form.action.includes('YOUR_FORMSPREE_ID')) {
+        msg.textContent = 'Demo mode. Add your Formspree endpoint to go live.';
+        msg.className = 'form-msg info'; return;
+      }
+      msg.textContent = 'Sending...'; msg.className = 'form-msg info';
+      try {
+        const res = await fetch(form.action, {
+          method: 'POST', body: new FormData(form), headers: { Accept: 'application/json' }
+        });
+        if (res.ok) {
+          form.reset();
+          msg.textContent = form.querySelector('[name=signup_type]').value === 'waitlist'
+            ? "You're on the list. Talk soon."
+            : "Got it. We'll be in touch about a TestFlight invite.";
+          msg.className = 'form-msg ok';
+        } else {
+          msg.textContent = 'Something went wrong. Please try again.';
+          msg.className = 'form-msg err';
+        }
+      } catch {
+        msg.textContent = 'Network hiccup. Please try again.';
+        msg.className = 'form-msg err';
+      }
+    });
+  });
+</script>
+</body>
+</html>
