@@ -106,6 +106,13 @@ Companion doc: the "Outstanding external setup" section in
 
 ## Later: external testers / App Review
 
+- [ ] **When the LLC exists, update the legal identity.** The legal pages
+  (`docs/privacy/`, `docs/support/`) currently name no legal entity and
+  use the personal Gmail as the contact address. Once the LLC is formed:
+  name it in the privacy policy's contact section, swap in a
+  business/support email on both pages, and update the App Store Connect
+  seller/company name if the app should stop showing a personal name.
+
 - [ ] **Legal URLs are placeholders** (`You/MochiLinks.swift`): privacy
   policy points at `https://mochibuddy.app/privacy`, which does not resolve
   yet; EULA uses Apple's standard agreement (fine to keep). External-tester
