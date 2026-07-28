@@ -99,10 +99,13 @@
   .pet-float { display:inline-block; animation:bob 3.4s ease-in-out infinite; }
   .pet-stage { display:inline-block; position:relative; transform-origin:bottom center; cursor:pointer; }
   .pet-stage.squish { animation:squish .5s ease-out; }
-  .pet-stage svg.pet { width:clamp(190px,34vw,270px); height:auto; display:block; }
-  .sparkle { position:absolute; width:22px; height:22px; opacity:.85; animation:twinkle 1.8s ease-in-out infinite; }
-  .sparkle.s1 { top:34%; left:12%; color:var(--primary); }
-  .sparkle.s2 { top:38%; right:12%; width:17px; height:17px; color:var(--accent2); animation-delay:.5s; }
+  .pet-stage svg.pet { width:clamp(240px,44vw,380px); height:auto; display:block; }
+  .hero-parallax { position:relative; display:inline-block; will-change:transform; }
+  .sparkle-wrap { position:absolute; will-change:transform; }
+  .sparkle-wrap.s1-pos { top:28%; left:6%; color:var(--primary); }
+  .sparkle-wrap.s2-pos { top:34%; right:6%; color:var(--accent2); }
+  .sparkle { display:block; width:26px; height:26px; opacity:.85; animation:twinkle 1.8s ease-in-out infinite; }
+  .sparkle.small { width:19px; height:19px; animation-delay:.5s; }
   @keyframes bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
   @keyframes twinkle { 0%,100%{opacity:.3; transform:scale(.8)} 50%{opacity:1; transform:scale(1.15)} }
   @keyframes squish {
@@ -219,12 +222,14 @@
 <a id="top"></a>
 <section class="hero">
   <div class="wrap">
-    <div class="pet-float">
-      <div class="pet-stage" id="heroPetStage">
-        <span id="heroPet"></span>
-        <svg class="sparkle s1" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 0l3 9 9 3-9 3-3 9-3-9-9-3 9-3z"/></svg>
-        <svg class="sparkle s2" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 0l3 9 9 3-9 3-3 9-3-9-9-3 9-3z"/></svg>
+    <div class="hero-parallax" id="heroParallax">
+      <div class="pet-float">
+        <div class="pet-stage" id="heroPetStage">
+          <span id="heroPet"></span>
+        </div>
       </div>
+      <span class="sparkle-wrap s1-pos" aria-hidden="true"><svg class="sparkle" viewBox="0 0 24 24"><path fill="currentColor" d="M12 0l3 9 9 3-9 3-3 9-3-9-9-3 9-3z"/></svg></span>
+      <span class="sparkle-wrap s2-pos" aria-hidden="true"><svg class="sparkle small" viewBox="0 0 24 24"><path fill="currentColor" d="M12 0l3 9 9 3-9 3-3 9-3-9-9-3 9-3z"/></svg></span>
     </div>
     <h1>Get things done.<br>Keep Mochi happy.</h1>
     <p class="lede">Mochi is a cozy little companion who thrives when you do. Check off your to-dos, watch your friend light up, and build a rhythm that actually sticks.</p>
@@ -455,6 +460,12 @@
   }));
   let ptr = { x: innerWidth/2, y: innerHeight/2 };
   addEventListener('pointermove', e => { ptr.x = e.clientX; ptr.y = e.clientY; });
+
+  // Hero parallax: the pet leans toward the cursor and drifts on scroll;
+  // sparkles shift further for a layered, foreground-depth feel.
+  const heroParallax = document.getElementById('heroParallax');
+  const sparkleWraps = [...document.querySelectorAll('.sparkle-wrap')];
+  let parX = 0, parY = 0;
   let nextBlink = performance.now() + 3000, blinkStart = -1;
   function blinkFactor(now) {
     if (reduce) return 1;
@@ -465,6 +476,18 @@
   }
   function tick(now) {
     const b = blinkFactor(now);
+    if (heroParallax && !reduce) {
+      const nx = ptr.x / innerWidth - 0.5;
+      const ny = ptr.y / innerHeight - 0.5;
+      parX += (nx * 26 - parX) * 0.07;
+      parY += (ny * 20 - parY) * 0.07;
+      const scroll = (window.scrollY || 0) * 0.12;
+      heroParallax.style.transform = `translate3d(${parX.toFixed(2)}px, ${(parY + scroll).toFixed(2)}px, 0)`;
+      sparkleWraps.forEach((w, i) => {
+        const dir = i === 0 ? 1 : -1;
+        w.style.transform = `translate3d(${(parX * 2.2 * dir).toFixed(2)}px, ${(parY * 2.2).toFixed(2)}px, 0)`;
+      });
+    }
     for (const g of eyes) {
       const svg = g.el.ownerSVGElement; if (!svg) continue;
       const r = svg.getBoundingClientRect(); if (!r.width) continue;
