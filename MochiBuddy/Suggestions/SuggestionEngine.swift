@@ -51,6 +51,12 @@ enum SuggestionEngine {
     /// New-time trigger: date set, no time chosen. Preconditions are the
     /// caller's contract; when they don't hold the evaluation is empty
     /// (proposal nil, blocked nil) - nothing held, nothing to report.
+    ///
+    /// @_optimize(none): the Swift 6.2.1 release optimizer's
+    /// CopyPropagation pass crashes on this function's labeled-tuple
+    /// scope-attempt arrays (SIL ownership verifier, archive builds only).
+    /// Runs once per editor open, so the exemption costs nothing.
+    @_optimize(none)
     static func evaluateNewTime(
         task: TaskSnapshot, context: Context, dismissedAt: Int?
     ) -> SuggestionEvaluation {
