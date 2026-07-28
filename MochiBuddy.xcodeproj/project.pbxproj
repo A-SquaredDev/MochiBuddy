@@ -473,7 +473,6 @@
 				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "Mochi can watch the Apple Reminders lists you choose, so your whole to-do world lives in one cozy place. Checking one off in Mochi marks it done in Reminders too.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -508,7 +507,6 @@
 				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "Mochi can watch the Apple Reminders lists you choose, so your whole to-do world lives in one cozy place. Checking one off in Mochi marks it done in Reminders too.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
