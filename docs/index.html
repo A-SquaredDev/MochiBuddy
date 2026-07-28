@@ -170,7 +170,8 @@
   .dot { width:10px; height:10px; border-radius:99px; flex:none; }
   .dot.known { background:#F2820C; } .dot.prog { background:#C9A6FF; } .dot.done { background:#3B9B5E; }
   .card { background:var(--surface2); border-radius:11px; padding:11px 13px; margin-bottom:10px; font-size:14px; font-weight:700; transition:background .5s; }
-  .card span { display:block; color:var(--muted); font-weight:600; font-size:12.5px; margin-top:3px; }
+  .card span { display:block; color:var(--muted); font-weight:600; font-size:12.5px; margin-top:3px; text-transform:capitalize; }
+  .col-empty { color:var(--muted); font-size:13.5px; font-weight:600; padding:4px 2px; }
 
   /* ---- Forms ---- */
   .duo { display:grid; grid-template-columns:1fr 1fr; gap:24px; max-width:940px; margin:0 auto; }
@@ -310,18 +311,15 @@
     <div class="board">
       <div class="col">
         <h3><span class="dot known"></span> Known issues</h3>
-        <div class="card">Widget time can lag 30 min<span>Being investigated</span></div>
-        <div class="card">Sandbox subs expire fast<span>Expected in TestFlight</span></div>
+        <div class="col-body" id="col-known"><p class="col-empty">Loading...</p></div>
       </div>
       <div class="col">
         <h3><span class="dot prog"></span> In progress</h3>
-        <div class="card">Editor layout refresh<span>Design locked, building</span></div>
-        <div class="card">Effort sizing on tasks<span>In testing</span></div>
+        <div class="col-body" id="col-prog"><p class="col-empty">Loading...</p></div>
       </div>
       <div class="col">
         <h3><span class="dot done"></span> Recently shipped</h3>
-        <div class="card">Journal tab<span>Live</span></div>
-        <div class="card">Best Hours insights<span>Live</span></div>
+        <div class="col-body" id="col-done"><p class="col-empty">Loading...</p></div>
       </div>
     </div>
     <div class="form-card" id="feedback" style="max-width:560px; margin:40px auto 0">
@@ -543,6 +541,54 @@
       }
     });
   });
+
+  // ---- Live roadmap board ----
+  // Pulls issues from the public GitHub repo and renders them here, so
+  // visitors see the real list without ever leaving the site. Open issues
+  // land under Known issues (or In progress if labeled "in progress");
+  // recently closed issues show under Recently shipped. Read-only + public,
+  // so no account is needed to view. Managing the roadmap = managing issues.
+  (async function loadBoard() {
+    const known = document.getElementById('col-known');
+    const prog = document.getElementById('col-prog');
+    const done = document.getElementById('col-done');
+    if (!known) return;
+    const fill = (el, list, subFn, emptyMsg) => {
+      el.innerHTML = '';
+      if (!list.length) {
+        const p = document.createElement('p');
+        p.className = 'col-empty'; p.textContent = emptyMsg; el.appendChild(p); return;
+      }
+      list.forEach(it => {
+        const c = document.createElement('div'); c.className = 'card'; c.textContent = it.title;
+        const sub = subFn(it);
+        if (sub) { const s = document.createElement('span'); s.textContent = sub; c.appendChild(s); }
+        el.appendChild(c);
+      });
+    };
+    try {
+      const res = await fetch('https://api.github.com/repos/A-SquaredDev/MochiBuddy/issues?state=all&per_page=100',
+        { headers: { Accept: 'application/vnd.github+json' } });
+      if (!res.ok) throw new Error('status ' + res.status);
+      const all = (await res.json()).filter(i => !i.pull_request);
+      const has = (i, n) => (i.labels || []).some(l => (l.name || '').toLowerCase() === n);
+      const firstLabel = i => (i.labels || []).map(l => l.name).find(n => n.toLowerCase() !== 'in progress');
+      const open = all.filter(i => i.state === 'open');
+      fill(known, open.filter(i => !has(i, 'in progress')), i => firstLabel(i), 'Nothing reported right now.');
+      fill(prog, open.filter(i => has(i, 'in progress')), () => 'Being worked on', 'Nothing in progress yet.');
+      fill(done, all.filter(i => i.state === 'closed')
+        .sort((a, b) => new Date(b.closed_at) - new Date(a.closed_at)).slice(0, 6),
+        () => 'Shipped', 'Nothing shipped yet.');
+    } catch (e) {
+      [known, prog, done].forEach(el => {
+        el.innerHTML = '';
+        const p = document.createElement('p');
+        p.className = 'col-empty';
+        p.textContent = 'Could not load right now. Please try again in a moment.';
+        el.appendChild(p);
+      });
+    }
+  })();
 </script>
 </body>
 </html>
