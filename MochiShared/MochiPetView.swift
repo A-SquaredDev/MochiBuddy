@@ -44,9 +44,10 @@ struct MochiPetView: View {
     var size: CGFloat = 118
     var squishOnTap = true
     var bobbing = false
-    /// Breathing + blinking. Opt-in so the ~40 static/list instances (and icon
-    /// exports) keep their cheap first-frame render; hosts turn it on for the
-    /// focal pet (Home hero) where the life is worth the per-frame cost.
+    /// Runs the mood's scripted design idle. Opt-in so the ~40 static/list
+    /// instances (and icon exports) keep their cheap first-frame render;
+    /// hosts turn it on for the focal pet (Home hero) where the life is
+    /// worth the per-frame cost.
     var alive = false
     /// Off for static exports (IconExportTests) - the twinkle animation's
     /// first frame renders sparkles washed out.
@@ -62,16 +63,9 @@ struct MochiPetView: View {
     @Environment(\.mochiTheme) private var theme
     @State private var squishTrigger = 0
     @State private var bobPhase = false
-    @State private var breathePhase = false
-    @State private var blinkClosed = false
     /// True for ~1.3s after a pet - lifts a sad face, blooms color, floats
     /// hearts. Purely local comfort; never touches baseline mood or copy.
     @State private var petComfort = false
-    @State private var swayPhase = false
-    /// Where he's glancing, in viewBox units. Snaps like a real saccade, holds,
-    /// then returns to center - the micro-life that reads most as "aware".
-    @State private var gazeX: CGFloat = 0
-    @State private var gazeY: CGFloat = 0
 
     init(
         vitality: Double,
@@ -125,25 +119,21 @@ struct MochiPetView: View {
     /// Combined tap + external-button pet trigger; drives hearts and comfort.
     private var petKey: Int { squishTrigger &+ externalSquishTrigger }
 
-    /// Moods with a full scripted design idle (their own breath, peeks, and -
-    /// for thriving - the wiggle + heart) instead of the generic micro-life.
-    private var scriptedIdle: MochiIdleScript? {
+    /// Which scripted design idle an alive Mochi runs - one canvas per mood
+    /// (MochiScriptedIdle.swift).
+    private enum IdleCanvas { case thriving, content, tired, unwell, sleeping }
+    private var idleCanvas: IdleCanvas? {
         guard alive else { return nil }
         switch mood {
         case .thriving: return .thriving
         case .content: return .content
-        // Comfort briefly lifts a petted tired Mochi to the content idle.
-        case .tired: return petComfort ? .content : nil
-        default: return nil
+        // Comfort briefly lifts a petted tired or unwell Mochi to the
+        // content idle.
+        case .tired: return petComfort ? .content : .tired
+        case .unwell: return petComfort ? .content : .unwell
+        case .sleeping: return .sleeping
         }
     }
-    private var usesScriptedIdle: Bool { scriptedIdle != nil }
-    /// Tired's own scripted design idle (heavy lids, nod, drips, z's) - drawn
-    /// by TiredIdleCanvas since its decoupled loops don't fit MochiIdleScript.
-    private var usesTiredIdle: Bool { alive && mood == .tired && !petComfort }
-    /// Generic breath/sway/gaze/blink - only for alive moods that aren't
-    /// running their own scripted idle (unwell, sleeping).
-    private var continuousLifeActive: Bool { alive && !usesScriptedIdle && !usesTiredIdle }
 
     /// The face to draw. While comforting a sad Mochi, he softens to `content`
     /// - the visible "that feels nice" lift when you pet him.
@@ -175,13 +165,20 @@ struct MochiPetView: View {
 
     var body: some View {
         ZStack {
-            if let script = scriptedIdle {
-                // A scripted idle owns its own motion, so the continuous
-                // micro-life modifiers below stay off for it (continuousLifeActive).
-                ScriptedIdleCanvas(theme: theme, size: size, faceInk: faceInk, showsSparkles: showsSparkles, script: script)
-            } else if usesTiredIdle {
+            // A scripted idle owns its own motion, so the continuous
+            // micro-life modifiers below stay off for it (continuousLifeActive).
+            switch idleCanvas {
+            case .thriving:
+                ThrivingIdleCanvas(theme: theme, size: size, faceInk: faceInk, showsSparkles: showsSparkles)
+            case .content:
+                ContentIdleCanvas(theme: theme, size: size, faceInk: faceInk)
+            case .tired:
                 TiredIdleCanvas(theme: theme, size: size, faceInk: faceInk)
-            } else {
+            case .unwell:
+                UnwellIdleCanvas(theme: theme, size: size, faceInk: faceInk)
+            case .sleeping:
+                SleepIdleCanvas(theme: theme, size: size, faceInk: faceInk)
+            case nil:
                 canvasBody
                 if mood == .thriving, showsSparkles {
                     SparkleView(color: theme.primary, delay: 0)
@@ -205,12 +202,6 @@ struct MochiPetView: View {
         .saturation(effectiveSaturation)
         .animation(MochiMotion.mood, value: mood)
         .animation(.easeInOut(duration: 0.45), value: petComfort)
-        .scaleEffect(
-            x: continuousLifeActive && breathePhase ? 0.984 : 1,
-            y: continuousLifeActive && breathePhase ? 1.034 : 1,
-            anchor: .bottom
-        )
-        .rotationEffect(.degrees(continuousLifeActive ? (swayPhase ? 1.4 : -1.4) : 0), anchor: .bottom)
         .keyframeAnimator(initialValue: SquishValue(), trigger: petKey) { content, value in
             content.scaleEffect(x: value.x, y: value.y, anchor: .bottom)
         } keyframes: { _ in
@@ -239,19 +230,7 @@ struct MochiPetView: View {
                     bobPhase = true
                 }
             }
-            if continuousLifeActive {
-                withAnimation(.easeInOut(duration: 2.7).repeatForever(autoreverses: true)) {
-                    breathePhase = true
-                }
-                // A different period from the breath so the two never lock into
-                // a mechanical pulse - the compound motion reads as organic.
-                withAnimation(.easeInOut(duration: 3.8).repeatForever(autoreverses: true)) {
-                    swayPhase = true
-                }
-            }
         }
-        .task(id: continuousLifeActive) { await runBlinkLoop() }
-        .task(id: continuousLifeActive) { await runGazeLoop() }
         .task(id: petKey) { await runPetComfort() }
         .contentShape(Rectangle())
         .onTapGesture {
@@ -263,26 +242,6 @@ struct MochiPetView: View {
         .accessibilityLabel("\(petName), feeling \(accessibilityMood)")
     }
 
-    /// Blinks on a lazy, slightly random cadence, with an occasional double
-    /// blink. No-op unless `alive`; skips blinking while he's asleep.
-    private func runBlinkLoop() async {
-        guard continuousLifeActive else { return }
-        while !Task.isCancelled {
-            try? await Task.sleep(for: .seconds(Double.random(in: 3.4...6.5)))
-            guard !Task.isCancelled, mood != .sleeping else { continue }
-            blinkClosed = true
-            try? await Task.sleep(for: .milliseconds(95))
-            blinkClosed = false
-            if Bool.random() {
-                try? await Task.sleep(for: .milliseconds(130))
-                guard !Task.isCancelled else { break }
-                blinkClosed = true
-                try? await Task.sleep(for: .milliseconds(85))
-                blinkClosed = false
-            }
-        }
-    }
-
     /// Holds the comfort lift for ~1.3s after a pet. Rapid petting cancels and
     /// restarts this (via `.task(id: petKey)`), so the glow stays up while
     /// you keep petting.
@@ -292,23 +251,6 @@ struct MochiPetView: View {
         try? await Task.sleep(for: .seconds(1.3))
         guard !Task.isCancelled else { return }
         petComfort = false
-    }
-
-    /// Glances somewhere, holds a beat, returns to center. Snaps rather than
-    /// eases - real eyes saccade - which also keeps the Canvas cheap.
-    private func runGazeLoop() async {
-        guard continuousLifeActive else { return }
-        let spots: [(CGFloat, CGFloat)] = [(-5, 0), (5, 0), (-4, -2), (4, -2), (0, -2), (-5, 1), (5, 1)]
-        while !Task.isCancelled {
-            try? await Task.sleep(for: .seconds(Double.random(in: 2.2...4.6)))
-            guard !Task.isCancelled, mood != .sleeping else { continue }
-            let spot = spots.randomElement() ?? (0, 0)
-            gazeX = spot.0
-            gazeY = spot.1
-            try? await Task.sleep(for: .seconds(Double.random(in: 0.7...1.7)))
-            gazeX = 0
-            gazeY = 0
-        }
     }
 
     private var accessibilityMood: String {
@@ -364,76 +306,69 @@ struct MochiPetView: View {
                 with: .color(theme.petCheek.opacity(0.55))
             )
 
-            drawFace(&ctx, mood: displayMood, blink: blinkClosed)
+            drawFace(&ctx, mood: displayMood)
         }
     }
 
-    private func drawFace(_ ctx: inout GraphicsContext, mood: MochiMood, blink: Bool) {
+    private func drawFace(_ ctx: inout GraphicsContext, mood: MochiMood) {
         let stroke = StrokeStyle(lineWidth: 3.4, lineCap: .round)
         let thinStroke = StrokeStyle(lineWidth: 3.2, lineCap: .round)
         let ink = GraphicsContext.Shading.color(faceInk)
 
-        // Eyes drift with his gaze; a blink swaps whatever open eyes this mood
-        // has for gentle closed lids. Sleeping is already closed, so it ignores
-        // the blink. Drawing into a gaze-translated copy moves only the eyes -
-        // the mouth and brow line stay put, so he glances rather than lurches.
+        // The static faces for list/row instances; the alive hero draws
+        // through the scripted idle canvases instead.
         var g = ctx
-        g.translateBy(x: gazeX, y: gazeY)
-        if blink, mood != .sleeping {
-            drawClosedLids(&g, ink: ink, style: stroke)
-        } else {
-            switch mood {
-            case .content:
-                g.fill(Path(ellipseIn: CGRect(x: 66, y: 82, width: 12, height: 12)), with: ink)
-                g.fill(Path(ellipseIn: CGRect(x: 102, y: 82, width: 12, height: 12)), with: ink)
-                g.fill(Path(ellipseIn: CGRect(x: 72, y: 84, width: 4, height: 4)), with: .color(.white))
-                g.fill(Path(ellipseIn: CGRect(x: 108, y: 84, width: 4, height: 4)), with: .color(.white))
+        switch mood {
+        case .content:
+            g.fill(Path(ellipseIn: CGRect(x: 66, y: 82, width: 12, height: 12)), with: ink)
+            g.fill(Path(ellipseIn: CGRect(x: 102, y: 82, width: 12, height: 12)), with: ink)
+            g.fill(Path(ellipseIn: CGRect(x: 72, y: 84, width: 4, height: 4)), with: .color(.white))
+            g.fill(Path(ellipseIn: CGRect(x: 108, y: 84, width: 4, height: 4)), with: .color(.white))
 
-            case .thriving:
-                var leftEye = Path()
-                leftEye.move(to: p(64, 90))
-                leftEye.addCurve(to: p(78, 90), control1: p(67, 84), control2: p(75, 84))
-                g.stroke(leftEye, with: ink, style: stroke)
-                var rightEye = Path()
-                rightEye.move(to: p(102, 90))
-                rightEye.addCurve(to: p(116, 90), control1: p(105, 84), control2: p(113, 84))
-                g.stroke(rightEye, with: ink, style: stroke)
+        case .thriving:
+            var leftEye = Path()
+            leftEye.move(to: p(64, 90))
+            leftEye.addCurve(to: p(78, 90), control1: p(67, 84), control2: p(75, 84))
+            g.stroke(leftEye, with: ink, style: stroke)
+            var rightEye = Path()
+            rightEye.move(to: p(102, 90))
+            rightEye.addCurve(to: p(116, 90), control1: p(105, 84), control2: p(113, 84))
+            g.stroke(rightEye, with: ink, style: stroke)
 
-            case .tired:
-                var leftEye = Path()
-                leftEye.move(to: p(66, 90))
-                leftEye.addLine(to: p(78, 90))
-                g.stroke(leftEye, with: ink, style: stroke)
-                var rightEye = Path()
-                rightEye.move(to: p(102, 90))
-                rightEye.addLine(to: p(114, 90))
-                g.stroke(rightEye, with: ink, style: stroke)
+        case .tired:
+            var leftEye = Path()
+            leftEye.move(to: p(66, 90))
+            leftEye.addLine(to: p(78, 90))
+            g.stroke(leftEye, with: ink, style: stroke)
+            var rightEye = Path()
+            rightEye.move(to: p(102, 90))
+            rightEye.addLine(to: p(114, 90))
+            g.stroke(rightEye, with: ink, style: stroke)
 
-            case .unwell:
-                var leftBrow = Path()
-                leftBrow.move(to: p(66, 86))
-                leftBrow.addCurve(to: p(79, 86), control1: p(69, 83), control2: p(77, 83))
-                g.stroke(leftBrow, with: ink, style: thinStroke)
-                var rightBrow = Path()
-                rightBrow.move(to: p(101, 86))
-                rightBrow.addCurve(to: p(114, 86), control1: p(104, 83), control2: p(112, 83))
-                g.stroke(rightBrow, with: ink, style: thinStroke)
-                g.fill(Path(ellipseIn: CGRect(x: 67.5, y: 87.5, width: 9, height: 9)), with: ink)
-                g.fill(Path(ellipseIn: CGRect(x: 103.5, y: 87.5, width: 9, height: 9)), with: ink)
+        case .unwell:
+            var leftBrow = Path()
+            leftBrow.move(to: p(66, 86))
+            leftBrow.addCurve(to: p(79, 86), control1: p(69, 83), control2: p(77, 83))
+            g.stroke(leftBrow, with: ink, style: thinStroke)
+            var rightBrow = Path()
+            rightBrow.move(to: p(101, 86))
+            rightBrow.addCurve(to: p(114, 86), control1: p(104, 83), control2: p(112, 83))
+            g.stroke(rightBrow, with: ink, style: thinStroke)
+            g.fill(Path(ellipseIn: CGRect(x: 67.5, y: 87.5, width: 9, height: 9)), with: ink)
+            g.fill(Path(ellipseIn: CGRect(x: 103.5, y: 87.5, width: 9, height: 9)), with: ink)
 
-            case .sleeping:
-                var leftEye = Path()
-                leftEye.move(to: p(64, 88))
-                leftEye.addCurve(to: p(78, 88), control1: p(67, 94), control2: p(75, 94))
-                g.stroke(leftEye, with: ink, style: stroke)
-                var rightEye = Path()
-                rightEye.move(to: p(102, 88))
-                rightEye.addCurve(to: p(116, 88), control1: p(105, 94), control2: p(113, 94))
-                g.stroke(rightEye, with: ink, style: stroke)
-            }
+        case .sleeping:
+            var leftEye = Path()
+            leftEye.move(to: p(64, 88))
+            leftEye.addCurve(to: p(78, 88), control1: p(67, 94), control2: p(75, 94))
+            g.stroke(leftEye, with: ink, style: stroke)
+            var rightEye = Path()
+            rightEye.move(to: p(102, 88))
+            rightEye.addCurve(to: p(116, 88), control1: p(105, 94), control2: p(113, 94))
+            g.stroke(rightEye, with: ink, style: stroke)
         }
 
-        // Mouth and mood extras - unaffected by a blink.
+        // Mouth and mood extras.
         switch mood {
         case .content:
             var smile = Path()
@@ -467,18 +402,6 @@ struct MochiPetView: View {
             ctx.stroke(frown, with: ink, style: thinStroke)
             ctx.fill(sweatDrop(at: CGPoint(x: 128, y: 80)), with: .color(Color(hex: 0x8FD3F4)))
         }
-    }
-
-    /// Gentle closed lids for a blink - shallow downward arcs on the eye line.
-    private func drawClosedLids(_ ctx: inout GraphicsContext, ink: GraphicsContext.Shading, style: StrokeStyle) {
-        var left = Path()
-        left.move(to: p(64, 89))
-        left.addCurve(to: p(78, 89), control1: p(67, 94), control2: p(75, 94))
-        ctx.stroke(left, with: ink, style: style)
-        var right = Path()
-        right.move(to: p(102, 89))
-        right.addCurve(to: p(116, 89), control1: p(105, 94), control2: p(113, 94))
-        ctx.stroke(right, with: ink, style: style)
     }
 
     /// Teardrop: c4 6 4 11 0 11 s-4-5 0-11z from the SVG.
@@ -661,11 +584,29 @@ private struct SparkleShape: Shape {
     }
 }
 
-#Preview("Tired idle") {
-    MochiPetView(mood: .tired, size: 220, alive: true)
-        .padding(40)
-        .background(MochiTheme.sesame.bg)
-        .environment(\.mochiTheme, .sesame)
+#Preview("All states") {
+    let moods: [(name: String, mood: MochiMood)] = [
+        ("Thriving", .thriving),
+        ("Content", .content),
+        ("Tired", .tired),
+        ("Unwell", .unwell),
+        ("Sleeping", .sleeping),
+    ]
+    ScrollView {
+        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 28) {
+            ForEach(moods, id: \.name) { item in
+                VStack(spacing: 10) {
+                    MochiPetView(mood: item.mood, size: 150, alive: true)
+                    Text(item.name)
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding(24)
+    }
+    .background(MochiTheme.sesame.bg)
+    .environment(\.mochiTheme, .sesame)
 }
 
 #Preview("Moods") {

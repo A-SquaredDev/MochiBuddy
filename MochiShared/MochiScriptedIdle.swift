@@ -2,243 +2,38 @@
 //  MochiScriptedIdle.swift
 //  MochiBuddy
 //
-//  Scripted idle loops ported 1:1 from the design system's `Mochi Idle
-//  Thriving` (dc.html). Each mood's idle is a single choreographed beat, not a
-//  pile of random loops: `MochiIdleScript` holds the keyframe tables and
-//  `ScriptedIdleCanvas` plays them. The nested GraphicsContext transforms
-//  mirror the SVG's nested <g> groups (lean > breathe > gaze > {blink eyes,
-//  mouth}); transform-origins are applied as translate-in / transform /
-//  translate-out, exactly like CSS `transform-origin`.
+//  Scripted idle loops for the Mochi pet, one canvas per mood. Each mood is
+//  a set of decoupled loops with unrelated periods (so the silhouette never
+//  repeats), sampled per-frame off a shared clock. Content, tired, unwell and
+//  sleeping are ported 1:1 from the design system's mood comps (dc.html);
+//  thriving is our own in-code design. Transform-origins are applied as
+//  translate-in / transform / translate-out, exactly like CSS
+//  `transform-origin`.
 //
-//  - Thriving: a lively 12s beat - peeks left/right, then a pleased wiggle
-//    (hop, mouth-open, happy squint) with a heart floating up and the shadow
-//    reacting. Sparkles twinkle throughout.
-//  - Content: a calmer 18s beat - slow breaths, the odd single blink, a look
-//    left and a little pootle right. No sparkles, no heart, static shadow.
-//  - Tired: ported from `Mochi Tired Animation` (dc.html). Unlike the other
-//    two it is not one beat but decoupled loops, exactly like its CSS: a 7.2s
-//    nod, 3.6s breath/shadow/mouth, a 6s heavy-lidded lazy blink, sweat drips
-//    half a loop apart and three staggered drifting z's. `TiredIdleCanvas`
-//    samples each loop against its own period off the shared clock.
+//  - Thriving (in-house): the content loops made perkier - 3.4s breath, 7.5s
+//    look/lean tour, quick 4.2s double blink - plus a quick happy hop every
+//    9.5s with a cheek pop, widening grin and two sparkles on the landing.
+//    `ThrivingIdleCanvas`.
+//  - Content (`Mochi Content Animation v1`, sparkles cut by request):
+//    4s squash-and-stretch breath with bob, shadow, mouth and crown jiggle;
+//    a 9s look/lean tour of the room; a crisp 5.4s blink of lids that slide
+//    down inside the body clip; and a 13s pleased wiggle-hop with cheek pop.
+//    `ContentIdleCanvas`.
+//  - Tired (`Mochi Tired Animation`): decoupled loops too - a 7.2s nod, 3.6s
+//    breath/shadow/mouth, a 6s heavy-lidded lazy blink, sweat drips half a
+//    loop apart and three staggered drifting z's. `TiredIdleCanvas`.
+//  - Unwell (`Mochi Unwell Animation`): rest as exaggeration - held flat in a
+//    lying-down squash while a single 5.6s laboured breath drives everything:
+//    shadow, sinking lids and brows, a wavy grimace, flushing cheeks and a
+//    fever fade. Steam, sweat and the dizzy-spiral eyes are deliberately
+//    omitted (default-off in the comp). `UnwellIdleCanvas`.
+//  - Sleeping (`Mochi Sleep Animation`): real stillness - a static flat-out
+//    pose, a 4.6s snore-breath with heavy open-mouth breathing, a 9.2s
+//    sub-degree slack sway, three staggered drifting z's, and every fourth
+//    breath a little snuggling nuzzle. `SleepIdleCanvas`.
 //
 
 import SwiftUI
-
-/// One mood's idle, as fractions of its own loop (0...1). The design's springy
-/// overshoot lives in the stop values themselves, so eased interpolation
-/// between them reproduces the feel without hand-coding each cubic-bezier.
-struct MochiIdleScript {
-    enum Face { case thriving, content }
-
-    var beat: Double            // full loop length (s)
-    var breathBeat: Double      // breath's own sub-loop (s)
-    var breatheDepth: CGFloat   // peak squash, e.g. 0.035
-    var face: Face
-    var decorated: Bool         // sparkles + floating heart
-    var animatesShadow: Bool
-    var shadowAlpha: Double
-
-    var leanRot, leanTx, leanTy, leanScaleX, leanScaleY: [(CGFloat, CGFloat)]
-    var gazeTx, gazeTy, blink: [(CGFloat, CGFloat)]
-    var mouthScaleX, mouthScaleY: [(CGFloat, CGFloat)]
-    var shadowScaleX, shadowOpacity: [(CGFloat, CGFloat)]
-
-    var cheekLeft: CGRect
-    var cheekRight: CGRect
-    var cheekOpacity: Double
-
-    static let identity: [(CGFloat, CGFloat)] = [(0, 1), (1, 1)]
-    static let flat: [(CGFloat, CGFloat)] = [(0, 0), (1, 0)]
-}
-
-struct ScriptedIdleCanvas: View {
-    var theme: MochiTheme
-    var size: CGFloat
-    var faceInk: Color
-    var showsSparkles: Bool = true
-    var script: MochiIdleScript
-
-    private let twinkleBeat: Double = 1.9
-
-    var body: some View {
-        TimelineView(.animation) { timeline in
-            Canvas { ctx, canvasSize in
-                draw(&ctx, canvasSize: canvasSize, now: timeline.date.timeIntervalSinceReferenceDate)
-            }
-        }
-        .frame(width: size, height: size * 170 / 180)
-        .accessibilityHidden(true)
-    }
-
-    private func draw(_ ctx: inout GraphicsContext, canvasSize: CGSize, now: Double) {
-        let s = canvasSize.width / 180
-        ctx.scaleBy(x: s, y: s)
-
-        let t = CGFloat(now.truncatingRemainder(dividingBy: script.beat) / script.beat)
-        let bt = now.truncatingRemainder(dividingBy: script.breathBeat) / script.breathBeat
-
-        // Ground shadow - reacts to the hop when the script animates it.
-        var shadow = ctx
-        shadow.opacity = script.animatesShadow ? Double(kf(t, script.shadowOpacity)) : 1
-        origin(&shadow, 90, 150) {
-            if script.animatesShadow { $0.scaleBy(x: kf(t, script.shadowScaleX), y: 1) }
-        }
-        shadow.fill(
-            Path(ellipseIn: CGRect(x: 40, y: 141, width: 100, height: 18)),
-            with: .color(.black.opacity(script.shadowAlpha))
-        )
-
-        // Lean - whole-body sway (+ closing wiggle). Origin 90,140.
-        var lean = ctx
-        origin(&lean, 90, 140) {
-            $0.rotate(by: .degrees(Double(kf(t, script.leanRot))))
-            $0.translateBy(x: kf(t, script.leanTx), y: kf(t, script.leanTy))
-            $0.scaleBy(x: kf(t, script.leanScaleX), y: kf(t, script.leanScaleY))
-        }
-
-        // Breathe - gentle squash, inside the lean. Origin 90,140.
-        let bph = CGFloat((1 - cos(2 * .pi * bt)) / 2)
-        var body = lean
-        origin(&body, 90, 140) {
-            $0.scaleBy(x: 1 + script.breatheDepth * bph, y: 1 - script.breatheDepth * bph)
-        }
-        drawBody(&body)
-
-        // Gaze - the face peeks (pure translate, so origin is moot).
-        var face = body
-        face.translateBy(x: kf(t, script.gazeTx), y: kf(t, script.gazeTy))
-
-        // Eyes with the blink squeeze. Origin 90,88.
-        var eyes = face
-        origin(&eyes, 90, 88) { $0.scaleBy(x: 1, y: kf(t, script.blink)) }
-        drawEyes(&eyes)
-
-        // Mouth - opens on the thriving wiggle; identity (no-op) for content.
-        var mouth = face
-        origin(&mouth, 90, 104) {
-            $0.scaleBy(x: kf(t, script.mouthScaleX), y: kf(t, script.mouthScaleY))
-        }
-        drawMouth(&mouth)
-
-        // Sparkles + floating heart (thriving only).
-        if script.decorated {
-            if showsSparkles {
-                drawSparkle(&ctx, cx: 40, cy: 68, r: 7, color: theme.primary, phase: twinklePhase(now, 0))
-                drawSparkle(&ctx, cx: 143, cy: 72, r: 5.6, color: theme.accent2, phase: twinklePhase(now, 0.45))
-                drawSparkle(&ctx, cx: 32, cy: 102, r: 4.2, color: theme.accent2, phase: twinklePhase(now, 0.9))
-            }
-            drawFloatingHeart(&ctx, t: t)
-        }
-    }
-
-    // MARK: - Art
-
-    private func drawBody(_ ctx: inout GraphicsContext) {
-        ctx.fill(mochiBodyPath, with: .color(theme.pet))
-        ctx.fill(mochiHighlightPath, with: .color(theme.pet2.opacity(0.55)))
-
-        ctx.fill(Path(ellipseIn: script.cheekLeft), with: .color(theme.petCheek.opacity(script.cheekOpacity)))
-        ctx.fill(Path(ellipseIn: script.cheekRight), with: .color(theme.petCheek.opacity(script.cheekOpacity)))
-    }
-
-    private func drawEyes(_ ctx: inout GraphicsContext) {
-        let ink = GraphicsContext.Shading.color(faceInk)
-        switch script.face {
-        case .thriving:
-            ctx.fill(Path(ellipseIn: CGRect(x: 62.5, y: 79, width: 15, height: 18)), with: ink)
-            ctx.fill(Path(ellipseIn: CGRect(x: 102.5, y: 79, width: 15, height: 18)), with: ink)
-            ctx.fill(Path(ellipseIn: CGRect(x: 70, y: 82, width: 5.2, height: 5.2)), with: .color(.white))
-            ctx.fill(Path(ellipseIn: CGRect(x: 110, y: 82, width: 5.2, height: 5.2)), with: .color(.white))
-            ctx.fill(Path(ellipseIn: CGRect(x: 66.3, y: 90.1, width: 2.6, height: 2.6)), with: .color(.white.opacity(0.8)))
-            ctx.fill(Path(ellipseIn: CGRect(x: 106.3, y: 90.1, width: 2.6, height: 2.6)), with: .color(.white.opacity(0.8)))
-        case .content:
-            ctx.fill(Path(ellipseIn: CGRect(x: 66, y: 82, width: 12, height: 12)), with: ink)
-            ctx.fill(Path(ellipseIn: CGRect(x: 102, y: 82, width: 12, height: 12)), with: ink)
-            ctx.fill(Path(ellipseIn: CGRect(x: 72, y: 84, width: 4, height: 4)), with: .color(.white))
-            ctx.fill(Path(ellipseIn: CGRect(x: 108, y: 84, width: 4, height: 4)), with: .color(.white))
-        }
-    }
-
-    private func drawMouth(_ ctx: inout GraphicsContext) {
-        let ink = GraphicsContext.Shading.color(faceInk)
-        switch script.face {
-        case .thriving:
-            var smile = Path()
-            smile.move(to: CGPoint(x: 80, y: 103))
-            smile.addCurve(to: CGPoint(x: 100, y: 103), control1: CGPoint(x: 84.5, y: 110.5), control2: CGPoint(x: 95.5, y: 110.5))
-            ctx.stroke(smile, with: ink, style: StrokeStyle(lineWidth: 3.4, lineCap: .round))
-
-            var tongue = Path()
-            tongue.move(to: CGPoint(x: 86.5, y: 108.5))
-            tongue.addCurve(to: CGPoint(x: 94, y: 108.5), control1: CGPoint(x: 89, y: 111.5), control2: CGPoint(x: 92, y: 111.5))
-            tongue.closeSubpath()
-            ctx.fill(tongue, with: .color(theme.petCheek.opacity(0.9)))
-        case .content:
-            var smile = Path()
-            smile.move(to: CGPoint(x: 80, y: 104))
-            smile.addCurve(to: CGPoint(x: 100, y: 104), control1: CGPoint(x: 84, y: 109), control2: CGPoint(x: 96, y: 109))
-            ctx.stroke(smile, with: ink, style: StrokeStyle(lineWidth: 3.4, lineCap: .round))
-        }
-    }
-
-    private func drawSparkle(_ ctx: inout GraphicsContext, cx: CGFloat, cy: CGFloat, r: CGFloat, color: Color, phase: Double) {
-        let tw = (1 - cos(2 * .pi * phase)) / 2 // 0 -> 1 -> 0
-        var g = ctx
-        g.opacity = 0.25 + 0.75 * tw
-        origin(&g, cx, cy) {
-            $0.rotate(by: .degrees(12 * tw))
-            $0.scaleBy(x: 0.75 + 0.45 * tw, y: 0.75 + 0.45 * tw)
-        }
-        g.fill(starPath(cx: cx, cy: cy, r: r), with: .color(color))
-    }
-
-    private func drawFloatingHeart(_ ctx: inout GraphicsContext, t: CGFloat) {
-        let op = Double(kf(t, Hearts.opacity))
-        guard op > 0.001 else { return }
-        var g = ctx
-        g.opacity = op
-        g.translateBy(x: 152, y: 104)
-        g.translateBy(x: kf(t, Hearts.tx), y: kf(t, Hearts.ty))
-        g.scaleBy(x: kf(t, Hearts.scale), y: kf(t, Hearts.scale))
-        g.translateBy(x: -152, y: -104)
-        g.fill(heartPath(), with: .color(theme.primary))
-    }
-
-    // MARK: - Helpers
-
-    private func twinklePhase(_ now: Double, _ delay: Double) -> Double {
-        var p = (now - delay).truncatingRemainder(dividingBy: twinkleBeat) / twinkleBeat
-        if p < 0 { p += 1 }
-        return p
-    }
-
-    private func starPath(cx: CGFloat, cy: CGFloat, r: CGFloat) -> Path {
-        let w: CGFloat = 0.32 // pinched waist
-        var p = Path()
-        p.move(to: CGPoint(x: cx, y: cy - r))
-        p.addLine(to: CGPoint(x: cx + r * w, y: cy - r * w))
-        p.addLine(to: CGPoint(x: cx + r, y: cy))
-        p.addLine(to: CGPoint(x: cx + r * w, y: cy + r * w))
-        p.addLine(to: CGPoint(x: cx, y: cy + r))
-        p.addLine(to: CGPoint(x: cx - r * w, y: cy + r * w))
-        p.addLine(to: CGPoint(x: cx - r, y: cy))
-        p.addLine(to: CGPoint(x: cx - r * w, y: cy - r * w))
-        p.closeSubpath()
-        return p
-    }
-
-    private func heartPath() -> Path {
-        var p = Path()
-        p.move(to: CGPoint(x: 152, y: 100))
-        p.addCurve(to: CGPoint(x: 159, y: 102.4), control1: CGPoint(x: 154.6, y: 96.8), control2: CGPoint(x: 159, y: 98.8))
-        p.addCurve(to: CGPoint(x: 152, y: 110.8), control1: CGPoint(x: 159, y: 105.8), control2: CGPoint(x: 154.6, y: 108.4))
-        p.addCurve(to: CGPoint(x: 145, y: 102.4), control1: CGPoint(x: 149.4, y: 108.4), control2: CGPoint(x: 145, y: 105.8))
-        p.addCurve(to: CGPoint(x: 152, y: 100), control1: CGPoint(x: 145, y: 98.8), control2: CGPoint(x: 149.4, y: 96.8))
-        p.closeSubpath()
-        return p
-    }
-
-}
 
 // MARK: - Shared art + sampling
 
@@ -275,6 +70,19 @@ private func origin(_ ctx: inout GraphicsContext, _ ox: CGFloat, _ oy: CGFloat, 
     ctx.translateBy(x: -ox, y: -oy)
 }
 
+/// Position within a looping animation of `period` seconds, 0...1.
+private func phase(_ now: Double, period: Double, delay: Double = 0) -> CGFloat {
+    var p = (now - delay).truncatingRemainder(dividingBy: period) / period
+    if p < 0 { p += 1 }
+    return CGFloat(p)
+}
+
+/// Eased 0 -> 1 -> 0 over one period - what CSS's symmetric 0/50/100%
+/// keyframes with sine-ish easing produce.
+private func wave(_ now: Double, period: Double) -> CGFloat {
+    CGFloat((1 - cos(2 * .pi * Double(phase(now, period: period)))) / 2)
+}
+
 /// Samples a keyframe table at t, easing between stops with smoothstep.
 private func kf(_ t: CGFloat, _ stops: [(CGFloat, CGFloat)]) -> CGFloat {
     guard let first = stops.first else { return 0 }
@@ -291,90 +99,398 @@ private func kf(_ t: CGFloat, _ stops: [(CGFloat, CGFloat)]) -> CGFloat {
     return stops.last!.1
 }
 
-/// Floating-heart keyframes (thriving only), shared by the canvas.
-private enum Hearts {
-    static let opacity: [(CGFloat, CGFloat)] = [(0, 0), (0.78, 0), (0.84, 1), (0.96, 0), (1, 0)]
-    static let tx: [(CGFloat, CGFloat)] = [(0, 0), (0.78, 0), (0.84, 2), (0.96, 8), (1, 8)]
-    static let ty: [(CGFloat, CGFloat)] = [(0, 0), (0.78, 0), (0.84, -14), (0.96, -34), (1, -34)]
-    static let scale: [(CGFloat, CGFloat)] = [(0, 0.4), (0.78, 0.4), (0.84, 1), (0.96, 0.85), (1, 0.85)]
+// MARK: - Thriving idle
+
+/// The happy thriving idle - our own design rather than a comp port. It is
+/// the content loops made perkier: a 3.4s squash-and-stretch breath (bob,
+/// shadow and crown jiggle in phase), a 7.5s look/lean tour with slightly
+/// bigger saccades, and a quick double blink every 4.2s. The extra is a
+/// quick happy hop every 9.5s - crouch, spring to -22px with an in-air
+/// stretch and tilt, landing squash, one snappy rebound, all inside ~1.8s -
+/// with the grin widening, cheeks popping and two diamond sparkles on the
+/// landing.
+struct ThrivingIdleCanvas: View {
+    var theme: MochiTheme
+    var size: CGFloat
+    var faceInk: Color
+    var showsSparkles: Bool = true
+
+    var body: some View {
+        TimelineView(.animation) { timeline in
+            Canvas { ctx, canvasSize in
+                draw(&ctx, canvasSize: canvasSize, now: timeline.date.timeIntervalSinceReferenceDate)
+            }
+        }
+        .frame(width: size, height: size * 170 / 180)
+        .accessibilityHidden(true)
+    }
+
+    private func draw(_ ctx: inout GraphicsContext, canvasSize: CGSize, now: Double) {
+        let s = canvasSize.width / 180
+        ctx.scaleBy(x: s, y: s)
+
+        let breathT = phase(now, period: 3.4)  // breath, bob, shadow, jiggle
+        let lookT = phase(now, period: 7.5)    // look + lean
+        let blinkT = phase(now, period: 4.2)
+        let hopT = phase(now, period: 9.5)     // hop, grin, cheeks, heart
+
+        // Ground shadow - eases with the breath, shrinks and fades under the
+        // hop, swells on the landing.
+        var shadow = ctx
+        shadow.opacity = Double(kf(breathT, Thriving.shadowOpacity) * kf(hopT, Thriving.hopShadowOpacity))
+        origin(&shadow, 90, 150) {
+            $0.scaleBy(x: kf(breathT, Thriving.shadowScaleX) * kf(hopT, Thriving.hopShadowScaleX), y: 1)
+        }
+        shadow.fill(
+            Path(ellipseIn: CGRect(x: 40, y: 141, width: 100, height: 18)),
+            with: .color(.black.opacity(0.16))
+        )
+
+        // Happy hop - crouch, spring, land, one small rebound. Origin 50% 100%.
+        var g = ctx
+        origin(&g, 90, 138) {
+            $0.translateBy(x: 0, y: kf(hopT, Thriving.hopTy))
+            $0.rotate(by: .degrees(Double(kf(hopT, Thriving.hopRot))))
+            $0.scaleBy(x: kf(hopT, Thriving.hopScaleX), y: kf(hopT, Thriving.hopScaleY))
+        }
+
+        // Bob - the breath lifts him off the ground (pure translate).
+        g.translateBy(x: 0, y: kf(breathT, Thriving.bobTy))
+
+        // Lean - the body follows each glance a beat later.
+        origin(&g, 90, 133.4) {
+            $0.rotate(by: .degrees(Double(kf(lookT, Thriving.leanRot))))
+            $0.translateBy(x: kf(lookT, Thriving.leanTx), y: 0)
+        }
+
+        // Breath - a perky +-6.5% squash and stretch.
+        origin(&g, 90, 138) {
+            $0.scaleBy(x: kf(breathT, Thriving.breathScaleX), y: kf(breathT, Thriving.breathScaleY))
+        }
+
+        // Crown jiggle so the blob never reads rigid.
+        origin(&g, 90, 128.9) {
+            $0.rotate(by: .degrees(Double(kf(breathT, Thriving.jiggleRot))))
+        }
+
+        g.fill(mochiBodyPath, with: .color(theme.pet))
+        g.fill(mochiHighlightPath, with: .color(theme.pet2.opacity(0.55)))
+
+        // Cheeks pop and brighten on the hop.
+        drawCheek(&g, cx: 56, t: hopT)
+        drawCheek(&g, cx: 124, t: hopT)
+
+        // Eyes - big sparkly ovals with double glints, touring the room, with
+        // a quick double blink squeeze.
+        var eyes = g
+        eyes.translateBy(x: kf(lookT, Thriving.lookTx), y: kf(lookT, Thriving.lookTy))
+        origin(&eyes, 90, 88) { $0.scaleBy(x: 1, y: kf(blinkT, Thriving.blinkScaleY)) }
+        let ink = GraphicsContext.Shading.color(faceInk)
+        eyes.fill(Path(ellipseIn: CGRect(x: 62.5, y: 79, width: 15, height: 18)), with: ink)
+        eyes.fill(Path(ellipseIn: CGRect(x: 102.5, y: 79, width: 15, height: 18)), with: ink)
+        eyes.fill(Path(ellipseIn: CGRect(x: 70, y: 82, width: 5.2, height: 5.2)), with: .color(.white))
+        eyes.fill(Path(ellipseIn: CGRect(x: 110, y: 82, width: 5.2, height: 5.2)), with: .color(.white))
+        eyes.fill(Path(ellipseIn: CGRect(x: 66.3, y: 90.1, width: 2.6, height: 2.6)), with: .color(.white.opacity(0.8)))
+        eyes.fill(Path(ellipseIn: CGRect(x: 106.3, y: 90.1, width: 2.6, height: 2.6)), with: .color(.white.opacity(0.8)))
+
+        // Full open smile - a filled grin with the tongue tucked into the
+        // bottom, opening even wider while he's in the air.
+        var mouth = g
+        origin(&mouth, 90, 102) {
+            $0.scaleBy(x: kf(hopT, Thriving.mouthScaleX), y: kf(hopT, Thriving.mouthScaleY))
+        }
+        var grin = Path()
+        grin.move(to: CGPoint(x: 78.5, y: 102))
+        grin.addLine(to: CGPoint(x: 101.5, y: 102))
+        grin.addCurve(to: CGPoint(x: 78.5, y: 102), control1: CGPoint(x: 101.5, y: 116.5), control2: CGPoint(x: 78.5, y: 116.5))
+        grin.closeSubpath()
+        mouth.fill(grin, with: ink)
+        var tongue = mouth
+        tongue.clip(to: grin)
+        tongue.fill(Path(ellipseIn: CGRect(x: 83, y: 107.5, width: 14, height: 9)), with: .color(theme.petCheek.opacity(0.9)))
+
+        // Two diamond sparkles blink once on the landing.
+        if showsSparkles {
+            drawSparkle(&ctx, cx: 146, cy: 69, tip: 9, waist: 2.6, t: hopT)
+            drawSparkle(&ctx, cx: 36, cy: 80.5, tip: 6.5, waist: 1.9, t: phase(now, period: 9.5, delay: 0.5))
+        }
+    }
+
+    private func drawCheek(_ ctx: inout GraphicsContext, cx: CGFloat, t: CGFloat) {
+        var g = ctx
+        g.opacity = Double(kf(t, Thriving.cheekOpacity))
+        origin(&g, cx, 102) {
+            let sc = kf(t, Thriving.cheekScale)
+            $0.scaleBy(x: sc, y: sc)
+        }
+        g.fill(Path(ellipseIn: CGRect(x: cx - 11, y: 94, width: 22, height: 16)), with: .color(theme.petCheek))
+    }
+
+    /// Four-point diamond sparkle scaling and spinning in for one blink.
+    private func drawSparkle(_ ctx: inout GraphicsContext, cx: CGFloat, cy: CGFloat, tip: CGFloat, waist: CGFloat, t: CGFloat) {
+        let op = Double(kf(t, Thriving.sparkleOpacity))
+        guard op > 0.001 else { return }
+        var g = ctx
+        g.opacity = op
+        origin(&g, cx, cy) {
+            let sc = kf(t, Thriving.sparkleScale)
+            $0.scaleBy(x: sc, y: sc)
+            $0.rotate(by: .degrees(Double(kf(t, Thriving.sparkleRot))))
+        }
+        var p = Path()
+        p.move(to: CGPoint(x: cx, y: cy - tip))
+        p.addLine(to: CGPoint(x: cx + waist, y: cy - waist))
+        p.addLine(to: CGPoint(x: cx + tip, y: cy))
+        p.addLine(to: CGPoint(x: cx + waist, y: cy + waist))
+        p.addLine(to: CGPoint(x: cx, y: cy + tip))
+        p.addLine(to: CGPoint(x: cx - waist, y: cy + waist))
+        p.addLine(to: CGPoint(x: cx - tip, y: cy))
+        p.addLine(to: CGPoint(x: cx - waist, y: cy - waist))
+        p.closeSubpath()
+        g.fill(p, with: .color(theme.primary))
+    }
 }
 
-// MARK: - Mood scripts
+/// Thriving keyframe tables, as fractions of each track's own loop.
+private enum Thriving {
+    static let breathScaleX: [(CGFloat, CGFloat)] = [(0, 1), (0.38, 0.94), (0.72, 1.065), (1, 1)]
+    static let breathScaleY: [(CGFloat, CGFloat)] = [(0, 1), (0.38, 1.075), (0.72, 0.94), (1, 1)]
+    static let bobTy: [(CGFloat, CGFloat)] = [(0, 0), (0.38, -9), (0.72, 2), (1, 0)]
+    static let shadowScaleX: [(CGFloat, CGFloat)] = [(0, 1), (0.38, 0.85), (0.72, 1.07), (1, 1)]
+    static let shadowOpacity: [(CGFloat, CGFloat)] = [(0, 0.5), (0.38, 0.36), (0.72, 0.56), (1, 0.5)]
+    static let jiggleRot: [(CGFloat, CGFloat)] = [(0, 0), (0.30, 1.8), (0.65, -1.8), (1, 0)]
 
-extension MochiIdleScript {
-    /// The lively 12s thriving beat.
-    static let thriving = MochiIdleScript(
-        beat: 12, breathBeat: 3.4, breatheDepth: 0.035, face: .thriving,
-        decorated: true, animatesShadow: true, shadowAlpha: 0.10,
-        leanRot: [
-            (0, 0), (0.26, 0), (0.33, -4.5), (0.42, -4.5), (0.50, 0), (0.55, 0),
-            (0.61, 4.5), (0.69, 4.5), (0.76, 0), (0.79, 0),
-            (0.83, -7), (0.87, 6), (0.91, -3.5), (0.95, 1.5), (1, 0),
-        ],
-        leanTx: [
-            (0, 0), (0.26, 0), (0.33, -3), (0.42, -3), (0.50, 0), (0.55, 0),
-            (0.61, 3), (0.69, 3), (0.76, 0), (1, 0),
-        ],
-        leanTy: [(0, 0), (0.79, 0), (0.83, -7), (0.87, -2), (0.91, 0), (1, 0)],
-        leanScaleX: [(0, 1), (0.79, 1), (0.83, 1.05), (0.91, 1), (1, 1)],
-        leanScaleY: [(0, 1), (0.79, 1), (0.83, 0.94), (0.91, 1), (1, 1)],
-        gazeTx: [
-            (0, 0), (0.28, 0), (0.33, -7), (0.43, -7), (0.50, 0), (0.56, 0),
-            (0.61, 7), (0.70, 7), (0.76, 0), (1, 0),
-        ],
-        gazeTy: [
-            (0, 0), (0.28, 0), (0.33, 1), (0.43, 1), (0.50, 0), (0.56, 0),
-            (0.61, 1), (0.70, 1), (0.76, 0), (1, 0),
-        ],
-        blink: [
-            (0, 1), (0.135, 1), (0.148, 0.08), (0.162, 1), (0.18, 1), (0.193, 0.08),
-            (0.206, 1), (0.55, 1), (0.564, 0.08), (0.578, 1), (0.80, 1),
-            (0.83, 0.3), (0.92, 0.3), (0.95, 1), (1, 1),
-        ],
-        mouthScaleX: [(0, 1), (0.79, 1), (0.84, 1.12), (0.91, 1.12), (0.96, 1), (1, 1)],
-        mouthScaleY: [(0, 1), (0.79, 1), (0.84, 1.35), (0.91, 1.35), (0.96, 1), (1, 1)],
-        shadowScaleX: [(0, 1), (0.79, 1), (0.84, 0.86), (0.92, 1), (1, 1)],
-        shadowOpacity: [(0, 1), (0.79, 1), (0.84, 0.7), (0.92, 1), (1, 1)],
-        cheekLeft: CGRect(x: 45, y: 94, width: 22, height: 16),
-        cheekRight: CGRect(x: 113, y: 94, width: 22, height: 16),
-        cheekOpacity: 0.55
-    )
+    /// 7.5s tour, a touch wider-eyed than content's.
+    static let lookTx: [(CGFloat, CGFloat)] = [
+        (0, 0), (0.14, 0), (0.17, -8), (0.31, -8), (0.34, -4), (0.45, -4),
+        (0.48, 8), (0.64, 8), (0.67, 5), (0.78, 5), (0.82, 0), (1, 0),
+    ]
+    static let lookTy: [(CGFloat, CGFloat)] = [
+        (0, 0), (0.14, 0), (0.17, 1.5), (0.31, 1.5), (0.34, -3.5), (0.45, -3.5),
+        (0.48, 1.5), (0.64, 1.5), (0.67, -3), (0.78, -3), (0.82, 0), (1, 0),
+    ]
+    static let leanRot: [(CGFloat, CGFloat)] = [
+        (0, 0), (0.14, 0), (0.19, -5), (0.31, -5), (0.36, -2), (0.45, -2),
+        (0.52, 5), (0.64, 5), (0.69, 2), (0.78, 2), (0.86, 0), (1, 0),
+    ]
+    static let leanTx: [(CGFloat, CGFloat)] = [
+        (0, 0), (0.14, 0), (0.19, -3), (0.31, -3), (0.36, -1), (0.45, -1),
+        (0.52, 3), (0.64, 3), (0.69, 1), (0.78, 1), (0.86, 0), (1, 0),
+    ]
 
-    /// The calmer 18s content beat - no wiggle, no sparkles, no heart.
-    static let content = MochiIdleScript(
-        beat: 18, breathBeat: 4.6, breatheDepth: 0.02, face: .content,
-        decorated: false, animatesShadow: false, shadowAlpha: 0.09,
-        leanRot: [
-            (0, 0), (0.30, 0), (0.38, -3), (0.46, -3), (0.56, 0), (0.70, 0),
-            (0.78, 2.5), (0.86, 1.5), (0.92, 1.5), (1, 0),
-        ],
-        leanTx: [
-            (0, 0), (0.30, 0), (0.38, -2), (0.46, -2), (0.56, 0), (0.70, 0),
-            (0.78, 2), (0.86, 1), (0.92, 1), (1, 0),
-        ],
-        leanTy: [(0, 0), (0.70, 0), (0.78, 1), (0.86, 0), (1, 0)],
-        leanScaleX: [(0, 1), (0.70, 1), (0.78, 1.02), (0.86, 1), (1, 1)],
-        leanScaleY: [(0, 1), (0.70, 1), (0.78, 0.97), (0.86, 1), (1, 1)],
-        gazeTx: [
-            (0, 0), (0.32, 0), (0.39, -5), (0.47, -5), (0.56, 0), (0.76, 0),
-            (0.80, 3), (0.88, 3), (0.95, 0), (1, 0),
-        ],
-        gazeTy: [
-            (0, 0), (0.32, 0), (0.39, 1), (0.47, 1), (0.56, 0), (0.76, 0),
-            (0.80, 2), (0.88, 2), (0.95, 0), (1, 0),
-        ],
-        blink: [
-            (0, 1), (0.21, 1), (0.224, 0.08), (0.238, 1), (0.61, 1), (0.624, 0.08),
-            (0.638, 1), (0.77, 1), (0.80, 0.55), (0.87, 0.55), (0.91, 1), (1, 1),
-        ],
-        mouthScaleX: MochiIdleScript.identity,
-        mouthScaleY: MochiIdleScript.identity,
-        shadowScaleX: MochiIdleScript.identity,
-        shadowOpacity: MochiIdleScript.identity,
-        cheekLeft: CGRect(x: 46, y: 95, width: 20, height: 14),
-        cheekRight: CGRect(x: 114, y: 95, width: 20, height: 14),
-        cheekOpacity: 0.4
-    )
+    /// 4.2s: a quick, crisp double blink.
+    static let blinkScaleY: [(CGFloat, CGFloat)] = [
+        (0, 1), (0.55, 1), (0.578, 0.06), (0.606, 1), (0.634, 0.06), (0.662, 1), (1, 1),
+    ]
+
+    /// 9.5s cadence, but the bounce itself is quick: crouch (~0.3s), spring
+    /// to -22 (~0.5s), land (~0.45s), one snappy rebound, settled again
+    /// within ~1.8s.
+    static let hopTy: [(CGFloat, CGFloat)] = [
+        (0, 0), (0.30, 0), (0.33, 3), (0.385, -22), (0.432, 0), (0.459, -6), (0.49, 0), (1, 0),
+    ]
+    static let hopScaleX: [(CGFloat, CGFloat)] = [
+        (0, 1), (0.30, 1), (0.33, 1.08), (0.385, 0.94), (0.432, 1.12), (0.49, 1), (1, 1),
+    ]
+    static let hopScaleY: [(CGFloat, CGFloat)] = [
+        (0, 1), (0.30, 1), (0.33, 0.92), (0.385, 1.08), (0.432, 0.88), (0.49, 1), (1, 1),
+    ]
+    static let hopRot: [(CGFloat, CGFloat)] = [
+        (0, 0), (0.30, 0), (0.36, -4), (0.41, 3), (0.46, -1), (0.49, 0), (1, 0),
+    ]
+    static let hopShadowScaleX: [(CGFloat, CGFloat)] = [
+        (0, 1), (0.30, 1), (0.385, 0.85), (0.432, 1.06), (0.49, 1), (1, 1),
+    ]
+    static let hopShadowOpacity: [(CGFloat, CGFloat)] = [
+        (0, 1), (0.30, 1), (0.385, 0.55), (0.432, 1.05), (0.49, 1), (1, 1),
+    ]
+    static let cheekScale: [(CGFloat, CGFloat)] = [(0, 1), (0.31, 1), (0.40, 1.25), (0.52, 1), (1, 1)]
+    static let cheekOpacity: [(CGFloat, CGFloat)] = [(0, 0.55), (0.31, 0.55), (0.40, 0.8), (0.52, 0.55), (1, 0.55)]
+    static let mouthScaleX: [(CGFloat, CGFloat)] = [(0, 1), (0.31, 1), (0.385, 1.15), (0.46, 1.15), (0.53, 1), (1, 1)]
+    static let mouthScaleY: [(CGFloat, CGFloat)] = [(0, 1), (0.31, 1), (0.385, 1.3), (0.46, 1.3), (0.53, 1), (1, 1)]
+    static let sparkleOpacity: [(CGFloat, CGFloat)] = [(0, 0), (0.41, 0), (0.46, 0.9), (0.54, 0), (1, 0)]
+    static let sparkleScale: [(CGFloat, CGFloat)] = [(0, 0.2), (0.41, 0.2), (0.46, 1), (0.54, 0.35), (1, 0.2)]
+    static let sparkleRot: [(CGFloat, CGFloat)] = [(0, 0), (0.41, 0), (0.54, 60), (1, 60)]
+}
+
+// MARK: - Content idle
+
+/// The quietly-pleased content idle, ported 1:1 from the design system's
+/// `Mochi Content Animation v1` (dc.html), minus its sparkles (cut by
+/// request). Decoupled loops, each sampled against its own period: 4s
+/// squash-and-stretch breath (with bob, shadow, mouth pulse and crown jiggle
+/// in phase), a 9s saccade look/lean tour, a crisp 5.4s blink of pet-colored
+/// lids sliding down inside the body clip, and a 13s pleased wiggle-hop with
+/// cheek pop.
+struct ContentIdleCanvas: View {
+    var theme: MochiTheme
+    var size: CGFloat
+    var faceInk: Color
+
+    var body: some View {
+        TimelineView(.animation) { timeline in
+            Canvas { ctx, canvasSize in
+                draw(&ctx, canvasSize: canvasSize, now: timeline.date.timeIntervalSinceReferenceDate)
+            }
+        }
+        .frame(width: size, height: size * 170 / 180)
+        .accessibilityHidden(true)
+    }
+
+    private func draw(_ ctx: inout GraphicsContext, canvasSize: CGSize, now: Double) {
+        let s = canvasSize.width / 180
+        ctx.scaleBy(x: s, y: s)
+
+        let breathT = phase(now, period: 4)   // breath, bob, shadow, mouth, jiggle
+        let lookT = phase(now, period: 9)     // look + lean
+        let wiggleT = phase(now, period: 13)  // wiggle-hop, cheeks, sparkles
+
+        // Ground shadow - shrinks and fades as he stretches tall, swells back
+        // on the exhale.
+        var shadow = ctx
+        shadow.opacity = Double(kf(breathT, ContentV1.shadowOpacity))
+        origin(&shadow, 90, 150) { $0.scaleBy(x: kf(breathT, ContentV1.shadowScaleX), y: 1) }
+        shadow.fill(
+            Path(ellipseIn: CGRect(x: 40, y: 141, width: 100, height: 18)),
+            with: .color(.black.opacity(0.16))
+        )
+
+        // Wiggle-hop - every 13s, on the bouncy Mochi curve. Origin 50% 96%.
+        var g = ctx
+        origin(&g, 90, 133.4) {
+            $0.translateBy(x: 0, y: kf(wiggleT, ContentV1.wiggleTy))
+            $0.rotate(by: .degrees(Double(kf(wiggleT, ContentV1.wiggleRot))))
+        }
+
+        // Bob - the breath lifts him 8px off the ground (pure translate).
+        g.translateBy(x: 0, y: kf(breathT, ContentV1.bobTy))
+
+        // Lean - the body follows each glance a beat later. Origin 50% 96%.
+        origin(&g, 90, 133.4) {
+            $0.rotate(by: .degrees(Double(kf(lookT, ContentV1.leanRot))))
+            $0.translateBy(x: kf(lookT, ContentV1.leanTx), y: 0)
+        }
+
+        // Breath - +-6% squash and stretch. Origin 50% 100%.
+        origin(&g, 90, 138) {
+            $0.scaleBy(x: kf(breathT, ContentV1.breathScaleX), y: kf(breathT, ContentV1.breathScaleY))
+        }
+
+        // Crown jiggle - +-1.6 degrees so the blob never reads rigid.
+        origin(&g, 90, 128.9) {
+            $0.rotate(by: .degrees(Double(kf(breathT, ContentV1.jiggleRot))))
+        }
+
+        g.fill(mochiBodyPath, with: .color(theme.pet))
+
+        // Eyes - big round pupils with two glints, touring the room.
+        let ink = GraphicsContext.Shading.color(faceInk)
+        var eyes = g
+        eyes.translateBy(x: kf(lookT, ContentV1.lookTx), y: kf(lookT, ContentV1.lookTy))
+        eyes.fill(Path(ellipseIn: CGRect(x: 65, y: 80.4, width: 14, height: 15.2)), with: ink)
+        eyes.fill(Path(ellipseIn: CGRect(x: 101, y: 80.4, width: 14, height: 15.2)), with: ink)
+        eyes.fill(Path(ellipseIn: CGRect(x: 72.2, y: 83.2, width: 4.4, height: 4.4)), with: .color(.white.opacity(0.92)))
+        eyes.fill(Path(ellipseIn: CGRect(x: 108.2, y: 83.2, width: 4.4, height: 4.4)), with: .color(.white.opacity(0.92)))
+        eyes.fill(Path(ellipseIn: CGRect(x: 68.5, y: 90.3, width: 2.2, height: 2.2)), with: .color(.white.opacity(0.55)))
+        eyes.fill(Path(ellipseIn: CGRect(x: 104.5, y: 90.3, width: 2.2, height: 2.2)), with: .color(.white.opacity(0.55)))
+
+        // Blink - big pet-colored lids parked above the eyes (ty -72) drop to
+        // +12 for one crisp double-tap, clipped to the body so they read as
+        // the blob's own surface.
+        var lids = g
+        lids.clip(to: mochiBodyPath)
+        lids.translateBy(x: 0, y: kf(phase(now, period: 5.4), ContentV1.blinkTy))
+        drawBlinkLid(&lids, x: 56)
+        drawBlinkLid(&lids, x: 88)
+
+        // Top highlight sits over the lids, exactly like the SVG order.
+        g.fill(mochiHighlightPath, with: .color(theme.pet2.opacity(0.55)))
+
+        // Cheeks - pop 1.3x and brighten on the hop.
+        drawCheek(&g, cx: 54, t: wiggleT)
+        drawCheek(&g, cx: 126, t: wiggleT)
+
+        // Mouth - soft open smile pulsing with the breath. Origin 50% 0%.
+        var mouth = g
+        origin(&mouth, 89.7, 106) {
+            $0.scaleBy(x: kf(breathT, ContentV1.mouthScaleX), y: kf(breathT, ContentV1.mouthScaleY))
+        }
+        var lip = Path()
+        lip.move(to: CGPoint(x: 81, y: 106))
+        lip.addCurve(to: CGPoint(x: 98.4, y: 106), control1: CGPoint(x: 84.6, y: 111.2), control2: CGPoint(x: 94.8, y: 111.2))
+        mouth.stroke(lip, with: ink, style: StrokeStyle(lineWidth: 3.2, lineCap: .round))
+
+    }
+
+    /// One lid: `M x 26 h36 v66 a30 22 0 0 1 -36 0 z` - a tall pet-colored
+    /// slab whose bottom edge bows ~4.4px down.
+    private func drawBlinkLid(_ ctx: inout GraphicsContext, x: CGFloat) {
+        var lid = Path()
+        lid.move(to: CGPoint(x: x, y: 26))
+        lid.addLine(to: CGPoint(x: x + 36, y: 26))
+        lid.addLine(to: CGPoint(x: x + 36, y: 92))
+        lid.addQuadCurve(to: CGPoint(x: x, y: 92), control: CGPoint(x: x + 18, y: 100.8))
+        lid.closeSubpath()
+        ctx.fill(lid, with: .color(theme.pet))
+    }
+
+    private func drawCheek(_ ctx: inout GraphicsContext, cx: CGFloat, t: CGFloat) {
+        var g = ctx
+        g.opacity = Double(kf(t, ContentV1.cheekOpacity))
+        origin(&g, cx, 102) {
+            let sc = kf(t, ContentV1.cheekScale)
+            $0.scaleBy(x: sc, y: sc)
+        }
+        g.fill(Path(ellipseIn: CGRect(x: cx - 12, y: 94, width: 24, height: 16)), with: .color(theme.petCheek))
+    }
+}
+
+/// Content v1 keyframe tables, as fractions of each track's own loop.
+private enum ContentV1 {
+    /// 4s breath: stretch tall on the inhale (38%), squash wide on the
+    /// exhale (72%) - `ct-breath`.
+    static let breathScaleX: [(CGFloat, CGFloat)] = [(0, 1), (0.38, 0.945), (0.72, 1.06), (1, 1)]
+    static let breathScaleY: [(CGFloat, CGFloat)] = [(0, 1), (0.38, 1.07), (0.72, 0.945), (1, 1)]
+    static let bobTy: [(CGFloat, CGFloat)] = [(0, 0), (0.38, -8), (0.72, 2), (1, 0)]
+    static let shadowScaleX: [(CGFloat, CGFloat)] = [(0, 1), (0.38, 0.86), (0.72, 1.06), (1, 1)]
+    static let shadowOpacity: [(CGFloat, CGFloat)] = [(0, 0.5), (0.38, 0.34), (0.72, 0.56), (1, 0.5)]
+    static let mouthScaleX: [(CGFloat, CGFloat)] = [(0, 1), (0.38, 0.94), (0.72, 1.12), (1, 1)]
+    static let mouthScaleY: [(CGFloat, CGFloat)] = [(0, 1), (0.38, 0.9), (0.72, 1.2), (1, 1)]
+    static let jiggleRot: [(CGFloat, CGFloat)] = [(0, 0), (0.30, 1.6), (0.65, -1.6), (1, 0)]
+
+    /// 9s tour: quick saccades with long curious holds - `ct-look`.
+    static let lookTx: [(CGFloat, CGFloat)] = [
+        (0, 0), (0.14, 0), (0.17, -7.5), (0.31, -7.5), (0.34, -4), (0.45, -4),
+        (0.48, 7.5), (0.64, 7.5), (0.67, 5), (0.78, 5), (0.82, 0), (1, 0),
+    ]
+    static let lookTy: [(CGFloat, CGFloat)] = [
+        (0, 0), (0.14, 0), (0.17, 1.5), (0.31, 1.5), (0.34, -3.5), (0.45, -3.5),
+        (0.48, 1.5), (0.64, 1.5), (0.67, -3), (0.78, -3), (0.82, 0), (1, 0),
+    ]
+    /// The body follows each glance a beat later - `ct-lean`.
+    static let leanRot: [(CGFloat, CGFloat)] = [
+        (0, 0), (0.14, 0), (0.19, -4.5), (0.31, -4.5), (0.36, -2), (0.45, -2),
+        (0.52, 4.5), (0.64, 4.5), (0.69, 2), (0.78, 2), (0.86, 0), (1, 0),
+    ]
+    static let leanTx: [(CGFloat, CGFloat)] = [
+        (0, 0), (0.14, 0), (0.19, -3), (0.31, -3), (0.36, -1), (0.45, -1),
+        (0.52, 3), (0.64, 3), (0.69, 1), (0.78, 1), (0.86, 0), (1, 0),
+    ]
+
+    /// 5.4s: lids parked at -72 drop to +12 for one crisp blink - `ct-blink`.
+    static let blinkTy: [(CGFloat, CGFloat)] = [
+        (0, -72), (0.82, -72), (0.85, 12), (0.875, 12), (0.905, -72), (1, -72),
+    ]
+
+    /// 13s: rest, hop with alternating tilt, settle - `ct-wiggle`.
+    static let wiggleTy: [(CGFloat, CGFloat)] = [
+        (0, 0), (0.68, 0), (0.73, -19), (0.79, 0), (0.84, -8), (0.89, 0), (1, 0),
+    ]
+    static let wiggleRot: [(CGFloat, CGFloat)] = [
+        (0, 0), (0.68, 0), (0.73, -6), (0.79, 5), (0.84, -3), (0.89, 1.5), (0.94, 0), (1, 0),
+    ]
+    static let cheekScale: [(CGFloat, CGFloat)] = [(0, 1), (0.68, 1), (0.76, 1.3), (0.94, 1), (1, 1)]
+    static let cheekOpacity: [(CGFloat, CGFloat)] = [(0, 0.5), (0.68, 0.5), (0.76, 0.78), (0.94, 0.5), (1, 0.5)]
 }
 
 // MARK: - Tired idle
@@ -532,18 +648,6 @@ struct TiredIdleCanvas: View {
         )
     }
 
-    /// Position within a looping animation of `period` seconds, 0...1.
-    private func phase(_ now: Double, period: Double, delay: Double = 0) -> CGFloat {
-        var p = (now - delay).truncatingRemainder(dividingBy: period) / period
-        if p < 0 { p += 1 }
-        return CGFloat(p)
-    }
-
-    /// Eased 0 -> 1 -> 0 over one period - what the CSS's symmetric
-    /// 0/50/100% keyframes with sine-ish easing produce.
-    private func wave(_ now: Double, period: Double) -> CGFloat {
-        CGFloat((1 - cos(2 * .pi * Double(phase(now, period: period)))) / 2)
-    }
 }
 
 /// Tired keyframe tables, as fractions of each track's own loop.
@@ -561,4 +665,331 @@ private enum Tired {
     static let zTy: [(CGFloat, CGFloat)] = [(0, 0), (1, -30)]
     static let zScale: [(CGFloat, CGFloat)] = [(0, 0.55), (1, 1.25)]
     static let zRot: [(CGFloat, CGFloat)] = [(0, -10), (1, 12)]
+}
+
+// MARK: - Unwell idle
+
+/// The resting-it-off unwell idle, ported 1:1 from the design system's
+/// `Mochi Unwell Animation` (dc.html). The exaggeration is the pose and the
+/// stillness: held flat in a static lying-down squash (13% wider, 80% tall)
+/// while one 5.6s laboured breath drives everything else - shadow, sinking
+/// lids and brows, the wavy grimace, flushing cheeks and a whole-body fever
+/// fade. Steam, sweat and the dizzy-spiral eyes are deliberately omitted
+/// (default-off in the comp).
+struct UnwellIdleCanvas: View {
+    var theme: MochiTheme
+    var size: CGFloat
+    var faceInk: Color
+
+    var body: some View {
+        TimelineView(.animation) { timeline in
+            Canvas { ctx, canvasSize in
+                draw(&ctx, canvasSize: canvasSize, now: timeline.date.timeIntervalSinceReferenceDate)
+            }
+        }
+        .frame(width: size, height: size * 170 / 180)
+        .accessibilityHidden(true)
+    }
+
+    private func draw(_ ctx: inout GraphicsContext, canvasSize: CGSize, now: Double) {
+        let s = canvasSize.width / 180
+        ctx.scaleBy(x: s, y: s)
+
+        let t = phase(now, period: 5.6)
+
+        // Fever fade - colour drains slightly on each exhale. Relative to the
+        // mood's baseline saturation, which MochiPetView applies outside.
+        ctx.addFilter(.saturation(Double(kf(t, Unwell.fadeSaturation))))
+        ctx.addFilter(.brightness(Double(kf(t, Unwell.fadeBrightness))))
+
+        // Ground shadow - softens with the shallow breath.
+        var shadow = ctx
+        shadow.opacity = Double(kf(t, Unwell.shadowOpacity))
+        origin(&shadow, 90, 152) { $0.scaleBy(x: kf(t, Unwell.shadowScaleX), y: 1) }
+        shadow.fill(
+            Path(ellipseIn: CGRect(x: 40, y: 143, width: 100, height: 18)),
+            with: .color(.black.opacity(0.2))
+        )
+
+        // Lying-down pose - a static squash held the whole time; only the
+        // breath inside it moves. Origin 50% 100%.
+        var g = ctx
+        origin(&g, 90, 138) {
+            $0.translateBy(x: 0, y: 6)
+            $0.scaleBy(x: 1.13, y: 0.8)
+        }
+
+        // Laboured breath - barely 4%, with a long slow exhale.
+        origin(&g, 90, 138) {
+            $0.scaleBy(x: kf(t, Unwell.breathScaleX), y: kf(t, Unwell.breathScaleY))
+            $0.translateBy(x: 0, y: kf(t, Unwell.breathTy))
+        }
+
+        g.fill(mochiBodyPath, with: .color(theme.pet))
+        g.fill(mochiHighlightPath, with: .color(theme.pet2.opacity(0.55)))
+
+        // Cheeks flush hot and cool; the right one runs a quarter beat behind.
+        drawCheek(&g, cx: 54, t: t)
+        drawCheek(&g, cx: 126, t: phase(now, period: 5.6, delay: 0.25))
+
+        // Knotted brows sink with the exhale.
+        var brows = g
+        brows.opacity = 0.8
+        brows.translateBy(x: 0, y: kf(t, Unwell.browTy))
+        let browStyle = StrokeStyle(lineWidth: 3, lineCap: .round)
+        var browL = Path()
+        browL.move(to: CGPoint(x: 64, y: 79))
+        browL.addCurve(to: CGPoint(x: 80, y: 78), control1: CGPoint(x: 68, y: 74), control2: CGPoint(x: 77, y: 74))
+        brows.stroke(browL, with: .color(faceInk), style: browStyle)
+        var browR = Path()
+        browR.move(to: CGPoint(x: 116, y: 79))
+        browR.addCurve(to: CGPoint(x: 100, y: 78), control1: CGPoint(x: 112, y: 74), control2: CGPoint(x: 103, y: 74))
+        brows.stroke(browR, with: .color(faceInk), style: browStyle)
+
+        // Heavy-lidded eyes - small pupils under lids that sink further on
+        // each exhale.
+        let ink = GraphicsContext.Shading.color(faceInk)
+        g.fill(Path(ellipseIn: CGRect(x: 67, y: 87, width: 10, height: 10)), with: ink)
+        g.fill(Path(ellipseIn: CGRect(x: 103, y: 87, width: 10, height: 10)), with: ink)
+        var lids = g
+        lids.translateBy(x: 0, y: kf(t, Unwell.lidTy))
+        drawLid(&lids, x: 64)
+        drawLid(&lids, x: 100)
+
+        // Wavy grimace, easing open and closed with the breath. Origin 50% 20%.
+        var mouth = g
+        origin(&mouth, 90, 108.2) {
+            $0.scaleBy(x: kf(t, Unwell.grimaceScaleX), y: kf(t, Unwell.grimaceScaleY))
+            $0.translateBy(x: 0, y: kf(t, Unwell.grimaceTy))
+        }
+        var grimace = Path()
+        grimace.move(to: CGPoint(x: 79, y: 112))
+        grimace.addCurve(to: CGPoint(x: 93, y: 111), control1: CGPoint(x: 83, y: 105), control2: CGPoint(x: 90, y: 105))
+        grimace.addCurve(to: CGPoint(x: 101, y: 111), control1: CGPoint(x: 95, y: 115), control2: CGPoint(x: 99, y: 115))
+        mouth.stroke(grimace, with: ink, style: StrokeStyle(lineWidth: 3.2, lineCap: .round))
+    }
+
+    /// One lid: `M x 80 h16 v10 a16 16 0 0 1 -16 0 z` - a pet-colored shade
+    /// whose bottom edge bows ~2px down, plus the lash line along that edge.
+    private func drawLid(_ ctx: inout GraphicsContext, x: CGFloat) {
+        var lid = Path()
+        lid.move(to: CGPoint(x: x, y: 80))
+        lid.addLine(to: CGPoint(x: x + 16, y: 80))
+        lid.addLine(to: CGPoint(x: x + 16, y: 90))
+        lid.addQuadCurve(to: CGPoint(x: x, y: 90), control: CGPoint(x: x + 8, y: 94.3))
+        lid.closeSubpath()
+        ctx.fill(lid, with: .color(theme.pet))
+
+        var lash = Path()
+        lash.move(to: CGPoint(x: x + 0.5, y: 89.5))
+        lash.addCurve(to: CGPoint(x: x + 16, y: 89.5), control1: CGPoint(x: x + 4.1, y: 92.1), control2: CGPoint(x: x + 12.9, y: 92.1))
+        ctx.stroke(lash, with: .color(faceInk), style: StrokeStyle(lineWidth: 2.6, lineCap: .round))
+    }
+
+    private func drawCheek(_ ctx: inout GraphicsContext, cx: CGFloat, t: CGFloat) {
+        var g = ctx
+        g.opacity = Double(kf(t, Unwell.flushOpacity))
+        origin(&g, cx, 104) {
+            let sc = kf(t, Unwell.flushScale)
+            $0.scaleBy(x: sc, y: sc)
+        }
+        g.fill(Path(ellipseIn: CGRect(x: cx - 13, y: 95.5, width: 26, height: 17)), with: .color(theme.petCheek))
+    }
+}
+
+/// Unwell keyframe tables - everything rides the one 5.6s breath.
+private enum Unwell {
+    static let breathScaleX: [(CGFloat, CGFloat)] = [(0, 1), (0.34, 0.985), (0.46, 0.99), (0.78, 1.02), (1, 1)]
+    static let breathScaleY: [(CGFloat, CGFloat)] = [(0, 1), (0.34, 1.045), (0.46, 1.03), (0.78, 0.97), (1, 1)]
+    static let breathTy: [(CGFloat, CGFloat)] = [(0, 0), (0.34, -2), (0.46, -1), (0.78, 1), (1, 0)]
+    static let shadowScaleX: [(CGFloat, CGFloat)] = [(0, 1), (0.34, 0.98), (0.78, 1.03), (1, 1)]
+    static let shadowOpacity: [(CGFloat, CGFloat)] = [(0, 0.5), (0.34, 0.45), (0.78, 0.54), (1, 0.5)]
+    static let lidTy: [(CGFloat, CGFloat)] = [(0, 0), (0.44, 6), (0.68, 7), (1, 0)]
+    static let browTy: [(CGFloat, CGFloat)] = [(0, 0), (0.62, 2), (1, 0)]
+    static let grimaceScaleX: [(CGFloat, CGFloat)] = [(0, 1), (0.34, 0.94), (0.78, 1.08), (1, 1)]
+    static let grimaceScaleY: [(CGFloat, CGFloat)] = [(0, 1), (0.34, 1.18), (0.78, 0.9), (1, 1)]
+    static let grimaceTy: [(CGFloat, CGFloat)] = [(0, 0), (0.34, -1), (0.78, 1), (1, 0)]
+    static let flushOpacity: [(CGFloat, CGFloat)] = [(0, 0.3), (0.5, 0.78), (1, 0.3)]
+    static let flushScale: [(CGFloat, CGFloat)] = [(0, 1), (0.5, 1.16), (1, 1)]
+    /// The comp's whole-svg fever fade animates saturate .4 -> .32, i.e. a
+    /// 0.8x dip against its baseline; expressed here as a multiplier so it
+    /// composes with the mood saturation MochiPetView applies outside.
+    static let fadeSaturation: [(CGFloat, CGFloat)] = [(0, 1), (0.62, 0.8), (1, 1)]
+    /// SwiftUI brightness is additive (0 = identity), unlike CSS's
+    /// multiplier, so the comp's brightness(.98) dip becomes -0.02.
+    static let fadeBrightness: [(CGFloat, CGFloat)] = [(0, 0), (0.62, -0.02), (1, 0)]
+}
+
+// MARK: - Sleep idle
+
+/// The out-cold sleep idle, ported 1:1 from the design system's `Mochi Sleep
+/// Animation` (dc.html). Real stillness: a static flat-out pose (8% wider,
+/// 88% tall, sunk 8px) while a 4.6s snore-breath drives the shadow, the
+/// settling lids and the heavy open-mouth breathing; a 9.2s sub-degree slack
+/// sway runs out of step with it; three z's drift up on a 1.5s stagger; and
+/// every fourth breath (18.4s) he snuggles in - burrows down, two little
+/// rubs, settles. Arched-shut lids are the comp's default; the flat-line
+/// variant ships default-off and is omitted.
+struct SleepIdleCanvas: View {
+    var theme: MochiTheme
+    var size: CGFloat
+    var faceInk: Color
+
+    var body: some View {
+        TimelineView(.animation) { timeline in
+            Canvas { ctx, canvasSize in
+                draw(&ctx, canvasSize: canvasSize, now: timeline.date.timeIntervalSinceReferenceDate)
+            }
+        }
+        .frame(width: size, height: size * 170 / 180)
+        .accessibilityHidden(true)
+    }
+
+    private func draw(_ ctx: inout GraphicsContext, canvasSize: CGSize, now: Double) {
+        let s = canvasSize.width / 180
+        ctx.scaleBy(x: s, y: s)
+
+        let t = phase(now, period: 4.6)           // breath, shadow, mouth, lids
+        let swayT = phase(now, period: 9.2)
+        let nuzzleT = phase(now, period: 18.4)    // every fourth breath
+
+        // Ground shadow - eases with the snore-breath.
+        var shadow = ctx
+        shadow.opacity = Double(kf(t, Sleep.shadowOpacity))
+        origin(&shadow, 90, 150) { $0.scaleBy(x: kf(t, Sleep.shadowScaleX), y: 1) }
+        shadow.fill(
+            Path(ellipseIn: CGRect(x: 38, y: 141, width: 104, height: 18)),
+            with: .color(.black.opacity(0.2))
+        )
+
+        // Pose - flat out and settled, held the whole time. Origin 50% 100%.
+        var g = ctx
+        origin(&g, 90, 138) {
+            $0.translateBy(x: 0, y: 8)
+            $0.scaleBy(x: 1.08, y: 0.88)
+        }
+
+        // Nuzzle - dead still for 11s, then burrow down, two rubs, settle.
+        origin(&g, 90, 138) {
+            $0.rotate(by: .degrees(Double(kf(nuzzleT, Sleep.nuzzleRot))))
+            $0.translateBy(x: kf(nuzzleT, Sleep.nuzzleTx), y: kf(nuzzleT, Sleep.nuzzleTy))
+            $0.scaleBy(x: kf(nuzzleT, Sleep.nuzzleScaleX), y: kf(nuzzleT, Sleep.nuzzleScaleY))
+        }
+
+        // Sway - well under a degree, out of step with the breath so it
+        // reads as slack, not motion.
+        origin(&g, 90, 138) {
+            $0.rotate(by: .degrees(Double(kf(swayT, Sleep.swayRot))))
+        }
+
+        // Snore-breath - barely 3%, slow rise and a longer exhale.
+        origin(&g, 90, 138) {
+            $0.scaleBy(x: kf(t, Sleep.breathScaleX), y: kf(t, Sleep.breathScaleY))
+            $0.translateBy(x: 0, y: kf(t, Sleep.breathTy))
+        }
+
+        g.fill(mochiBodyPath, with: .color(theme.pet))
+        g.fill(mochiHighlightPath, with: .color(theme.pet2.opacity(0.55)))
+        g.fill(Path(ellipseIn: CGRect(x: 42, y: 96.5, width: 24, height: 15)), with: .color(theme.petCheek.opacity(0.8)))
+        g.fill(Path(ellipseIn: CGRect(x: 114, y: 96.5, width: 24, height: 15)), with: .color(theme.petCheek.opacity(0.8)))
+
+        // Arched-shut lids and soft brows, settling a touch on the exhale.
+        var lids = g
+        origin(&lids, 90, 86.5) {
+            $0.translateBy(x: 0, y: kf(t, Sleep.lidTy))
+            $0.scaleBy(x: 1, y: kf(t, Sleep.lidScaleY))
+        }
+        let lidStyle = StrokeStyle(lineWidth: 3.4, lineCap: .round)
+        var lidL = Path()
+        lidL.move(to: CGPoint(x: 62, y: 94))
+        lidL.addCurve(to: CGPoint(x: 79, y: 94), control1: CGPoint(x: 66, y: 86), control2: CGPoint(x: 75, y: 86))
+        lids.stroke(lidL, with: .color(faceInk), style: lidStyle)
+        var lidR = Path()
+        lidR.move(to: CGPoint(x: 101, y: 94))
+        lidR.addCurve(to: CGPoint(x: 118, y: 94), control1: CGPoint(x: 105, y: 86), control2: CGPoint(x: 114, y: 86))
+        lids.stroke(lidR, with: .color(faceInk), style: lidStyle)
+
+        var brows = lids
+        brows.opacity = 0.45
+        let browStyle = StrokeStyle(lineWidth: 2.4, lineCap: .round)
+        var browL = Path()
+        browL.move(to: CGPoint(x: 64, y: 82))
+        browL.addCurve(to: CGPoint(x: 79, y: 81), control1: CGPoint(x: 68, y: 78), control2: CGPoint(x: 76, y: 78))
+        brows.stroke(browL, with: .color(faceInk), style: browStyle)
+        var browR = Path()
+        browR.move(to: CGPoint(x: 116, y: 82))
+        browR.addCurve(to: CGPoint(x: 101, y: 81), control1: CGPoint(x: 112, y: 78), control2: CGPoint(x: 103, y: 78))
+        brows.stroke(browR, with: .color(faceInk), style: browStyle)
+
+        // Heavy mouth breathing - gapes open on the inhale, shrinks almost
+        // shut on the exhale. Origin 50% 15%.
+        var mouth = g
+        origin(&mouth, 90, 111.05) {
+            $0.scaleBy(x: kf(t, Sleep.mouthScaleX), y: kf(t, Sleep.mouthScaleY))
+        }
+        mouth.fill(Path(ellipseIn: CGRect(x: 80.5, y: 108.5, width: 19, height: 17)), with: .color(faceInk.opacity(0.82)))
+        mouth.fill(Path(ellipseIn: CGRect(x: 84.5, y: 117.5, width: 11, height: 7)), with: .color(theme.petCheek.opacity(0.5)))
+
+        // Three z's from the same spot, staggered so one is always on its
+        // way up and out.
+        drawZ(&ctx, t: t)
+        drawZ(&ctx, t: phase(now, period: 4.6, delay: 1.5))
+        drawZ(&ctx, t: phase(now, period: 4.6, delay: 3))
+    }
+
+    private func drawZ(_ ctx: inout GraphicsContext, t: CGFloat) {
+        let op = 0.85 * Double(kf(t, Sleep.zOpacity))
+        guard op > 0.001 else { return }
+        let cx: CGFloat = 137.1, cy: CGFloat = 47.6 // baseline (132, 52), fs 17
+        var g = ctx
+        g.opacity = op
+        origin(&g, cx, cy) {
+            $0.translateBy(x: kf(t, Sleep.zTx), y: kf(t, Sleep.zTy))
+            let sc = kf(t, Sleep.zScale)
+            $0.scaleBy(x: sc, y: sc)
+            $0.rotate(by: .degrees(Double(kf(t, Sleep.zRot))))
+        }
+        g.draw(
+            Text("z")
+                .font(.system(size: 17, weight: .semibold, design: .rounded))
+                .foregroundStyle(theme.primary),
+            at: CGPoint(x: cx, y: cy)
+        )
+    }
+}
+
+/// Sleep keyframe tables, as fractions of each track's own loop.
+private enum Sleep {
+    static let breathScaleX: [(CGFloat, CGFloat)] = [(0, 1), (0.40, 0.985), (0.48, 0.99), (0.84, 1.022), (1, 1)]
+    static let breathScaleY: [(CGFloat, CGFloat)] = [(0, 1), (0.40, 1.03), (0.48, 1.025), (0.84, 0.98), (1, 1)]
+    static let breathTy: [(CGFloat, CGFloat)] = [(0, 0), (0.40, -2), (0.48, -1.5), (0.84, 1), (1, 0)]
+    static let swayRot: [(CGFloat, CGFloat)] = [(0, -0.7), (0.5, 0.7), (1, -0.7)]
+    static let shadowScaleX: [(CGFloat, CGFloat)] = [(0, 1), (0.40, 0.98), (0.84, 1.025), (1, 1)]
+    static let shadowOpacity: [(CGFloat, CGFloat)] = [(0, 0.5), (0.40, 0.46), (0.84, 0.53), (1, 0.5)]
+    static let mouthScaleX: [(CGFloat, CGFloat)] = [(0, 0.62), (0.40, 1), (0.52, 0.98), (0.88, 0.55), (1, 0.62)]
+    static let mouthScaleY: [(CGFloat, CGFloat)] = [(0, 0.5), (0.40, 1), (0.52, 0.96), (0.88, 0.4), (1, 0.5)]
+    static let lidTy: [(CGFloat, CGFloat)] = [(0, 0), (0.84, 0.8), (1, 0)]
+    static let lidScaleY: [(CGFloat, CGFloat)] = [(0, 1), (0.84, 1.06), (1, 1)]
+    /// `sl-twitch`: identity until 62%, then the snuggle - burrow, two rubs,
+    /// settle by 88%.
+    static let nuzzleRot: [(CGFloat, CGFloat)] = [
+        (0, 0), (0.62, 0), (0.66, -2), (0.71, 1.8), (0.76, -1.2), (0.82, 0.4), (0.88, 0), (1, 0),
+    ]
+    static let nuzzleTx: [(CGFloat, CGFloat)] = [
+        (0, 0), (0.62, 0), (0.66, -2), (0.71, 2), (0.76, -1.5), (0.82, 0.5), (0.88, 0), (1, 0),
+    ]
+    static let nuzzleTy: [(CGFloat, CGFloat)] = [
+        (0, 0), (0.62, 0), (0.66, 1.5), (0.71, 2), (0.76, 1.5), (0.82, 0.5), (0.88, 0), (1, 0),
+    ]
+    static let nuzzleScaleX: [(CGFloat, CGFloat)] = [
+        (0, 1), (0.62, 1), (0.66, 1.02), (0.71, 1.03), (0.76, 1.02), (0.82, 1), (1, 1),
+    ]
+    static let nuzzleScaleY: [(CGFloat, CGFloat)] = [
+        (0, 1), (0.62, 1), (0.66, 0.98), (0.71, 0.97), (0.76, 0.98), (0.82, 1), (1, 1),
+    ]
+    static let zOpacity: [(CGFloat, CGFloat)] = [(0, 0), (0.16, 1), (0.62, 0.9), (1, 0)]
+    static let zTx: [(CGFloat, CGFloat)] = [(0, 0), (1, 26)]
+    static let zTy: [(CGFloat, CGFloat)] = [(0, 6), (1, -46)]
+    static let zScale: [(CGFloat, CGFloat)] = [(0, 0.4), (1, 1.5)]
+    static let zRot: [(CGFloat, CGFloat)] = [(0, -14), (1, 12)]
 }

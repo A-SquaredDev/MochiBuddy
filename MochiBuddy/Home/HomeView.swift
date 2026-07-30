@@ -381,6 +381,7 @@ struct HomeView: View {
                     MochiPetView(
                         mood: viewModel.isSleeping ? .sleeping : MochiMood(vitality: viewModel.displayedMood),
                         size: 128,
+                        alive: true,
                         externalSquishTrigger: viewModel.petSquishTrigger,
                         onTap: viewModel.isLapsed ? nil : { viewModel.trigger(.petTapped) },
                         petName: viewModel.mochiName
