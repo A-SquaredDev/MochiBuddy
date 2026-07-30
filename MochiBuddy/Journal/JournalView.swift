@@ -316,8 +316,10 @@ struct JournalView: View {
                 .fill(theme.primarySoft)
                 .frame(width: 34, height: 34)
                 .overlay(
-                    Image(systemName: moment.icon)
-                        .font(.system(size: 14, weight: .semibold))
+                    Image(moment.icon)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 15, height: 15)
                         .foregroundStyle(theme.primaryText)
                 )
                 .accessibilityHidden(true)

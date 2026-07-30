@@ -6,9 +6,9 @@
 //  how long the comfort lasts is what coins really buy. Every treat
 //  strictly beats the free pet (~15 min). Buy = give: no inventory.
 //
-//  DESIGN NOTE: treat art (berry, latte, dango, cupcake) and the pet-action
-//  art are pending from the content team. The shop renders
-//  PlaceholderArtIcon until per-treat assets exist, keyed by `id`.
+//  Treat art (berry, latte, dango, cupcake) and the pet-action art ship in
+//  Assets.xcassets, keyed by `id` (see TreatArtIcon). The shop renders those
+//  via TreatArtIcon; PlaceholderArtIcon is no longer used here.
 //
 
 import Foundation

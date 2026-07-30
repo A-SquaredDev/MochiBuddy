@@ -162,15 +162,15 @@ enum JournalTimeline {
         return formatter.string(from: date)
     }
 
+    /// Asset-catalog names for the commissioned moment glyphs (roadmap #6).
+    /// Template images tinted at the render site; see MomentGlyph / JournalView.
     static func icon(for type: MomentType) -> String {
-        // DESIGN NOTE: SF Symbols stand in until commissioned moment art
-        // lands (roadmap #6).
         switch type {
-        case .adoption: "heart.fill"
-        case .anniversary: "sparkles"
-        case .streakMilestone: "flame.fill"
-        case .vacationReturn: "sun.max.fill"
-        case .listReturn: "arrow.uturn.backward"
+        case .adoption: "moment-adoption"
+        case .anniversary: "moment-anniversary"
+        case .streakMilestone: "moment-streak"
+        case .vacationReturn: "moment-vacation"
+        case .listReturn: "moment-list-return"
         }
     }
 

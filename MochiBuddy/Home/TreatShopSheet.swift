@@ -87,8 +87,7 @@ struct TreatShopSheet: View {
 
     private var petRow: some View {
         HStack(spacing: 11) {
-            // DESIGN NOTE: placeholder until the content team's pet-action art lands.
-            PlaceholderArtIcon(size: 28)
+            TreatArtIcon(petActionSize: 28)
             VStack(alignment: .leading, spacing: 1) {
                 Text(TreatCatalog.Pet.name)
                     .font(MochiFont.display(13, weight: .semibold))
@@ -121,9 +120,7 @@ struct TreatShopSheet: View {
     private func treatCard(_ treat: HomeBehavior.TreatUIItem) -> some View {
         MochiCard(padding: EdgeInsets(top: 13, leading: 12, bottom: 12, trailing: 12)) {
             VStack(spacing: 6) {
-                // DESIGN NOTE: placeholder until the content team's per-treat
-                // art lands (asset per TreatCatalog id: berry/latte/dango/cupcake).
-                PlaceholderArtIcon(size: 40)
+                TreatArtIcon(treatId: treat.id, size: 40)
                 Text(treat.name)
                     .font(MochiFont.display(13, weight: .semibold))
                     .foregroundStyle(theme.ink)

@@ -26,17 +26,12 @@ struct DeleteWarnView: View {
 
                 MochiCard(padding: EdgeInsets(top: 16, leading: 15, bottom: 16, trailing: 15)) {
                     VStack(spacing: 4) {
+                        // The unwell face does the work - no broken-heart badge.
                         MochiPetView(mood: .unwell, size: 104, squishOnTap: false)
-                            .overlay(alignment: .bottomTrailing) {
-                                Image(systemName: "heart.slash.fill")
-                                    .font(.system(size: 18))
-                                    .foregroundStyle(theme.danger)
-                                    .offset(x: 4)
-                            }
                         Text("We're sad to see you go")
                             .font(MochiFont.display(16, weight: .semibold))
                             .foregroundStyle(theme.ink)
-                        Text("Deleting your account permanently erases everything below. There's no way to bring it back.")
+                        Text("Mochi will forget everything below. There's no way to bring it back.")
                             .font(MochiFont.body(12, weight: .bold))
                             .foregroundStyle(theme.muted)
                             .multilineTextAlignment(.center)
@@ -51,7 +46,9 @@ struct DeleteWarnView: View {
                     ForEach(viewModel.items) { item in
                         MochiListRow(
                             icon: item.icon,
+                            iconImage: item.iconImage,
                             iconBg: theme.dangerSoft,
+                            iconColor: theme.danger,
                             title: item.title,
                             subtitle: item.subtitle,
                             onTap: nil,

@@ -54,9 +54,9 @@ struct RestoreFoundView: View {
 
     private var membershipCard: some View {
         HStack(spacing: 11) {
-            // DESIGN NOTE: placeholder until the content team's Mochi brand
-            // mark lands.
-            PlaceholderArtIcon(size: 34)
+            MochiMark(size: 20, color: theme.primaryText)
+                .frame(width: 34, height: 34)
+                .background(theme.surface, in: RoundedRectangle(cornerRadius: 11))
             VStack(alignment: .leading, spacing: 1) {
                 Text(viewModel.planLine)
                     .font(MochiFont.display(13.5, weight: .semibold))

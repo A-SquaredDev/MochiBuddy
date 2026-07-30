@@ -98,11 +98,17 @@ private struct HookRow: View {
 
     var body: some View {
         HStack(spacing: 11) {
-            Image(systemName: hook.icon)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(theme.primaryText)
-                .frame(width: 32, height: 32)
-                .background(theme.primarySoft, in: RoundedRectangle(cornerRadius: 11))
+            Group {
+                if hook.iconImage != nil {
+                    MochiMark(size: 18, color: theme.primaryText)
+                } else if let icon = hook.icon {
+                    Image(systemName: icon)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(theme.primaryText)
+                }
+            }
+            .frame(width: 32, height: 32)
+            .background(theme.primarySoft, in: RoundedRectangle(cornerRadius: 11))
             VStack(alignment: .leading, spacing: 1) {
                 Text(hook.title)
                     .font(MochiFont.display(13, weight: .semibold))

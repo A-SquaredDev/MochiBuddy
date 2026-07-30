@@ -8,16 +8,16 @@ import Foundation
 enum PaywallBehavior {
 
     struct Hook: Equatable, Identifiable {
-        let icon: String
+        var icon: String? = nil
+        /// Custom template asset (the Mochi brand mark) in place of a symbol.
+        var iconImage: String? = nil
         let title: String
         let sub: String
         var id: String { title }
     }
 
     static let hooks: [Hook] = [
-        // DESIGN NOTE: placeholder icon until the content team's Mochi
-        // brand mark lands.
-        Hook(icon: PlaceholderArt.symbol, title: "Your Mochi, fully alive", sub: "Every mood, reaction & happy dance"),
+        Hook(iconImage: "mochi-mark", title: "Your Mochi, fully alive", sub: "Every mood, reaction & happy dance"),
         Hook(icon: "bell.fill", title: "Gentle nudges that work", sub: "Smart reminders, repeats & morning rundowns"),
         Hook(icon: "paintpalette.fill", title: "All five flavors", sub: "Recolour the whole app anytime"),
         Hook(icon: "gift.fill", title: "Treats, coins & widgets", sub: "Comfort Mochi from your home screen"),

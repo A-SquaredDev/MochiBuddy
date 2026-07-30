@@ -102,15 +102,17 @@ final class DeleteWarnViewModel: ObservableStateViewModel<
                 title: "Coins",
                 subtitle: coins.map { "\($0) ¢ balance" } ?? "Your whole balance"
             ),
-            // DESIGN NOTE: placeholder icon until the content team's Mochi
-            // brand mark lands.
+            // The companion row carries the flat Mochi brand mark (one-color
+            // glyph, tinted like the sibling tiles) - the live pet is the
+            // hero at the top, so the row reads as a data type, not a second
+            // Mochi.
             // Required disclosure, kept neutral (locked decision): the
             // pet's name and adoption date listed factually - no guilt
             // copy, no sad animation. A post-deletion return is a new
             // adoption with a fresh date.
             .init(
                 id: "mochi",
-                icon: PlaceholderArt.symbol,
+                iconImage: "mochi-mark",
                 title: petName,
                 subtitle: adoptedOn.flatMap { AdoptedOnDate.displayString($0) }
                     .map { "Your companion · met on \($0)" }

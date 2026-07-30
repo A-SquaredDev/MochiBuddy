@@ -9,7 +9,9 @@ enum DeleteWarnBehavior {
 
     struct ErasedItem: Equatable, Identifiable {
         let id: String
-        let icon: String
+        var icon: String? = nil
+        /// Custom template asset (the Mochi brand mark) for the companion row.
+        var iconImage: String? = nil
         let title: String
         let subtitle: String
     }

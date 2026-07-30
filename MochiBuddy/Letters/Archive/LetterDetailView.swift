@@ -204,8 +204,12 @@ struct LetterShareCard: View {
                         .foregroundStyle(theme.muted)
                 }
                 Spacer()
-                // DESIGN NOTE: brand wordmark pending content-team art.
-                PlaceholderArtIcon(size: 16)
+                HStack(spacing: 4) {
+                    MochiMark(size: 13, color: theme.muted)
+                    Text("MochiBuddy")
+                        .font(MochiFont.display(11, weight: .semibold))
+                        .foregroundStyle(theme.muted)
+                }
             }
         }
         .padding(24)

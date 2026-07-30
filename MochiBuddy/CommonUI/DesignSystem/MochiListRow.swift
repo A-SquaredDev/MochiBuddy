@@ -11,7 +11,13 @@ import SwiftUI
 
 struct MochiListRow<Right: View>: View {
     var icon: String? = nil
+    /// Custom template asset (e.g. the Mochi brand mark) shown in place of an
+    /// SF Symbol; tinted by `iconColor` just like a symbol.
+    var iconImage: String? = nil
     var iconBg: Color? = nil
+    /// Icon foreground; defaults to ink. Pass a tone (e.g. danger) to color
+    /// the glyph, not just its tile.
+    var iconColor: Color? = nil
     let title: String
     var subtitle: String? = nil
     var isDanger = false
@@ -36,13 +42,23 @@ struct MochiListRow<Right: View>: View {
 
     private var rowContent: some View {
         HStack(spacing: 11) {
-            if let icon {
-                Image(systemName: icon)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(theme.ink)
-                    .frame(width: 34, height: 34)
-                    .background(iconBg ?? theme.surface, in: RoundedRectangle(cornerRadius: 11))
-                    .shadow(color: .black.opacity(0.08), radius: 5, y: 2)
+            if icon != nil || iconImage != nil {
+                Group {
+                    if let iconImage {
+                        Image(iconImage)
+                            .renderingMode(.template)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 20, height: 20)
+                    } else if let icon {
+                        Image(systemName: icon)
+                            .font(.system(size: 15, weight: .semibold))
+                    }
+                }
+                .foregroundStyle(iconColor ?? theme.ink)
+                .frame(width: 34, height: 34)
+                .background(iconBg ?? theme.surface, in: RoundedRectangle(cornerRadius: 11))
+                .shadow(color: .black.opacity(0.08), radius: 5, y: 2)
             }
             VStack(alignment: .leading, spacing: 1) {
                 Text(title)

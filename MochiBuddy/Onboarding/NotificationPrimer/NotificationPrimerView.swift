@@ -60,9 +60,11 @@ private struct MockNotification: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 11) {
-            // DESIGN NOTE: placeholder until the content team's app-icon
-            // asset lands (this mocks the notification's app icon).
-            PlaceholderArtIcon(size: 34)
+            // Mocks the notification's app icon - the live pet on a rounded
+            // tile, echoing the shipped MochiPetView-based app icon.
+            MochiPetView(mood: .content, size: 30, squishOnTap: false)
+                .frame(width: 34, height: 34)
+                .background(theme.bg, in: RoundedRectangle(cornerRadius: 8))
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .firstTextBaseline) {
                     Text(title)

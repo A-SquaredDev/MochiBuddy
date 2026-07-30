@@ -20,10 +20,10 @@ enum MainTab: String, CaseIterable {
         switch self {
         case .home: "house.fill"
         case .tasks: "checklist"
-        // DESIGN NOTE: SF Symbol book stands in until commissioned tab
-        // art lands (roadmap #6). The label stays the static word
-        // "Journal" - tab bars never carry user content (Feature 1's
-        // compact-surface rule).
+        // The Journal tab uses commissioned custom glyphs (journal-filled /
+        // journal-outline) wired directly in MainTabView; this SF Symbol is a
+        // fallback only. The label stays the static word "Journal" - tab bars
+        // never carry user content (Feature 1's compact-surface rule).
         case .journal: "book.fill"
         case .you: "person.crop.circle.fill"
         }
@@ -59,7 +59,13 @@ struct MainTabView: View {
             Tab(MainTab.tasks.label, systemImage: MainTab.tasks.icon, value: .tasks) {
                 tasksTab
             }
-            Tab(MainTab.journal.label, systemImage: MainTab.journal.icon, value: .journal) {
+            // Custom commissioned glyph (roadmap #6): filled when selected,
+            // outline otherwise - an identical silhouette so nothing shifts.
+            Tab(
+                MainTab.journal.label,
+                image: coordinator.selected == .journal ? "journal-filled" : "journal-outline",
+                value: .journal
+            ) {
                 journalTab
             }
             Tab(MainTab.you.label, systemImage: MainTab.you.icon, value: .you) {
