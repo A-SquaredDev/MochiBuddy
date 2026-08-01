@@ -94,7 +94,7 @@ enum TaskRepeat: Equatable {
     }
 }
 
-/// The optional effort rating (effort-implementation-guide.md). The user
+/// The optional effort rating (ProjectDocs/build-notes/effort-implementation-guide.md). The user
 /// only ever picks a magnitude label; each maps to a nominal duration and
 /// the STORED value is the minutes (D1a) - the math stays independent of
 /// label wording, and only these four values are ever written, so

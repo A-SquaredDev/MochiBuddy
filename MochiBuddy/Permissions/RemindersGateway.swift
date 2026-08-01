@@ -38,6 +38,11 @@ enum RemindersAccess: Equatable {
 
 protocol RemindersGateway: AnyObject {
     var accessStatus: RemindersAccess { get }
+    /// Fired (on the main actor) when the reminders database changes
+    /// underneath us - an edit in the Reminders app, Siri, or another
+    /// device. The re-lay trigger; coalesced bursts are absorbed by the
+    /// orchestrator's debounce.
+    var onExternalChange: (() -> Void)? { get set }
     /// Fires the EventKit full-access prompt (needs
     /// NSRemindersFullAccessUsageDescription in Info.plist).
     func requestFullAccess() async -> Bool
@@ -53,6 +58,28 @@ protocol RemindersGateway: AnyObject {
 final class EventKitRemindersGateway: RemindersGateway {
 
     private let store = EKEventStore()
+    private var changeObserver: NSObjectProtocol?
+
+    var onExternalChange: (() -> Void)?
+
+    init() {
+        // EKEventStoreChanged is posted per-store; observing our own store
+        // catches edits made in Apple Reminders, by Siri, or on another
+        // device. refreshSourcesIfNecessary keeps this store's snapshot of
+        // the database current before anyone re-fetches.
+        changeObserver = NotificationCenter.default.addObserver(
+            forName: .EKEventStoreChanged, object: store, queue: .main
+        ) { [weak self] _ in
+            self?.store.refreshSourcesIfNecessary()
+            self?.onExternalChange?()
+        }
+    }
+
+    deinit {
+        if let changeObserver {
+            NotificationCenter.default.removeObserver(changeObserver)
+        }
+    }
 
     var accessStatus: RemindersAccess {
         switch EKEventStore.authorizationStatus(for: .reminder) {

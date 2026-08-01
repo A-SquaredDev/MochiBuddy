@@ -155,6 +155,19 @@ struct WidgetStateStoreTests {
         #expect(WidgetStateStore.pendingCompletions(defaults: defaults).isEmpty)
     }
 
+    @Test("a queue entry without a tap instant rebuilds it from the local context, minute-precise")
+    func approximateInstantRoundTrip() {
+        let instant = Date(timeIntervalSince1970: 1_783_000_000)
+        let zone = TimeZone(identifier: "America/Chicago")!
+        let rebuilt = CompletionLocalContext.capture(at: instant, timeZone: zone).approximateInstant
+        #expect(rebuilt != nil)
+        if let rebuilt {
+            #expect(abs(rebuilt.timeIntervalSince(instant)) < 60)
+        }
+        let garbage = CompletionLocalContext(localDate: "not-a-date", localMinute: 0, timeZoneId: "Nowhere/Fake")
+        #expect(garbage.approximateInstant == nil)
+    }
+
     @Test("a pre-context string-array queue still drains, with context honestly absent")
     func completionQueueLegacyFormat() {
         let defaults = freshDefaults()
@@ -306,7 +319,10 @@ struct WidgetCompletionDrainTests {
         let tapContext = CompletionLocalContext(
             localDate: "2026-07-07", localMinute: 21 * 60 + 30, timeZoneId: "America/Chicago"
         )
-        WidgetStateStore.enqueueCompletion(taskId: "t1", context: tapContext, defaults: defaults)
+        let tapInstant = Dates.hours(-30)
+        WidgetStateStore.enqueueCompletion(
+            taskId: "t1", context: tapContext, tappedAt: tapInstant, defaults: defaults
+        )
         WidgetStateStore.enqueueCompletion(taskId: "done", context: .capture(), defaults: defaults)
         WidgetStateStore.enqueueCompletion(taskId: "ghost", context: .capture(), defaults: defaults)
 
@@ -316,11 +332,72 @@ struct WidgetCompletionDrainTests {
         #expect(taskRepo.setCompletedCalls.map(\.taskId) == ["t1"])
         #expect(taskRepo.setCompletedContexts == [tapContext],
                 "the drain must persist the context stamped at tap time")
+        #expect(taskRepo.setCompletedTimestamps == [tapInstant],
+                "completedAt must carry the tap instant - a stale tap must never book into today's momentum window")
         #expect(profileRepo.coinDeltas == [RewardsStore.coinsPerTask])
         #expect(WidgetStateStore.pendingCompletions(defaults: defaults).isEmpty)
 
         // Nothing left: a second drain is a quiet no-op.
         let second = await drain.drain()
         #expect(second == 0)
+    }
+
+    @Test("a signed-out drain leaves the queue untouched - a tap is never lost")
+    func signedOutPreservesQueue() async {
+        let defaults = UserDefaults(suiteName: "drain-tests-\(UUID())")!
+        let auth = StubAuthRepository()
+        auth.currentAccount = nil
+        let taskRepo = StubTaskRepository()
+        taskRepo.incomplete = [makeTask(id: "t1")]
+        let profileRepo = StubProfileRepository()
+        let drain = WidgetCompletionDrain(
+            authRepository: auth,
+            taskRepository: taskRepo,
+            profileRepository: profileRepo,
+            completionStore: TaskCompletionStore(
+                taskRepository: taskRepo,
+                rewardsStore: RewardsStore(profileRepository: profileRepo),
+                membershipSession: MembershipSession()
+            ),
+            defaults: defaults
+        )
+        WidgetStateStore.enqueueCompletion(taskId: "t1", context: .capture(), defaults: defaults)
+
+        let landed = await drain.drain()
+
+        #expect(landed == 0)
+        #expect(taskRepo.setCompletedCalls.isEmpty)
+        #expect(WidgetStateStore.pendingCompletions(defaults: defaults).map(\.taskId) == ["t1"],
+                "the queue must survive for a signed-in drain")
+    }
+
+    @Test("concurrent drains coalesce - a completion can never land twice")
+    func concurrentDrainsCoalesce() async {
+        let defaults = UserDefaults(suiteName: "drain-tests-\(UUID())")!
+        let auth = StubAuthRepository()
+        let profileRepo = StubProfileRepository()
+        let taskRepo = StubTaskRepository()
+        taskRepo.incomplete = [makeTask(id: "t1")]
+        let drain = WidgetCompletionDrain(
+            authRepository: auth,
+            taskRepository: taskRepo,
+            profileRepository: profileRepo,
+            completionStore: TaskCompletionStore(
+                taskRepository: taskRepo,
+                rewardsStore: RewardsStore(profileRepository: profileRepo),
+                membershipSession: MembershipSession()
+            ),
+            defaults: defaults
+        )
+        WidgetStateStore.enqueueCompletion(taskId: "t1", context: .capture(), defaults: defaults)
+
+        // RootView's drain and Home's refresh-side drain, racing.
+        async let first = drain.drain()
+        async let second = drain.drain()
+        _ = await (first, second)
+
+        #expect(taskRepo.setCompletedCalls.map(\.taskId) == ["t1"],
+                "exactly one landing - a double would double-award coins")
+        #expect(profileRepo.coinDeltas == [RewardsStore.coinsPerTask])
     }
 }

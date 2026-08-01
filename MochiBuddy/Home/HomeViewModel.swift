@@ -30,6 +30,7 @@ final class HomeViewModel: StateViewModel<
     private let letterService: LetterCompositionService?
     private let memoriesService: MemoriesService?
     private let journalCoordinator: TabCoordinator?
+    private let widgetDrain: WidgetCompletionDrain?
 
     // Domain source of truth - UIState is derived from these.
     /// Incomplete tasks only; completions move to `completedToday`.
@@ -70,7 +71,8 @@ final class HomeViewModel: StateViewModel<
         celebrationCenter: CelebrationCenter,
         letterService: LetterCompositionService? = nil,
         memoriesService: MemoriesService? = nil,
-        journalCoordinator: TabCoordinator? = nil
+        journalCoordinator: TabCoordinator? = nil,
+        widgetDrain: WidgetCompletionDrain? = nil
     ) {
         self.authRepository = authRepository
         self.profileRepository = profileRepository
@@ -87,6 +89,7 @@ final class HomeViewModel: StateViewModel<
         self.letterService = letterService
         self.memoriesService = memoriesService
         self.journalCoordinator = journalCoordinator
+        self.widgetDrain = widgetDrain
         super.init(initialState: HomeBehavior.UIState())
     }
 
@@ -283,6 +286,12 @@ final class HomeViewModel: StateViewModel<
         defer { state.isLoading = false }
         guard let userId else { return }
 
+        // Land queued widget completions FIRST - concurrent drains coalesce,
+        // so whichever of RootView and this refresh runs first, the reads
+        // below always see post-drain state (no understated momentum, no
+        // completed task still listed - and still tappable - as incomplete).
+        await widgetDrain?.drain()
+
         var profile = try? await profileRepository.fetchProfile(userId: userId)
         // Prefer the profile's name: Apple only hands the auth account a
         // name on the very first authorization, so the profile document is
@@ -296,6 +305,16 @@ final class HomeViewModel: StateViewModel<
         if let current = profile,
            await reentryService.processIfEnded(profile: current, userId: userId) {
             profile = try? await profileRepository.fetchProfile(userId: userId)
+        }
+        // A genuinely missed day zeroes the streak here, on the first open
+        // - the award path only ever repairs lazily on the NEXT completion,
+        // which left every surface bragging about a dead run until then.
+        // Vacation and membership lapse freeze instead (re-entry above
+        // backdates lastActiveDate to cover the vacation window).
+        if var current = profile, !current.vacationMode, !membershipSession.isLapsed,
+           await rewardsStore.zeroLapsedStreak(profile: current, userId: userId) {
+            current.streakCount = 0
+            profile = current
         }
         if let profile {
             coins = profile.coins

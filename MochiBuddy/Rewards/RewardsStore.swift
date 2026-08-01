@@ -35,19 +35,26 @@ final class RewardsStore {
     }
 
     /// A task was completed: award coins and extend the streak.
-    func awardCompletion(userId: String) async -> CompletionOutcome {
+    /// `completedAt` is when the completion actually happened - the widget
+    /// drain passes the tap instant so the streak credits the day the user
+    /// acted, not the day the app next opened.
+    func awardCompletion(userId: String, completedAt: Date = .now) async -> CompletionOutcome {
         let profile = try? await profileRepository.fetchProfile(userId: userId)
         let previousStreak = profile?.streakCount ?? 0
         let previousBest = profile?.bestStreakCount ?? 0
 
-        let today = calendar.startOfDay(for: .now)
+        let day = calendar.startOfDay(for: completedAt)
         let streak: Int
         var extended = true
+        var lastActiveToSave = day
         if let lastActive = profile?.lastActiveDate.map(calendar.startOfDay(for:)) {
-            if lastActive == today {
+            if day <= lastActive {
+                // Same day - or a drained tap OLDER than newer activity,
+                // which must never regress the chain or move it backward.
                 streak = max(previousStreak, 1)
                 extended = false
-            } else if calendar.date(byAdding: .day, value: 1, to: lastActive) == today {
+                lastActiveToSave = lastActive
+            } else if calendar.date(byAdding: .day, value: 1, to: lastActive) == day {
                 streak = previousStreak + 1
             } else {
                 streak = 1
@@ -62,17 +69,38 @@ final class RewardsStore {
         // advancing record run re-stamps daily (the date the stored
         // record was first reached); legacy records are never guessed.
         let bestAchievedOn = streak > previousBest
-            ? AdoptedOnDate.string(from: today)
+            ? AdoptedOnDate.string(from: day)
             : profile?.bestStreakAchievedOn
 
         try? await profileRepository.incrementCoins(by: Self.coinsPerTask, userId: userId)
         try? await profileRepository.saveStreak(
             count: streak, best: best, bestAchievedOn: bestAchievedOn,
-            lastActiveDate: today, userId: userId
+            lastActiveDate: lastActiveToSave, userId: userId
         )
         return CompletionOutcome(
             coinsDelta: Self.coinsPerTask, streak: streak, bestStreak: best, streakExtended: extended
         )
+    }
+
+    /// A genuinely missed day zeroes the stale chain, so no surface keeps
+    /// showing a run that already ended. The record (bestStreak and its
+    /// date) is untouched and lastActiveDate stays put - the next
+    /// completion restarts at 1 through the normal award path. Callers
+    /// guard the freeze states (vacation, membership lapse); this only
+    /// reads the calendar. Returns whether a zero was written.
+    @discardableResult
+    func zeroLapsedStreak(profile: UserProfile, now: Date = .now, userId: String) async -> Bool {
+        guard profile.streakCount > 0,
+              let lastActive = profile.lastActiveDate.map(calendar.startOfDay(for:)),
+              let dayAfter = calendar.date(byAdding: .day, value: 1, to: lastActive),
+              calendar.startOfDay(for: now) > dayAfter
+        else { return false }
+        try? await profileRepository.saveStreak(
+            count: 0, best: profile.bestStreakCount,
+            bestAchievedOn: profile.bestStreakAchievedOn,
+            lastActiveDate: lastActive, userId: userId
+        )
+        return true
     }
 
     /// A completion was undone: claw the coins back (never below zero) so

@@ -358,7 +358,7 @@ struct JournalViewModelTests {
         #expect(state.footer?.doneCount == 1, "lapse-period completions stay out of the frozen strip")
 
         // Reactivation resumes live over full retained history.
-        harness.session.status = .active(plan: .yearly, renewsAt: nil)
+        harness.session.status = .active(plan: .yearly, renewsAt: nil, willRenew: true)
         await harness.viewModel.triggerAsync(.load)
         #expect(harness.viewModel.uiState.isLapsed == false)
         #expect(harness.viewModel.uiState.footer?.doneCount == 2,

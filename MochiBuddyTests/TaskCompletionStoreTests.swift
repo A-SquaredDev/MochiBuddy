@@ -84,6 +84,43 @@ struct TaskCompletionStoreTests {
         #expect(milestones == [7])
     }
 
+    @Test("completing the same task twice in one session is a no-op - no double coins, spawn, or write")
+    func duplicateCompleteIsNoOp() async {
+        let (store, taskRepo, profileRepo) = makeStore()
+        let task = makeTask(id: "t1", dueAt: Dates.hours(2), hasTime: true, repeatRule: .daily)
+
+        let first = await store.setCompleted(task, completed: true, currentCoins: 0, userId: "user1")
+        #expect(first.coinsDelta == RewardsStore.coinsPerTask)
+        #expect(first.spawnedNext != nil)
+
+        // The stale-row tap: the drain (or another surface) already landed
+        // this completion, but a list still showed the row as open.
+        let again = await store.setCompleted(task, completed: true, currentCoins: 10, userId: "user1")
+        #expect(again.coinsDelta == 0)
+        #expect(again.spawnedNext == nil, "a second spawn would duplicate the future occurrence")
+        #expect(again.milestoneStreak == nil)
+        #expect(taskRepo.setCompletedCalls.count == 1,
+                "the no-op must not overwrite a truthful drain-time completedAt with now")
+        #expect(taskRepo.addedDrafts.count == 1)
+        #expect(profileRepo.coinDeltas == [RewardsStore.coinsPerTask])
+    }
+
+    @Test("complete, undo, complete re-awards - the undo re-arms the task")
+    func undoRearmsAward() async {
+        let (store, taskRepo, profileRepo) = makeStore()
+        let task = makeTask(id: "t1")
+
+        _ = await store.setCompleted(task, completed: true, currentCoins: 0, userId: "user1")
+        _ = await store.setCompleted(task, completed: false, currentCoins: 10, userId: "user1")
+        let third = await store.setCompleted(task, completed: true, currentCoins: 0, userId: "user1")
+
+        #expect(third.coinsDelta == RewardsStore.coinsPerTask)
+        #expect(taskRepo.setCompletedCalls.map(\.completed) == [true, false, true])
+        #expect(profileRepo.coinDeltas == [
+            RewardsStore.coinsPerTask, -RewardsStore.coinsPerTask, RewardsStore.coinsPerTask,
+        ])
+    }
+
     @Test("completing persists and pays out")
     func completePersistsAndPays() async {
         let (store, taskRepo, _) = makeStore()

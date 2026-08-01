@@ -19,7 +19,8 @@ private func makeHomeVM(
     profile: UserProfile = makeProfile(coins: 100, streak: 4),
     membership explicitMembership: MembershipSession? = nil,
     reentry explicitReentry: VacationReentryService? = nil,
-    celebrationCenter: CelebrationCenter? = nil
+    celebrationCenter: CelebrationCenter? = nil,
+    widgetDrainDefaults: UserDefaults? = nil
 ) -> (HomeViewModel, StubTaskRepository, StubProfileRepository, StubComfortBufferStore) {
     let membership = explicitMembership ?? MembershipSession()
     let auth = StubAuthRepository()
@@ -32,6 +33,20 @@ private func makeHomeVM(
     let listRepo = StubListRepository()
     listRepo.lists = lists
     let buffer = StubComfortBufferStore()
+    let completionStore = TaskCompletionStore(
+        taskRepository: taskRepo,
+        rewardsStore: RewardsStore(profileRepository: profileRepo),
+        membershipSession: membership
+    )
+    let widgetDrain = widgetDrainDefaults.map {
+        WidgetCompletionDrain(
+            authRepository: auth,
+            taskRepository: taskRepo,
+            profileRepository: profileRepo,
+            completionStore: completionStore,
+            defaults: $0
+        )
+    }
     let vm = HomeViewModel(
         authRepository: auth,
         profileRepository: profileRepo,
@@ -39,11 +54,7 @@ private func makeHomeVM(
         listRepository: listRepo,
         bufferStore: buffer,
         rewardsStore: RewardsStore(profileRepository: profileRepo),
-        completionStore: TaskCompletionStore(
-            taskRepository: taskRepo,
-            rewardsStore: RewardsStore(profileRepository: profileRepo),
-            membershipSession: membership
-        ),
+        completionStore: completionStore,
         membershipSession: membership,
         recurrenceRoller: RecurrenceRoller(taskRepository: taskRepo),
         relay: StubRelay(),
@@ -54,7 +65,8 @@ private func makeHomeVM(
             relay: StubRelay(),
             defaults: UserDefaults(suiteName: "reentry-\(UUID())")!
         ),
-        celebrationCenter: celebrationCenter ?? CelebrationCenter()
+        celebrationCenter: celebrationCenter ?? CelebrationCenter(),
+        widgetDrain: widgetDrain
     )
     return (vm, taskRepo, profileRepo, buffer)
 }
@@ -69,6 +81,70 @@ struct HomeLoadingTests {
         #expect(vm.uiState.isLoading == true)
         await vm.triggerAsync(.refresh)
         #expect(vm.uiState.isLoading == false)
+    }
+
+    @Test("a refresh lands queued widget completions before reading state")
+    func refreshDrainsWidgetQueueFirst() async {
+        let defaults = UserDefaults(suiteName: "home-drain-\(UUID())")!
+        let (vm, taskRepo, _, _) = makeHomeVM(
+            incomplete: [makeTask(id: "w1")],
+            widgetDrainDefaults: defaults
+        )
+        WidgetStateStore.enqueueCompletion(taskId: "w1", context: .capture(), defaults: defaults)
+
+        await vm.triggerAsync(.refresh)
+
+        #expect(taskRepo.setCompletedCalls.map(\.taskId) == ["w1"],
+                "the queued tap must be durable before the refresh reads counts")
+        #expect(WidgetStateStore.pendingCompletions(defaults: defaults).isEmpty)
+    }
+
+    @Test("opening on a missed day shows a zeroed streak, not the dead run")
+    func staleStreakZeroesOnRefresh() async {
+        let threeDaysAgo = Calendar.current.date(
+            byAdding: .day, value: -3, to: Calendar.current.startOfDay(for: .now)
+        )!
+        let (vm, _, profileRepo, _) = makeHomeVM(
+            profile: makeProfile(coins: 10, streak: 12, bestStreak: 12, lastActiveDate: threeDaysAgo)
+        )
+        await vm.triggerAsync(.refresh)
+        #expect(vm.uiState.streakDays == 0)
+        #expect(profileRepo.savedStreaks.last?.count == 0)
+        #expect(profileRepo.savedStreaks.last?.best == 12)
+    }
+
+    @Test("membership lapse freezes the streak - opening never zeroes it")
+    func membershipLapseFreezesStreak() async {
+        let threeDaysAgo = Calendar.current.date(
+            byAdding: .day, value: -3, to: Calendar.current.startOfDay(for: .now)
+        )!
+        let lapsed = MembershipSession()
+        lapsed.status = .lapsed
+        let (vm, _, profileRepo, _) = makeHomeVM(
+            profile: makeProfile(coins: 10, streak: 12, bestStreak: 12, lastActiveDate: threeDaysAgo),
+            membership: lapsed
+        )
+        await vm.triggerAsync(.refresh)
+        #expect(vm.uiState.streakDays == 12, "the lapse gate promises 'streak kept' - keep it")
+        #expect(profileRepo.savedStreaks.isEmpty)
+    }
+
+    @Test("an ongoing vacation never zeroes the streak - vacation freezes")
+    func vacationFreezesStreak() async {
+        let threeDaysAgo = Calendar.current.date(
+            byAdding: .day, value: -3, to: Calendar.current.startOfDay(for: .now)
+        )!
+        let (vm, _, profileRepo, _) = makeHomeVM(
+            profile: makeProfile(
+                coins: 10, streak: 12, bestStreak: 12, lastActiveDate: threeDaysAgo,
+                vacationMode: true,
+                vacationResumeAt: Calendar.current.date(byAdding: .day, value: 3, to: .now),
+                vacationStartedAt: threeDaysAgo
+            )
+        )
+        await vm.triggerAsync(.refresh)
+        #expect(vm.uiState.streakDays == 12)
+        #expect(profileRepo.savedStreaks.isEmpty)
     }
 
     @Test("loading clears even when signed out, so the skeleton never sticks")

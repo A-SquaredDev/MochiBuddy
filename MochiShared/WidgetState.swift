@@ -45,6 +45,21 @@ struct CompletionLocalContext: Codable, Equatable {
             timeZoneId: timeZone.identifier
         )
     }
+
+    /// The absolute instant this context was stamped at, rebuilt from the
+    /// local fields (minute precision). Fallback for queue entries written
+    /// before the tap instant itself was recorded.
+    var approximateInstant: Date? {
+        guard let zone = TimeZone(identifier: timeZoneId) else { return nil }
+        let parts = localDate.split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 3 else { return nil }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = zone
+        return calendar.date(from: DateComponents(
+            year: parts[0], month: parts[1], day: parts[2],
+            hour: localMinute / 60, minute: localMinute % 60
+        ))
+    }
 }
 
 struct MochiWidgetState: Codable, Equatable {
@@ -204,9 +219,13 @@ enum WidgetStateStore {
     /// an overnight drain can never shift evening behavior into morning.
     /// Context is nil only for entries queued by a pre-context app version;
     /// the drain then falls back to derived context, honestly marked.
+    /// tappedAt is the absolute tap instant, so completedAt lands truthful
+    /// even when the drain runs days later; nil on entries queued by an
+    /// older version (the drain falls back to context.approximateInstant).
     struct PendingCompletion: Codable, Equatable {
         let taskId: String
         let context: CompletionLocalContext?
+        var tappedAt: Date? = nil
     }
 
     /// A widget completion queues here (and optimistically updates the
@@ -214,11 +233,12 @@ enum WidgetStateStore {
     static func enqueueCompletion(
         taskId: String,
         context: CompletionLocalContext,
+        tappedAt: Date = .now,
         defaults: UserDefaults = MochiAppGroup.defaults
     ) {
         var queue = decodedQueue(defaults: defaults)
         guard !queue.contains(where: { $0.taskId == taskId }) else { return }
-        queue.append(PendingCompletion(taskId: taskId, context: context))
+        queue.append(PendingCompletion(taskId: taskId, context: context, tappedAt: tappedAt))
         defaults.set(try? JSONEncoder().encode(queue), forKey: completionQueueKey)
     }
 

@@ -116,12 +116,68 @@ struct RewardsStreakTests {
         #expect(outcome.bestStreak == 12, "the best streak is a record, not a live counter")
     }
 
+    @Test("a drained widget tap credits the streak to the tap day, not the drain day")
+    func drainedTapCreditsTapDay() async {
+        let twoDaysAgo = calendar.date(byAdding: .day, value: -2, to: today)!
+        let (store, repo) = store(profile: makeProfile(streak: 3, bestStreak: 5, lastActiveDate: twoDaysAgo))
+        let outcome = await store.awardCompletion(userId: "user1", completedAt: yesterday)
+        #expect(outcome.streak == 4, "yesterday's tap continues yesterday's chain")
+        #expect(repo.savedStreaks.last?.lastActiveDate == yesterday)
+    }
+
+    @Test("a stale drained tap never regresses a chain with newer activity")
+    func staleDrainNeverRegresses() async {
+        let threeDaysAgo = calendar.date(byAdding: .day, value: -3, to: today)!
+        let (store, repo) = store(profile: makeProfile(streak: 6, bestStreak: 6, lastActiveDate: today))
+        let outcome = await store.awardCompletion(userId: "user1", completedAt: threeDaysAgo)
+        #expect(outcome.streak == 6)
+        #expect(outcome.streakExtended == false)
+        #expect(repo.savedStreaks.last?.lastActiveDate == today,
+                "lastActiveDate must never move backward")
+    }
+
     @Test("a profile that claims a streak but no lastActiveDate starts fresh")
     func missingLastActive() async {
         let (store, _) = store(profile: makeProfile(streak: 7, bestStreak: 7, lastActiveDate: nil))
         let outcome = await store.awardCompletion(userId: "user1")
         #expect(outcome.streak == 1)
         #expect(outcome.bestStreak == 7)
+    }
+
+    @Test("a genuinely missed day zeroes the streak - the record survives untouched")
+    func lapseZeroes() async {
+        let threeDaysAgo = calendar.date(byAdding: .day, value: -3, to: today)!
+        let profile = makeProfile(
+            streak: 12, bestStreak: 12, bestStreakAchievedOn: "2026-07-01",
+            lastActiveDate: threeDaysAgo
+        )
+        let (store, repo) = store(profile: profile)
+        let zeroed = await store.zeroLapsedStreak(profile: profile, userId: "user1")
+        #expect(zeroed)
+        #expect(repo.savedStreaks.last?.count == 0)
+        #expect(repo.savedStreaks.last?.best == 12, "the record is history, not a live counter")
+        #expect(repo.savedStreaks.last?.lastActiveDate == threeDaysAgo,
+                "lastActiveDate is a fact about the past - zeroing must not touch it")
+        #expect(repo.savedBestAchievedOns.last == "2026-07-01")
+    }
+
+    @Test("a streak alive through yesterday is NOT zeroed - today can still extend it")
+    func aliveYesterdayKept() async {
+        let profile = makeProfile(streak: 5, bestStreak: 5, lastActiveDate: yesterday)
+        let (store, repo) = store(profile: profile)
+        #expect(await store.zeroLapsedStreak(profile: profile, userId: "user1") == false)
+        let todayProfile = makeProfile(streak: 5, bestStreak: 5, lastActiveDate: today)
+        #expect(await store.zeroLapsedStreak(profile: todayProfile, userId: "user1") == false)
+        #expect(repo.savedStreaks.isEmpty, "no lapse, no write")
+    }
+
+    @Test("an already-zero streak never writes - open spam stays quiet")
+    func zeroStreakNoOp() async {
+        let weekAgo = calendar.date(byAdding: .day, value: -7, to: today)!
+        let profile = makeProfile(streak: 0, bestStreak: 9, lastActiveDate: weekAgo)
+        let (store, repo) = store(profile: profile)
+        #expect(await store.zeroLapsedStreak(profile: profile, userId: "user1") == false)
+        #expect(repo.savedStreaks.isEmpty)
     }
 
     @Test("lastActiveDate is stamped to the start of today")

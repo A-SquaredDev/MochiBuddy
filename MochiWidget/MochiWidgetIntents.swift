@@ -42,11 +42,14 @@ struct CompleteTaskIntent: AppIntent {
 
     func perform() async throws -> some IntentResult {
         let defaults = MochiAppGroup.defaults
-        // Local context is stamped NOW, in the zone the tap happened in -
-        // the app-side drain may run days later or a continent away
-        // (Personal Layer, Feature 4: behavior never rewrites).
+        // Local context AND the absolute instant are stamped NOW, in the
+        // zone the tap happened in - the app-side drain may run days later
+        // or a continent away (Personal Layer, Feature 4: behavior never
+        // rewrites).
+        let tappedAt = Date.now
         WidgetStateStore.enqueueCompletion(
-            taskId: taskId, context: .capture(), defaults: defaults
+            taskId: taskId, context: .capture(at: tappedAt), tappedAt: tappedAt,
+            defaults: defaults
         )
         // Optimistic: drop the row now; the app-side drain persists it
         // (coins included) on next open and re-mirrors the truth.

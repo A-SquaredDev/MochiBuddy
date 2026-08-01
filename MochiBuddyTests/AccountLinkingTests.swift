@@ -87,7 +87,7 @@ struct AccountPostSignInRoutingTests {
     @Test("a restored account still entitled skips the paywall and enters the app")
     func entitledAccountEntersApp() async {
         let (vm, _, _, membership) = makeAccountVM(auth: signedInAuth())
-        membership.status = .active(plan: .yearly, renewsAt: nil)
+        membership.status = .active(plan: .yearly, renewsAt: nil, willRenew: true)
         let recorder = EventRecorder(vm)
         await vm.triggerAsync(.load)
         await vm.triggerAsync(.appleCompleted(idToken: "t", fullName: nil))
@@ -103,7 +103,7 @@ struct AccountPostSignInRoutingTests {
             email: "alex@hey.com", providerId: "apple.com"
         )
         let (vm, _, _, membership) = makeAccountVM(auth: auth)
-        membership.status = .active(plan: .yearly, renewsAt: nil)
+        membership.status = .active(plan: .yearly, renewsAt: nil, willRenew: true)
         let recorder = EventRecorder(vm)
         await vm.triggerAsync(.load)
         #expect(vm.uiState.signedInDetail == "alex@hey.com")

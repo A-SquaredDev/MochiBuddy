@@ -43,6 +43,13 @@ final class TaskCompletionStore {
     /// matches the old behavior at worst.
     private var spawnByCompletedTaskId: [String: String] = [:]
 
+    /// Tasks already completed this session, so a stale row (the drain or
+    /// another surface finished it while a list still showed it open) taps
+    /// through to a no-op instead of a second award, a second spawned
+    /// occurrence, and a completedAt overwrite. Session-scoped like the
+    /// spawn map; a fresh session loads fresh rows.
+    private var completedTaskIds: Set<String> = []
+
     init(
         taskRepository: TaskRepository,
         rewardsStore: RewardsStore,
@@ -53,18 +60,29 @@ final class TaskCompletionStore {
         self.membershipSession = membershipSession
     }
 
-    /// `localContext` carries a completion-time local stamp for completions
-    /// that happened earlier than this call (the widget drain); live
-    /// check-offs leave it nil and the repository stamps "now".
+    /// `localContext` and `completedAt` carry completion-time stamps for
+    /// completions that happened earlier than this call (the widget drain);
+    /// live check-offs leave both nil and the repository stamps "now".
     func setCompleted(
         _ task: TaskItem,
         completed: Bool,
         currentCoins: Int,
         userId: String,
-        localContext: CompletionLocalContext? = nil
+        localContext: CompletionLocalContext? = nil,
+        completedAt: Date? = nil
     ) async -> ToggleOutcome {
+        if completed {
+            guard completedTaskIds.insert(task.id).inserted else {
+                return ToggleOutcome(coinsDelta: 0, streak: nil, spawnedNext: nil)
+            }
+        } else {
+            // An undo re-arms the task: complete → undo → complete is a
+            // legitimate re-award (the undo clawed the coins back).
+            completedTaskIds.remove(task.id)
+        }
         try? await taskRepository.setCompleted(
-            taskId: task.id, completed: completed, localContext: localContext, userId: userId
+            taskId: task.id, completed: completed, localContext: localContext,
+            completedAt: completedAt, userId: userId
         )
         defer { onMutation?() }
 
@@ -116,7 +134,7 @@ final class TaskCompletionStore {
             }
         }
 
-        let outcome = await rewardsStore.awardCompletion(userId: userId)
+        let outcome = await rewardsStore.awardCompletion(userId: userId, completedAt: completedAt ?? .now)
         // Only the completion that actually REACHES the milestone
         // celebrates - later check-offs the same day stay quiet.
         let milestone = outcome.streakExtended && StreakMilestones.isMilestone(outcome.streak)

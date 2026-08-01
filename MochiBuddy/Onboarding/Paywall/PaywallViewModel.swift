@@ -42,7 +42,7 @@ final class PaywallViewModel: ObservableStateViewModel<
             do {
                 try await membershipStore.startTrial(plan: plan)
                 var trialEndsAt: Date?
-                if case .trial(let endsAt) = await membershipStore.currentStatus() {
+                if case .trial(let endsAt, _) = await membershipStore.currentStatus() {
                     trialEndsAt = endsAt
                 }
                 await onboardingStore.recordMembership(isSubscribed: true, trialEndsAt: trialEndsAt)

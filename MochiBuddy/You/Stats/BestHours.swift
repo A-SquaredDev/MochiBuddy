@@ -3,7 +3,7 @@
 //  MochiBuddy
 //
 //  Pure derivations for the "Your best hours" and "Day by day" cards
-//  (best-hours-implementation-guide.md). Everything reads the local
+//  (ProjectDocs/build-notes/best-hours-implementation-guide.md). Everything reads the local
 //  completion context each CompletedTaskStat carries - the zone where
 //  the completion actually happened, never the device's current one.
 //

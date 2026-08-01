@@ -25,7 +25,7 @@ struct WelcomeBackRoutingTests {
     @Test("an active membership enters the app directly")
     func activeEnters() async {
         let membership = StubMembershipStore()
-        membership.status = .active(plan: .yearly, renewsAt: nil)
+        membership.status = .active(plan: .yearly, renewsAt: nil, willRenew: true)
         let vm = makeVM(membership)
         let recorder = EventRecorder(vm)
         await vm.triggerAsync(.continueTapped)
@@ -36,7 +36,7 @@ struct WelcomeBackRoutingTests {
     @Test("a live trial enters the app directly")
     func trialEnters() async {
         let membership = StubMembershipStore()
-        membership.status = .trial(endsAt: Date.now.addingTimeInterval(24 * 3600))
+        membership.status = .trial(endsAt: Date.now.addingTimeInterval(24 * 3600), willRenew: true)
         let vm = makeVM(membership)
         let recorder = EventRecorder(vm)
         await vm.triggerAsync(.continueTapped)
@@ -60,7 +60,7 @@ struct WelcomeBackRoutingTests {
     @Test("billing grace is fully entitled - a failed card retry never gates a paying customer")
     func billingGraceEnters() async {
         let membership = StubMembershipStore()
-        membership.status = .billingGrace(plan: .yearly, renewsAt: Dates.days(3))
+        membership.status = .billingGrace(plan: .yearly, renewsAt: Dates.days(3), willRenew: true)
         let vm = makeVM(membership)
         let recorder = EventRecorder(vm)
         await vm.triggerAsync(.continueTapped)

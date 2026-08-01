@@ -57,7 +57,7 @@ struct SplashRoutingTests {
     @Test("reinstall with a live subscription goes straight home - no onboarding replay")
     func reinstallSubscribed() async {
         let membership = StubMembershipStore()
-        membership.status = .active(plan: .yearly, renewsAt: nil)
+        membership.status = .active(plan: .yearly, renewsAt: nil, willRenew: true)
         let (vm, _, _, _) = makeSplashVM(profile: completedProfile(), membership: membership)
         let recorder = EventRecorder(vm)
         await vm.triggerAsync(.load)
@@ -68,7 +68,7 @@ struct SplashRoutingTests {
     @Test("a trial user is treated as subscribed")
     func trialEntersApp() async {
         let membership = StubMembershipStore()
-        membership.status = .trial(endsAt: Date.now.addingTimeInterval(3 * 24 * 3600))
+        membership.status = .trial(endsAt: Date.now.addingTimeInterval(3 * 24 * 3600), willRenew: true)
         let (vm, _, _, _) = makeSplashVM(profile: completedProfile(), membership: membership)
         let recorder = EventRecorder(vm)
         await vm.triggerAsync(.load)
@@ -79,7 +79,7 @@ struct SplashRoutingTests {
     @Test("billing grace routes home like any paying member")
     func billingGraceEntersApp() async {
         let membership = StubMembershipStore()
-        membership.status = .billingGrace(plan: .monthly, renewsAt: nil)
+        membership.status = .billingGrace(plan: .monthly, renewsAt: nil, willRenew: true)
         let (vm, _, _, _) = makeSplashVM(profile: completedProfile(), membership: membership)
         let recorder = EventRecorder(vm)
         await vm.triggerAsync(.load)

@@ -17,7 +17,7 @@ final class MembershipSession {
 
     /// Last-known status. Optimistic default so dev launches that skip the
     /// flow (-mochiStartAtHome) get the full app.
-    var status: MembershipStatus = .active(plan: .yearly, renewsAt: nil) {
+    var status: MembershipStatus = .active(plan: .yearly, renewsAt: nil, willRenew: true) {
         didSet {
             if oldValue != status {
                 onChange?()

@@ -14,6 +14,7 @@ struct TasksView: View {
     let router: any TasksRouting
 
     @Environment(\.mochiTheme) private var theme
+    @Environment(\.scenePhase) private var scenePhase
     @State private var celebrationDrag: CGFloat = 0
 
     var body: some View {
@@ -45,6 +46,11 @@ struct TasksView: View {
         }
         .background(theme.bg)
         .onAppear { viewModel.trigger(.refresh) }
+        // onAppear only re-fires on tab re-selection - without this, a
+        // foreground with Tasks already visible keeps stale Reminders rows.
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { viewModel.trigger(.refresh) }
+        }
         .sheet(
             item: viewModel.collectBinding(for: \.editingTask, action: { _ in .editorDismissed })
         ) { editing in

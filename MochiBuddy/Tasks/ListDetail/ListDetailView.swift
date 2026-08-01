@@ -15,6 +15,7 @@ struct ListDetailView: View {
     let router: any TasksRouting
 
     @Environment(\.mochiTheme) private var theme
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -44,7 +45,13 @@ struct ListDetailView: View {
             .animation(MochiMotion.soft, value: viewModel.isLoading)
         }
         .background(theme.bg)
-        .onLoad { viewModel.trigger(.refresh) }
+        // onAppear, not onLoad: a pushed reminders list would otherwise
+        // fetch once and never see an edit made in Apple Reminders for its
+        // whole lifetime. Re-fires on pop-back too, which is wanted.
+        .onAppear { viewModel.trigger(.refresh) }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { viewModel.trigger(.refresh) }
+        }
         .sheet(
             item: viewModel.collectBinding(for: \.editingTask, action: { _ in .editorDismissed })
         ) { editing in

@@ -519,9 +519,12 @@ enum RemoteTuning {
         _ = try? await remoteConfig.activate()
         apply(ResolvedTuning.resolve(from: FirebaseTuningSource(remoteConfig: remoteConfig)))
         #if DEBUG
-        // Console-completeness audit: unit tests pin the CODE's 74-key
-        // list but cannot see the console; this names any key the
-        // activated template did not carry with a remote source.
+        // Console-completeness audit: unit tests pin the CODE's key list
+        // (allKeys) but cannot see the console; this names any key the
+        // activated template did not carry with a remote source. A stale
+        // warning can be a fetch lag: activate is one launch behind, so a
+        // device that last fetched before a console publish reports the
+        // new keys missing once, then heals on the next launch.
         let missing = allKeys.filter { remoteConfig.configValue(forKey: $0).source != .remote }
         let logger = Logger(subsystem: "com.aaronmckain.MochiBuddy", category: "tuning")
         if missing.isEmpty {

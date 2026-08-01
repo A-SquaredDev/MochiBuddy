@@ -101,7 +101,7 @@ protocol TaskRepository: AnyObject {
     /// `localContext` is the completion-time local stamp; nil means "the
     /// completion is happening right now" and the repository captures it.
     /// Widget-drained completions pass the context stamped at tap time.
-    func setCompleted(taskId: String, completed: Bool, localContext: CompletionLocalContext?, userId: String) async throws
+    func setCompleted(taskId: String, completed: Bool, localContext: CompletionLocalContext?, completedAt: Date?, userId: String) async throws
     /// Rewrites the editable fields from the domain model.
     /// `countingReschedule` also increments the procrastination counter -
     /// pass true only for a user move of an incomplete task's due date to
@@ -272,15 +272,17 @@ final class FirestoreTaskRepository: TaskRepository {
         return snapshot.documents.map(Self.taskItem(from:))
     }
 
-    func setCompleted(taskId: String, completed: Bool, localContext: CompletionLocalContext?, userId: String) async throws {
+    func setCompleted(taskId: String, completed: Bool, localContext: CompletionLocalContext?, completedAt: Date?, userId: String) async throws {
         var fields: [String: Any] = [
             "completed": completed,
             "updatedAt": FieldValue.serverTimestamp(),
         ]
         if completed {
             // Client time, not serverTimestamp - the mood engine and stats
-            // read it from the local cache immediately.
-            fields["completedAt"] = Timestamp(date: .now)
+            // read it from the local cache immediately. A widget drain
+            // passes the tap instant so a stale tap never books into
+            // today's momentum window; live check-offs stamp now.
+            fields["completedAt"] = Timestamp(date: completedAt ?? .now)
             // Completion-local context, stamped at the source (Personal
             // Layer, Feature 4): the day/minute/zone the user acted in.
             let context = localContext ?? .capture()
