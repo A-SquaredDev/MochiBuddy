@@ -14,11 +14,25 @@ struct HomeView: View {
         HomeBehavior.ViewAction
     >
     let router: HomeRouter
+    /// Tab selection, observed so the hero idle pauses off-tab.
+    let coordinator: TabCoordinator
 
     @Environment(\.mochiTheme) private var theme
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
     @FocusState private var quickAddFocused: Bool
+
+    /// The alive hero renders at 60fps; stop it whenever nobody can see
+    /// it - behind any of the three sheets, on another tab, or with the
+    /// scene inactive. TimelineView pauses on app background by itself,
+    /// but not for occlusion.
+    private var heroPaused: Bool {
+        scenePhase != .active
+            || coordinator.selected != .home
+            || viewModel.showTreats
+            || viewModel.editingTask != nil
+            || viewModel.showTriage
+    }
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -389,6 +403,7 @@ struct HomeView: View {
                         mood: viewModel.isSleeping ? .sleeping : MochiMood(vitality: viewModel.displayedMood),
                         size: 128,
                         alive: true,
+                        paused: heroPaused,
                         externalSquishTrigger: viewModel.petSquishTrigger,
                         onTap: viewModel.isLapsed ? nil : { viewModel.trigger(.petTapped) },
                         petName: viewModel.mochiName

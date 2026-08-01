@@ -63,6 +63,23 @@ private let mochiHighlightPath: Path = {
     return highlight
 }()
 
+/// A rounded lowercase z, traced once. The tired and sleeping idles used
+/// to lay out a Text("z") glyph per z per frame - three glyph resolutions
+/// at display rate, the hottest cost in this file. Unit-sized around the
+/// origin; callers scale the context by the old font size and stroke.
+private let zGlyphPath: Path = {
+    var z = Path()
+    z.move(to: CGPoint(x: -0.24, y: -0.26))
+    z.addLine(to: CGPoint(x: 0.24, y: -0.26))
+    z.addLine(to: CGPoint(x: -0.24, y: 0.26))
+    z.addLine(to: CGPoint(x: 0.24, y: 0.26))
+    return z
+}()
+
+/// Stroke for the unit z - the width is a fraction of the font size the
+/// context is scaled by, matching the old semibold rounded glyph weight.
+private let zGlyphStyle = StrokeStyle(lineWidth: 0.16, lineCap: .round, lineJoin: .round)
+
 /// Applies a transform about (ox, oy), matching CSS `transform-origin`.
 private func origin(_ ctx: inout GraphicsContext, _ ox: CGFloat, _ oy: CGFloat, _ body: (inout GraphicsContext) -> Void) {
     ctx.translateBy(x: ox, y: oy)
@@ -114,9 +131,15 @@ struct ThrivingIdleCanvas: View {
     var size: CGFloat
     var faceInk: Color
     var showsSparkles: Bool = true
+    /// Host-driven: true while the pet is covered by a sheet, on an
+    /// unselected tab, or the scene is inactive - the timeline stops
+    /// ticking entirely instead of rendering unseen frames.
+    var paused: Bool = false
 
     var body: some View {
-        TimelineView(.animation) { timeline in
+        // 60fps cap: the slowest track is a multi-second loop, so ProMotion's
+        // 120Hz doubles the work for no visible gain.
+        TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: paused)) { timeline in
             Canvas { ctx, canvasSize in
                 draw(&ctx, canvasSize: canvasSize, now: timeline.date.timeIntervalSinceReferenceDate)
             }
@@ -199,15 +222,10 @@ struct ThrivingIdleCanvas: View {
         origin(&mouth, 90, 102) {
             $0.scaleBy(x: kf(hopT, Thriving.mouthScaleX), y: kf(hopT, Thriving.mouthScaleY))
         }
-        var grin = Path()
-        grin.move(to: CGPoint(x: 78.5, y: 102))
-        grin.addLine(to: CGPoint(x: 101.5, y: 102))
-        grin.addCurve(to: CGPoint(x: 78.5, y: 102), control1: CGPoint(x: 101.5, y: 116.5), control2: CGPoint(x: 78.5, y: 116.5))
-        grin.closeSubpath()
-        mouth.fill(grin, with: ink)
+        mouth.fill(thrivingGrinPath, with: ink)
         var tongue = mouth
-        tongue.clip(to: grin)
-        tongue.fill(Path(ellipseIn: CGRect(x: 83, y: 107.5, width: 14, height: 9)), with: .color(theme.petCheek.opacity(0.9)))
+        tongue.clip(to: thrivingGrinPath)
+        tongue.fill(thrivingTonguePath, with: .color(theme.petCheek.opacity(0.9)))
 
         // Two diamond sparkles blink once on the landing.
         if showsSparkles {
@@ -250,6 +268,19 @@ struct ThrivingIdleCanvas: View {
         g.fill(p, with: .color(theme.primary))
     }
 }
+
+/// The thriving grin and tucked tongue - constant geometry, only the
+/// mouth transform animates, so both are traced once.
+private let thrivingGrinPath: Path = {
+    var grin = Path()
+    grin.move(to: CGPoint(x: 78.5, y: 102))
+    grin.addLine(to: CGPoint(x: 101.5, y: 102))
+    grin.addCurve(to: CGPoint(x: 78.5, y: 102), control1: CGPoint(x: 101.5, y: 116.5), control2: CGPoint(x: 78.5, y: 116.5))
+    grin.closeSubpath()
+    return grin
+}()
+
+private let thrivingTonguePath = Path(ellipseIn: CGRect(x: 83, y: 107.5, width: 14, height: 9))
 
 /// Thriving keyframe tables, as fractions of each track's own loop.
 private enum Thriving {
@@ -326,9 +357,10 @@ struct ContentIdleCanvas: View {
     var theme: MochiTheme
     var size: CGFloat
     var faceInk: Color
+    var paused: Bool = false
 
     var body: some View {
-        TimelineView(.animation) { timeline in
+        TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: paused)) { timeline in
             Canvas { ctx, canvasSize in
                 draw(&ctx, canvasSize: canvasSize, now: timeline.date.timeIntervalSinceReferenceDate)
             }
@@ -415,23 +447,17 @@ struct ContentIdleCanvas: View {
         origin(&mouth, 89.7, 106) {
             $0.scaleBy(x: kf(breathT, ContentV1.mouthScaleX), y: kf(breathT, ContentV1.mouthScaleY))
         }
-        var lip = Path()
-        lip.move(to: CGPoint(x: 81, y: 106))
-        lip.addCurve(to: CGPoint(x: 98.4, y: 106), control1: CGPoint(x: 84.6, y: 111.2), control2: CGPoint(x: 94.8, y: 111.2))
-        mouth.stroke(lip, with: ink, style: StrokeStyle(lineWidth: 3.2, lineCap: .round))
+        mouth.stroke(contentLipPath, with: ink, style: contentLipStyle)
 
     }
 
     /// One lid: `M x 26 h36 v66 a30 22 0 0 1 -36 0 z` - a tall pet-colored
-    /// slab whose bottom edge bows ~4.4px down.
+    /// slab whose bottom edge bows ~4.4px down. Traced once at x = 0 and
+    /// translated per eye.
     private func drawBlinkLid(_ ctx: inout GraphicsContext, x: CGFloat) {
-        var lid = Path()
-        lid.move(to: CGPoint(x: x, y: 26))
-        lid.addLine(to: CGPoint(x: x + 36, y: 26))
-        lid.addLine(to: CGPoint(x: x + 36, y: 92))
-        lid.addQuadCurve(to: CGPoint(x: x, y: 92), control: CGPoint(x: x + 18, y: 100.8))
-        lid.closeSubpath()
-        ctx.fill(lid, with: .color(theme.pet))
+        var g = ctx
+        g.translateBy(x: x, y: 0)
+        g.fill(contentLidPath, with: .color(theme.pet))
     }
 
     private func drawCheek(_ ctx: inout GraphicsContext, cx: CGFloat, t: CGFloat) {
@@ -444,6 +470,25 @@ struct ContentIdleCanvas: View {
         g.fill(Path(ellipseIn: CGRect(x: cx - 12, y: 94, width: 24, height: 16)), with: .color(theme.petCheek))
     }
 }
+
+private let contentLidPath: Path = {
+    var lid = Path()
+    lid.move(to: CGPoint(x: 0, y: 26))
+    lid.addLine(to: CGPoint(x: 36, y: 26))
+    lid.addLine(to: CGPoint(x: 36, y: 92))
+    lid.addQuadCurve(to: CGPoint(x: 0, y: 92), control: CGPoint(x: 18, y: 100.8))
+    lid.closeSubpath()
+    return lid
+}()
+
+private let contentLipPath: Path = {
+    var lip = Path()
+    lip.move(to: CGPoint(x: 81, y: 106))
+    lip.addCurve(to: CGPoint(x: 98.4, y: 106), control1: CGPoint(x: 84.6, y: 111.2), control2: CGPoint(x: 94.8, y: 111.2))
+    return lip
+}()
+
+private let contentLipStyle = StrokeStyle(lineWidth: 3.2, lineCap: .round)
 
 /// Content v1 keyframe tables, as fractions of each track's own loop.
 private enum ContentV1 {
@@ -504,9 +549,10 @@ struct TiredIdleCanvas: View {
     var theme: MochiTheme
     var size: CGFloat
     var faceInk: Color
+    var paused: Bool = false
 
     var body: some View {
-        TimelineView(.animation) { timeline in
+        TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: paused)) { timeline in
             Canvas { ctx, canvasSize in
                 draw(&ctx, canvasSize: canvasSize, now: timeline.date.timeIntervalSinceReferenceDate)
             }
@@ -567,10 +613,7 @@ struct TiredIdleCanvas: View {
         origin(&mouth, 89.2, 107) {
             $0.scaleBy(x: 1 + 0.08 * soft, y: 1 + 0.15 * soft)
         }
-        var lip = Path()
-        lip.move(to: CGPoint(x: 84, y: 107))
-        lip.addCurve(to: CGPoint(x: 94.4, y: 107), control1: CGPoint(x: 86.4, y: 109.6), control2: CGPoint(x: 92, y: 109.6))
-        mouth.stroke(lip, with: ink, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+        mouth.stroke(tiredLipPath, with: ink, style: tiredLipStyle)
 
         // Sweat drips - form, slide 30px and vanish, half a loop apart.
         drawDrip(&ctx, x: 138, y: 74, t: phase(now, period: 7.2))
@@ -584,19 +627,12 @@ struct TiredIdleCanvas: View {
 
     /// One lid: `M x 68 h22 v16 a22 22 0 0 1 -22 0 z` - a pet-colored shade
     /// whose bottom edge bows ~3px down, plus the lash line along that edge.
+    /// Both traced once at x = 0 and translated per eye.
     private func drawLid(_ ctx: inout GraphicsContext, x: CGFloat) {
-        var lid = Path()
-        lid.move(to: CGPoint(x: x, y: 68))
-        lid.addLine(to: CGPoint(x: x + 22, y: 68))
-        lid.addLine(to: CGPoint(x: x + 22, y: 84))
-        lid.addQuadCurve(to: CGPoint(x: x, y: 84), control: CGPoint(x: x + 11, y: 89.9))
-        lid.closeSubpath()
-        ctx.fill(lid, with: .color(theme.pet))
-
-        var lash = Path()
-        lash.move(to: CGPoint(x: x + 0.5, y: 84))
-        lash.addCurve(to: CGPoint(x: x + 21.5, y: 84), control1: CGPoint(x: x + 5, y: 87.4), control2: CGPoint(x: x + 17.5, y: 87.4))
-        ctx.stroke(lash, with: .color(faceInk), style: StrokeStyle(lineWidth: 2.8, lineCap: .round))
+        var g = ctx
+        g.translateBy(x: x, y: 0)
+        g.fill(tiredLidPath, with: .color(theme.pet))
+        g.stroke(tiredLashPath, with: .color(faceInk), style: tiredLashStyle)
     }
 
     private func drawDrip(_ ctx: inout GraphicsContext, x: CGFloat, y: CGFloat, t: CGFloat) {
@@ -609,24 +645,13 @@ struct TiredIdleCanvas: View {
             let sc = kf(t, Tired.dripScale)
             $0.scaleBy(x: sc, y: sc)
         }
-        var drop = Path()
-        drop.move(to: CGPoint(x: x, y: y))
-        drop.addCurve(
-            to: CGPoint(x: x, y: y + 11),
-            control1: CGPoint(x: x + 4, y: y + 6),
-            control2: CGPoint(x: x + 4, y: y + 11)
-        )
-        drop.addCurve(
-            to: CGPoint(x: x, y: y),
-            control1: CGPoint(x: x - 4, y: y + 11),
-            control2: CGPoint(x: x - 4, y: y + 6)
-        )
-        drop.closeSubpath()
-        g.fill(drop, with: .color(Color(hex: 0x8FD3F4)))
+        g.translateBy(x: x, y: y)
+        g.fill(dripPath, with: .color(Color(hex: 0x8FD3F4)))
     }
 
     /// One drifting z. The SVG anchors text at the baseline start; Canvas
-    /// anchors at center, so the glyph center is estimated from the font size.
+    /// anchors at center, so the glyph center is estimated from the font
+    /// size. Strokes the pre-traced unit z scaled by the font size.
     private func drawZ(_ ctx: inout GraphicsContext, x: CGFloat, y: CGFloat, fontSize: CGFloat, t: CGFloat) {
         let op = Double(kf(t, Tired.zOpacity))
         guard op > 0.001 else { return }
@@ -640,15 +665,50 @@ struct TiredIdleCanvas: View {
             $0.scaleBy(x: sc, y: sc)
             $0.rotate(by: .degrees(Double(kf(t, Tired.zRot))))
         }
-        g.draw(
-            Text("z")
-                .font(.system(size: fontSize, weight: .semibold, design: .rounded))
-                .foregroundStyle(theme.primary),
-            at: CGPoint(x: cx, y: cy)
-        )
+        g.translateBy(x: cx, y: cy)
+        g.scaleBy(x: fontSize, y: fontSize)
+        g.stroke(zGlyphPath, with: .color(theme.primary), style: zGlyphStyle)
     }
 
 }
+
+private let tiredLidPath: Path = {
+    var lid = Path()
+    lid.move(to: CGPoint(x: 0, y: 68))
+    lid.addLine(to: CGPoint(x: 22, y: 68))
+    lid.addLine(to: CGPoint(x: 22, y: 84))
+    lid.addQuadCurve(to: CGPoint(x: 0, y: 84), control: CGPoint(x: 11, y: 89.9))
+    lid.closeSubpath()
+    return lid
+}()
+
+private let tiredLashPath: Path = {
+    var lash = Path()
+    lash.move(to: CGPoint(x: 0.5, y: 84))
+    lash.addCurve(to: CGPoint(x: 21.5, y: 84), control1: CGPoint(x: 5, y: 87.4), control2: CGPoint(x: 17.5, y: 87.4))
+    return lash
+}()
+
+private let tiredLashStyle = StrokeStyle(lineWidth: 2.8, lineCap: .round)
+
+private let tiredLipPath: Path = {
+    var lip = Path()
+    lip.move(to: CGPoint(x: 84, y: 107))
+    lip.addCurve(to: CGPoint(x: 94.4, y: 107), control1: CGPoint(x: 86.4, y: 109.6), control2: CGPoint(x: 92, y: 109.6))
+    return lip
+}()
+
+private let tiredLipStyle = StrokeStyle(lineWidth: 3, lineCap: .round)
+
+/// Teardrop at the origin: `c4 6 4 11 0 11 s-4-5 0-11z`.
+private let dripPath: Path = {
+    var drop = Path()
+    drop.move(to: CGPoint(x: 0, y: 0))
+    drop.addCurve(to: CGPoint(x: 0, y: 11), control1: CGPoint(x: 4, y: 6), control2: CGPoint(x: 4, y: 11))
+    drop.addCurve(to: CGPoint(x: 0, y: 0), control1: CGPoint(x: -4, y: 11), control2: CGPoint(x: -4, y: 6))
+    drop.closeSubpath()
+    return drop
+}()
 
 /// Tired keyframe tables, as fractions of each track's own loop.
 private enum Tired {
@@ -680,9 +740,16 @@ struct UnwellIdleCanvas: View {
     var theme: MochiTheme
     var size: CGFloat
     var faceInk: Color
+    /// The mood saturation MochiPetView would otherwise apply as a second
+    /// whole-view filter pass; folded into the fever-fade filter here so
+    /// the unwell pet pays one color pass per frame, never two.
+    var baseSaturation: Double = 1
+    var paused: Bool = false
 
     var body: some View {
-        TimelineView(.animation) { timeline in
+        // 30fps: the mood is near-static by design ("rest as exaggeration"),
+        // and every frame pays a whole-canvas color filter.
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: paused)) { timeline in
             Canvas { ctx, canvasSize in
                 draw(&ctx, canvasSize: canvasSize, now: timeline.date.timeIntervalSinceReferenceDate)
             }
@@ -697,9 +764,10 @@ struct UnwellIdleCanvas: View {
 
         let t = phase(now, period: 5.6)
 
-        // Fever fade - colour drains slightly on each exhale. Relative to the
-        // mood's baseline saturation, which MochiPetView applies outside.
-        ctx.addFilter(.saturation(Double(kf(t, Unwell.fadeSaturation))))
+        // Fever fade - colour drains slightly on each exhale. The mood's
+        // baseline saturation rides in here (baseSaturation) so the whole
+        // pet pays a single filter pass.
+        ctx.addFilter(.saturation(baseSaturation * Double(kf(t, Unwell.fadeSaturation))))
         ctx.addFilter(.brightness(Double(kf(t, Unwell.fadeBrightness))))
 
         // Ground shadow - softens with the shallow breath.
@@ -736,15 +804,8 @@ struct UnwellIdleCanvas: View {
         var brows = g
         brows.opacity = 0.8
         brows.translateBy(x: 0, y: kf(t, Unwell.browTy))
-        let browStyle = StrokeStyle(lineWidth: 3, lineCap: .round)
-        var browL = Path()
-        browL.move(to: CGPoint(x: 64, y: 79))
-        browL.addCurve(to: CGPoint(x: 80, y: 78), control1: CGPoint(x: 68, y: 74), control2: CGPoint(x: 77, y: 74))
-        brows.stroke(browL, with: .color(faceInk), style: browStyle)
-        var browR = Path()
-        browR.move(to: CGPoint(x: 116, y: 79))
-        browR.addCurve(to: CGPoint(x: 100, y: 78), control1: CGPoint(x: 112, y: 74), control2: CGPoint(x: 103, y: 74))
-        brows.stroke(browR, with: .color(faceInk), style: browStyle)
+        brows.stroke(unwellBrowLeftPath, with: .color(faceInk), style: unwellBrowStyle)
+        brows.stroke(unwellBrowRightPath, with: .color(faceInk), style: unwellBrowStyle)
 
         // Heavy-lidded eyes - small pupils under lids that sink further on
         // each exhale.
@@ -762,28 +823,17 @@ struct UnwellIdleCanvas: View {
             $0.scaleBy(x: kf(t, Unwell.grimaceScaleX), y: kf(t, Unwell.grimaceScaleY))
             $0.translateBy(x: 0, y: kf(t, Unwell.grimaceTy))
         }
-        var grimace = Path()
-        grimace.move(to: CGPoint(x: 79, y: 112))
-        grimace.addCurve(to: CGPoint(x: 93, y: 111), control1: CGPoint(x: 83, y: 105), control2: CGPoint(x: 90, y: 105))
-        grimace.addCurve(to: CGPoint(x: 101, y: 111), control1: CGPoint(x: 95, y: 115), control2: CGPoint(x: 99, y: 115))
-        mouth.stroke(grimace, with: ink, style: StrokeStyle(lineWidth: 3.2, lineCap: .round))
+        mouth.stroke(unwellGrimacePath, with: ink, style: unwellGrimaceStyle)
     }
 
     /// One lid: `M x 80 h16 v10 a16 16 0 0 1 -16 0 z` - a pet-colored shade
     /// whose bottom edge bows ~2px down, plus the lash line along that edge.
+    /// Both traced once at x = 0 and translated per eye.
     private func drawLid(_ ctx: inout GraphicsContext, x: CGFloat) {
-        var lid = Path()
-        lid.move(to: CGPoint(x: x, y: 80))
-        lid.addLine(to: CGPoint(x: x + 16, y: 80))
-        lid.addLine(to: CGPoint(x: x + 16, y: 90))
-        lid.addQuadCurve(to: CGPoint(x: x, y: 90), control: CGPoint(x: x + 8, y: 94.3))
-        lid.closeSubpath()
-        ctx.fill(lid, with: .color(theme.pet))
-
-        var lash = Path()
-        lash.move(to: CGPoint(x: x + 0.5, y: 89.5))
-        lash.addCurve(to: CGPoint(x: x + 16, y: 89.5), control1: CGPoint(x: x + 4.1, y: 92.1), control2: CGPoint(x: x + 12.9, y: 92.1))
-        ctx.stroke(lash, with: .color(faceInk), style: StrokeStyle(lineWidth: 2.6, lineCap: .round))
+        var g = ctx
+        g.translateBy(x: x, y: 0)
+        g.fill(unwellLidPath, with: .color(theme.pet))
+        g.stroke(unwellLashPath, with: .color(faceInk), style: unwellLashStyle)
     }
 
     private func drawCheek(_ ctx: inout GraphicsContext, cx: CGFloat, t: CGFloat) {
@@ -796,6 +846,51 @@ struct UnwellIdleCanvas: View {
         g.fill(Path(ellipseIn: CGRect(x: cx - 13, y: 95.5, width: 26, height: 17)), with: .color(theme.petCheek))
     }
 }
+
+private let unwellBrowLeftPath: Path = {
+    var brow = Path()
+    brow.move(to: CGPoint(x: 64, y: 79))
+    brow.addCurve(to: CGPoint(x: 80, y: 78), control1: CGPoint(x: 68, y: 74), control2: CGPoint(x: 77, y: 74))
+    return brow
+}()
+
+private let unwellBrowRightPath: Path = {
+    var brow = Path()
+    brow.move(to: CGPoint(x: 116, y: 79))
+    brow.addCurve(to: CGPoint(x: 100, y: 78), control1: CGPoint(x: 112, y: 74), control2: CGPoint(x: 103, y: 74))
+    return brow
+}()
+
+private let unwellBrowStyle = StrokeStyle(lineWidth: 3, lineCap: .round)
+
+private let unwellLidPath: Path = {
+    var lid = Path()
+    lid.move(to: CGPoint(x: 0, y: 80))
+    lid.addLine(to: CGPoint(x: 16, y: 80))
+    lid.addLine(to: CGPoint(x: 16, y: 90))
+    lid.addQuadCurve(to: CGPoint(x: 0, y: 90), control: CGPoint(x: 8, y: 94.3))
+    lid.closeSubpath()
+    return lid
+}()
+
+private let unwellLashPath: Path = {
+    var lash = Path()
+    lash.move(to: CGPoint(x: 0.5, y: 89.5))
+    lash.addCurve(to: CGPoint(x: 16, y: 89.5), control1: CGPoint(x: 4.1, y: 92.1), control2: CGPoint(x: 12.9, y: 92.1))
+    return lash
+}()
+
+private let unwellLashStyle = StrokeStyle(lineWidth: 2.6, lineCap: .round)
+
+private let unwellGrimacePath: Path = {
+    var grimace = Path()
+    grimace.move(to: CGPoint(x: 79, y: 112))
+    grimace.addCurve(to: CGPoint(x: 93, y: 111), control1: CGPoint(x: 83, y: 105), control2: CGPoint(x: 90, y: 105))
+    grimace.addCurve(to: CGPoint(x: 101, y: 111), control1: CGPoint(x: 95, y: 115), control2: CGPoint(x: 99, y: 115))
+    return grimace
+}()
+
+private let unwellGrimaceStyle = StrokeStyle(lineWidth: 3.2, lineCap: .round)
 
 /// Unwell keyframe tables - everything rides the one 5.6s breath.
 private enum Unwell {
@@ -834,9 +929,12 @@ struct SleepIdleCanvas: View {
     var theme: MochiTheme
     var size: CGFloat
     var faceInk: Color
+    var paused: Bool = false
 
     var body: some View {
-        TimelineView(.animation) { timeline in
+        // 30fps: "real stillness" by design - a sub-degree sway and a
+        // barely-3% breath never need display rate.
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: paused)) { timeline in
             Canvas { ctx, canvasSize in
                 draw(&ctx, canvasSize: canvasSize, now: timeline.date.timeIntervalSinceReferenceDate)
             }
@@ -899,27 +997,13 @@ struct SleepIdleCanvas: View {
             $0.translateBy(x: 0, y: kf(t, Sleep.lidTy))
             $0.scaleBy(x: 1, y: kf(t, Sleep.lidScaleY))
         }
-        let lidStyle = StrokeStyle(lineWidth: 3.4, lineCap: .round)
-        var lidL = Path()
-        lidL.move(to: CGPoint(x: 62, y: 94))
-        lidL.addCurve(to: CGPoint(x: 79, y: 94), control1: CGPoint(x: 66, y: 86), control2: CGPoint(x: 75, y: 86))
-        lids.stroke(lidL, with: .color(faceInk), style: lidStyle)
-        var lidR = Path()
-        lidR.move(to: CGPoint(x: 101, y: 94))
-        lidR.addCurve(to: CGPoint(x: 118, y: 94), control1: CGPoint(x: 105, y: 86), control2: CGPoint(x: 114, y: 86))
-        lids.stroke(lidR, with: .color(faceInk), style: lidStyle)
+        lids.stroke(sleepLidLeftPath, with: .color(faceInk), style: sleepLidStyle)
+        lids.stroke(sleepLidRightPath, with: .color(faceInk), style: sleepLidStyle)
 
         var brows = lids
         brows.opacity = 0.45
-        let browStyle = StrokeStyle(lineWidth: 2.4, lineCap: .round)
-        var browL = Path()
-        browL.move(to: CGPoint(x: 64, y: 82))
-        browL.addCurve(to: CGPoint(x: 79, y: 81), control1: CGPoint(x: 68, y: 78), control2: CGPoint(x: 76, y: 78))
-        brows.stroke(browL, with: .color(faceInk), style: browStyle)
-        var browR = Path()
-        browR.move(to: CGPoint(x: 116, y: 82))
-        browR.addCurve(to: CGPoint(x: 101, y: 81), control1: CGPoint(x: 112, y: 78), control2: CGPoint(x: 103, y: 78))
-        brows.stroke(browR, with: .color(faceInk), style: browStyle)
+        brows.stroke(sleepBrowLeftPath, with: .color(faceInk), style: sleepBrowStyle)
+        brows.stroke(sleepBrowRightPath, with: .color(faceInk), style: sleepBrowStyle)
 
         // Heavy mouth breathing - gapes open on the inhale, shrinks almost
         // shut on the exhale. Origin 50% 15%.
@@ -949,14 +1033,43 @@ struct SleepIdleCanvas: View {
             $0.scaleBy(x: sc, y: sc)
             $0.rotate(by: .degrees(Double(kf(t, Sleep.zRot))))
         }
-        g.draw(
-            Text("z")
-                .font(.system(size: 17, weight: .semibold, design: .rounded))
-                .foregroundStyle(theme.primary),
-            at: CGPoint(x: cx, y: cy)
-        )
+        g.translateBy(x: cx, y: cy)
+        g.scaleBy(x: 17, y: 17)
+        g.stroke(zGlyphPath, with: .color(theme.primary), style: zGlyphStyle)
     }
 }
+
+private let sleepLidLeftPath: Path = {
+    var lid = Path()
+    lid.move(to: CGPoint(x: 62, y: 94))
+    lid.addCurve(to: CGPoint(x: 79, y: 94), control1: CGPoint(x: 66, y: 86), control2: CGPoint(x: 75, y: 86))
+    return lid
+}()
+
+private let sleepLidRightPath: Path = {
+    var lid = Path()
+    lid.move(to: CGPoint(x: 101, y: 94))
+    lid.addCurve(to: CGPoint(x: 118, y: 94), control1: CGPoint(x: 105, y: 86), control2: CGPoint(x: 114, y: 86))
+    return lid
+}()
+
+private let sleepLidStyle = StrokeStyle(lineWidth: 3.4, lineCap: .round)
+
+private let sleepBrowLeftPath: Path = {
+    var brow = Path()
+    brow.move(to: CGPoint(x: 64, y: 82))
+    brow.addCurve(to: CGPoint(x: 79, y: 81), control1: CGPoint(x: 68, y: 78), control2: CGPoint(x: 76, y: 78))
+    return brow
+}()
+
+private let sleepBrowRightPath: Path = {
+    var brow = Path()
+    brow.move(to: CGPoint(x: 116, y: 82))
+    brow.addCurve(to: CGPoint(x: 101, y: 81), control1: CGPoint(x: 112, y: 78), control2: CGPoint(x: 103, y: 78))
+    return brow
+}()
+
+private let sleepBrowStyle = StrokeStyle(lineWidth: 2.4, lineCap: .round)
 
 /// Sleep keyframe tables, as fractions of each track's own loop.
 private enum Sleep {

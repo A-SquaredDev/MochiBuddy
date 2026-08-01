@@ -49,6 +49,10 @@ struct MochiPetView: View {
     /// hosts turn it on for the focal pet (Home hero) where the life is
     /// worth the per-frame cost.
     var alive = false
+    /// Host-driven pause for an alive pet: true while it is covered by a
+    /// sheet, on an unselected tab, or the scene is inactive - the idle
+    /// timeline stops instead of rendering frames nobody can see.
+    var paused = false
     /// Off for static exports (IconExportTests) - the twinkle animation's
     /// first frame renders sparkles washed out.
     var showsSparkles = true
@@ -61,6 +65,7 @@ struct MochiPetView: View {
     var petName = "Mochi"
 
     @Environment(\.mochiTheme) private var theme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var squishTrigger = 0
     @State private var bobPhase = false
     /// True for ~1.3s after a pet - lifts a sad face, blooms color, floats
@@ -73,6 +78,7 @@ struct MochiPetView: View {
         squishOnTap: Bool = true,
         bobbing: Bool = false,
         alive: Bool = false,
+        paused: Bool = false,
         showsSparkles: Bool = true,
         externalSquishTrigger: Int = 0,
         onTap: (() -> Void)? = nil,
@@ -84,6 +90,7 @@ struct MochiPetView: View {
             squishOnTap: squishOnTap,
             bobbing: bobbing,
             alive: alive,
+            paused: paused,
             showsSparkles: showsSparkles,
             externalSquishTrigger: externalSquishTrigger,
             onTap: onTap,
@@ -97,6 +104,7 @@ struct MochiPetView: View {
         squishOnTap: Bool = true,
         bobbing: Bool = false,
         alive: Bool = false,
+        paused: Bool = false,
         showsSparkles: Bool = true,
         externalSquishTrigger: Int = 0,
         onTap: (() -> Void)? = nil,
@@ -107,6 +115,7 @@ struct MochiPetView: View {
         self.squishOnTap = squishOnTap
         self.bobbing = bobbing
         self.alive = alive
+        self.paused = paused
         self.showsSparkles = showsSparkles
         self.externalSquishTrigger = externalSquishTrigger
         self.onTap = onTap
@@ -123,7 +132,9 @@ struct MochiPetView: View {
     /// (MochiScriptedIdle.swift).
     private enum IdleCanvas { case thriving, content, tired, unwell, sleeping }
     private var idleCanvas: IdleCanvas? {
-        guard alive else { return nil }
+        // Reduce Motion falls back to the static canvasBody, which renders
+        // a perfectly good resting pose.
+        guard alive, !reduceMotion else { return nil }
         switch mood {
         case .thriving: return .thriving
         case .content: return .content
@@ -151,6 +162,18 @@ struct MochiPetView: View {
         petComfort ? max(mood.saturation, 0.92) : mood.saturation
     }
 
+    /// The whole-view saturation filter forces an offscreen pass every
+    /// frame, so it is skipped entirely at full color (thriving/content pay
+    /// nothing) and for the alive unwell canvas, which folds the mood
+    /// saturation into its own fever-fade filter - one color pass, never
+    /// two. Trade-off: transitions into full color snap instead of
+    /// crossfading saturation, which the simultaneous face swap already
+    /// dwarfs.
+    private var outerSaturation: Double? {
+        if idleCanvas == .unwell { return nil }
+        return effectiveSaturation < 0.999 ? effectiveSaturation : nil
+    }
+
     /// Squish energy scales with how he feels: a thriving pet bounces hard, an
     /// unwell one gives a gentle, grateful squish.
     private var squishPeak: (x: CGFloat, y: CGFloat) {
@@ -169,15 +192,15 @@ struct MochiPetView: View {
             // micro-life modifiers below stay off for it (continuousLifeActive).
             switch idleCanvas {
             case .thriving:
-                ThrivingIdleCanvas(theme: theme, size: size, faceInk: faceInk, showsSparkles: showsSparkles)
+                ThrivingIdleCanvas(theme: theme, size: size, faceInk: faceInk, showsSparkles: showsSparkles, paused: paused)
             case .content:
-                ContentIdleCanvas(theme: theme, size: size, faceInk: faceInk)
+                ContentIdleCanvas(theme: theme, size: size, faceInk: faceInk, paused: paused)
             case .tired:
-                TiredIdleCanvas(theme: theme, size: size, faceInk: faceInk)
+                TiredIdleCanvas(theme: theme, size: size, faceInk: faceInk, paused: paused)
             case .unwell:
-                UnwellIdleCanvas(theme: theme, size: size, faceInk: faceInk)
+                UnwellIdleCanvas(theme: theme, size: size, faceInk: faceInk, baseSaturation: effectiveSaturation, paused: paused)
             case .sleeping:
-                SleepIdleCanvas(theme: theme, size: size, faceInk: faceInk)
+                SleepIdleCanvas(theme: theme, size: size, faceInk: faceInk, paused: paused)
             case nil:
                 canvasBody
                 if mood == .thriving, showsSparkles {
@@ -199,7 +222,7 @@ struct MochiPetView: View {
                 .allowsHitTesting(false)
         }
         .frame(width: size, height: size * 170 / 180)
-        .saturation(effectiveSaturation)
+        .modifier(OptionalSaturation(value: outerSaturation))
         .animation(MochiMotion.mood, value: mood)
         .animation(.easeInOut(duration: 0.45), value: petComfort)
         .keyframeAnimator(initialValue: SquishValue(), trigger: petKey) { content, value in
@@ -225,7 +248,7 @@ struct MochiPetView: View {
         }
         .offset(y: bobbing && bobPhase ? -5 : 0)
         .onAppear {
-            if bobbing {
+            if bobbing, !reduceMotion {
                 withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) {
                     bobPhase = true
                 }
@@ -432,10 +455,25 @@ private struct SquishValue {
     var y: CGFloat = 1
 }
 
+/// Structurally drops the saturation filter node when no desaturation is
+/// needed - a saturation(1) filter still costs a full offscreen pass.
+private struct OptionalSaturation: ViewModifier {
+    let value: Double?
+
+    func body(content: Content) -> some View {
+        if let value {
+            content.saturation(value)
+        } else {
+            content
+        }
+    }
+}
+
 /// Three z's drifting up from a sleeping Mochi, fading in sequence.
 private struct SleepZzzView: View {
     let ink: Color
     let scale: CGFloat
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var drifting = false
 
     var body: some View {
@@ -445,6 +483,7 @@ private struct SleepZzzView: View {
             zLetter(size: 19, x: 16, y: -19, delay: 0.8)
         }
         .onAppear {
+            guard !reduceMotion else { return }
             withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
                 drifting = true
             }
@@ -550,6 +589,7 @@ private struct HeartShape: Shape {
 private struct SparkleView: View {
     let color: Color
     let delay: Double
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var lit = false
 
     var body: some View {
@@ -558,6 +598,7 @@ private struct SparkleView: View {
             .opacity(lit ? 1 : 0.3)
             .scaleEffect(lit ? 1.15 : 0.8)
             .onAppear {
+                guard !reduceMotion else { return }
                 withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true).delay(delay)) {
                     lit = true
                 }

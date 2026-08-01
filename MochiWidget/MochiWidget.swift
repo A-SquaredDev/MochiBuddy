@@ -89,6 +89,30 @@ struct MochiTimelineProvider: TimelineProvider {
     }
 }
 
+// MARK: - Pet image cache
+
+/// One 3x bitmap per (mood, theme, size) for the archive pass. The
+/// renderer used to run inside body for every one of the 24+ timeline
+/// entries; there are only five moods, so almost all of those were
+/// identical rasterizations of the same pet.
+@MainActor
+private enum PetImageCache {
+    private static var cache: [String: UIImage] = [:]
+
+    static func image(mood: MochiMood, theme: MochiTheme, size: CGFloat) -> UIImage? {
+        let key = "\(mood)|\(theme.id)|\(Int(size.rounded()))"
+        if let hit = cache[key] { return hit }
+        let renderer = ImageRenderer(
+            content: MochiPetView(mood: mood, size: size, showsSparkles: false)
+                .environment(\.mochiTheme, theme)
+        )
+        renderer.scale = 3
+        guard let image = renderer.uiImage else { return nil }
+        cache[key] = image
+        return image
+    }
+}
+
 // MARK: - Entry view
 
 struct MochiWidgetEntryView: View {
@@ -310,14 +334,11 @@ struct MochiWidgetEntryView: View {
 
     /// Rendered to a static image and marked full-color so mood survives
     /// iOS 26's Liquid-Glass tinting (mood is partly carried by color).
+    /// Cached per (mood, theme, size): a 24-entry timeline used to pay 24
+    /// full 3x rasterizations inside body; there are only five moods.
     private func petImage(size: CGFloat) -> some View {
-        let renderer = ImageRenderer(
-            content: MochiPetView(mood: mood, size: size, showsSparkles: false)
-                .environment(\.mochiTheme, theme)
-        )
-        renderer.scale = 3
-        return Group {
-            if let image = renderer.uiImage {
+        Group {
+            if let image = PetImageCache.image(mood: mood, theme: theme, size: size) {
                 Image(uiImage: image)
                     .widgetAccentedRenderingMode(.fullColor)
             } else {

@@ -38,7 +38,11 @@ final class HomeRouter {
             journalCoordinator: container.tabCoordinator,
             widgetDrain: container.widgetCompletionDrain
         )
-        return AnyView(HomeView(viewModel: viewModel, router: self))
+        return AnyView(HomeView(
+            viewModel: viewModel,
+            router: self,
+            coordinator: container.tabCoordinator
+        ))
     }
 
     /// Lapsed "Wake Mochi" CTA - back through the flow, which recognises

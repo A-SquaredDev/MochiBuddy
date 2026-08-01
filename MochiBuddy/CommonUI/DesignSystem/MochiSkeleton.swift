@@ -111,6 +111,10 @@ struct MochiShimmer: ViewModifier {
                 }
             }
             .onAppear {
+                // Reduce Motion hides the overlay above; without this
+                // guard the repeatForever sweep still runs against the
+                // invisible band.
+                guard !reduceMotion else { return }
                 withAnimation(.linear(duration: 1.4).repeatForever(autoreverses: false)) {
                     sweep = true
                 }
