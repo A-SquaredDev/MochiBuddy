@@ -92,11 +92,14 @@ final class FirestoreMomentRepository: MomentRepository {
     }
 
     func ensureMoment(_ moment: Moment, userId: String) async {
-        FirestoreReadLog.record(Self.self)
-        let existing = try? await collection(userId).document(moment.id).getDocument()
-        guard existing?.exists != true else { return }
-        // Not awaited - the fire-and-forget convention. A racing duplicate
-        // is rejected by the create-only rules; its content was identical.
+        // Blind create, no read-before-write: the id is a natural key and
+        // the rules are create-only, so a duplicate is rejected free of
+        // charge (rejected writes are not billed; the existence check paid
+        // a billed read on every attempt). Payloads for the same id are
+        // deterministic aside from createdAt, and nothing user-visible
+        // orders by createdAt, so the transient optimistic apply before a
+        // rejection is invisible.
+        FirestoreReadLog.recordWrite(Self.self)
         collection(userId).document(moment.id).setData(
             MomentFields.fields(for: moment), completion: nil
         )

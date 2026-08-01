@@ -53,6 +53,7 @@ final class FirestoreListRepository: ListRepository {
     }
 
     func createList(name: String, colorHex: String, icon: String, order: Int, userId: String) async throws -> TaskList {
+        FirestoreReadLog.recordWrite(Self.self)
         let reference = lists(userId).addDocument(data: [
             "name": name,
             "color": colorHex,
@@ -63,18 +64,22 @@ final class FirestoreListRepository: ListRepository {
     }
 
     func renameList(id: String, name: String, userId: String) async throws {
+        FirestoreReadLog.recordWrite(Self.self)
         lists(userId).document(id).setData(["name": name], merge: true, completion: nil)
     }
 
     func updateListColor(id: String, colorHex: String, userId: String) async throws {
+        FirestoreReadLog.recordWrite(Self.self)
         lists(userId).document(id).setData(["color": colorHex], merge: true, completion: nil)
     }
 
     func deleteList(id: String, userId: String) async throws {
+        FirestoreReadLog.recordWrite(Self.self)
         lists(userId).document(id).delete(completion: nil)
     }
 
     func saveOrder(ids: [String], userId: String) async throws {
+        FirestoreReadLog.recordWrite(Self.self)
         let batch = firestore.batch()
         for (index, id) in ids.enumerated() {
             batch.setData(["order": index], forDocument: lists(userId).document(id), merge: true)

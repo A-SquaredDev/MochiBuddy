@@ -47,6 +47,9 @@ final class AppContainer {
     let authRepository: AuthRepository
     let profileRepository: UserProfileRepository
     let taskRepository: TaskRepository
+    /// The same instance as taskRepository, typed for the foreground
+    /// pipeline's refresh call.
+    let cachingTaskRepository: CachingTaskRepository
     let listRepository: ListRepository
     let accountEraser: AccountEraser
     let membershipStore: MembershipStore
@@ -90,7 +93,14 @@ final class AppContainer {
         profileRepository = CachingUserProfileRepository(
             wrapping: FirestoreUserProfileRepository(firestore: firestore)
         )
-        taskRepository = FirestoreTaskRepository(firestore: firestore)
+        // Write-through task cache: every in-app task read and write flows
+        // through this one instance, so the arrays stay coherent and only
+        // the foreground pipeline pays real queries.
+        let taskCache = CachingTaskRepository(
+            wrapping: FirestoreTaskRepository(firestore: firestore)
+        )
+        cachingTaskRepository = taskCache
+        taskRepository = taskCache
         listRepository = FirestoreListRepository(firestore: firestore)
         // -mochiLocalMembership keeps membership device-local for UI work
         // without touching StoreKit/sandbox.
@@ -149,7 +159,7 @@ final class AppContainer {
             authRepository: authRepository,
             profileRepository: profileRepository
         )
-        observationService = ObservationService(
+        let observations = ObservationService(
             authRepository: authRepository,
             profileRepository: profileRepository,
             taskRepository: taskRepository,
@@ -157,6 +167,12 @@ final class AppContainer {
             ledger: observationLedger,
             telemetry: OSLogObservationTelemetry()
         )
+        observationService = observations
+        // Every task mutation invalidates the memoized 132-day observation
+        // fetch, so no surface can ever read pre-mutation history.
+        taskCache.onMutation = { [weak observations] in
+            observations?.invalidateInputs()
+        }
         // Feature 5: the editor's suggested-time chip - assembles a
         // session over the observation fetch, owns the dismissal ledger.
         suggestionService = SuggestionService(

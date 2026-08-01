@@ -14,15 +14,24 @@ import Foundation
 final class CachingUserProfileRepository: UserProfileRepository {
 
     private let wrapped: UserProfileRepository
+    private let refreshTTL: TimeInterval
+    private let now: () -> Date
 
     private var cached: UserProfile?
     /// Bumped on every cache mutation so an in-flight background refresh
     /// that started earlier can't clobber newer local state.
     private var version = 0
+    private var lastRefreshAt: Date?
     private(set) var refreshTask: Task<Void, Never>?
 
-    init(wrapping wrapped: UserProfileRepository) {
+    init(
+        wrapping wrapped: UserProfileRepository,
+        refreshTTL: TimeInterval = 5 * 60,
+        now: @escaping () -> Date = { .now }
+    ) {
         self.wrapped = wrapped
+        self.refreshTTL = refreshTTL
+        self.now = now
     }
 
     func fetchProfile(userId: String) async throws -> UserProfile? {
@@ -34,11 +43,21 @@ final class CachingUserProfileRepository: UserProfileRepository {
         let profile = try await wrapped.fetchProfile(userId: userId)
         version += 1
         cached = profile
+        lastRefreshAt = now()
         return profile
     }
 
     private func refreshInBackground(userId: String) {
         guard refreshTask == nil else { return }
+        // TTL: this device wrote the profile last in almost every case
+        // (write-through keeps the cache exact), so refreshing on every
+        // hit converted a "cache" into 20 to 40 billed reads per session.
+        // Cross-device staleness is bounded by the TTL, same order as a
+        // foreground's worth today.
+        if let lastRefreshAt, now().timeIntervalSince(lastRefreshAt) < refreshTTL {
+            return
+        }
+        lastRefreshAt = now()
         let startVersion = version
         refreshTask = Task { [weak self] in
             defer { self?.refreshTask = nil }
@@ -179,6 +198,25 @@ final class CachingUserProfileRepository: UserProfileRepository {
     func incrementCoins(by delta: Int, userId: String) async throws {
         try await wrapped.incrementCoins(by: delta, userId: userId)
         mutate(userId) { $0.coins += delta }
+    }
+
+    func applyCompletion(
+        coinsDelta: Int, streakCount: Int, best: Int,
+        bestAchievedOn: String?, lastActiveDate: Date, userId: String
+    ) async throws {
+        try await wrapped.applyCompletion(
+            coinsDelta: coinsDelta, streakCount: streakCount, best: best,
+            bestAchievedOn: bestAchievedOn, lastActiveDate: lastActiveDate, userId: userId
+        )
+        mutate(userId) {
+            $0.coins += coinsDelta
+            $0.streakCount = streakCount
+            $0.bestStreakCount = best
+            if let bestAchievedOn {
+                $0.bestStreakAchievedOn = bestAchievedOn
+            }
+            $0.lastActiveDate = lastActiveDate
+        }
     }
 
     func saveStreak(

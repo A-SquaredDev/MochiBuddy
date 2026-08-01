@@ -89,6 +89,21 @@ struct LetterCompositionServiceTests {
         })
     }
 
+    @Test("the archive existence check runs once per period, not every foreground")
+    func archiveCheckMemoized() async {
+        let harness = Harness()
+        harness.seedPreviousPeriodCompletions()
+        await harness.service.handleUserForeground(now: Dates.now)
+        #expect(harness.letterRepo.stored.count == 1)
+
+        let fetchesAfterCompose = harness.letterRepo.archiveFetches
+        await harness.service.handleUserForeground(now: Dates.hours(2))
+        await harness.service.handleUserForeground(now: Dates.hours(4))
+        #expect(harness.letterRepo.archiveFetches == fetchesAfterCompose + 2,
+                "each foreground pays exactly ONE archive read (the unread-envelope refresh, by design) and never a second for the existence check")
+        #expect(harness.letterRepo.stored.count == 1, "and still exactly one letter")
+    }
+
     @Test("the current period's engagement marker is stamped on foreground")
     func marksEngagement() async {
         let harness = Harness()

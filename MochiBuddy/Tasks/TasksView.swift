@@ -12,9 +12,10 @@ struct TasksView: View {
         TasksBehavior.NavigationEvent
     >
     let router: any TasksRouting
+    /// RootView's foreground pipeline signal - see HomeView.
+    let coordinator: TabCoordinator
 
     @Environment(\.mochiTheme) private var theme
-    @Environment(\.scenePhase) private var scenePhase
     @State private var celebrationDrag: CGFloat = 0
 
     var body: some View {
@@ -48,8 +49,10 @@ struct TasksView: View {
         .onAppear { viewModel.trigger(.refresh) }
         // onAppear only re-fires on tab re-selection - without this, a
         // foreground with Tasks already visible keeps stale Reminders rows.
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active { viewModel.trigger(.refresh) }
+        // The pulse fires after RootView's pipeline, so this reads warm
+        // caches instead of racing its own queries.
+        .onChange(of: coordinator.foregroundPulse) { _, _ in
+            viewModel.trigger(.refresh)
         }
         .sheet(
             item: viewModel.collectBinding(for: \.editingTask, action: { _ in .editorDismissed })

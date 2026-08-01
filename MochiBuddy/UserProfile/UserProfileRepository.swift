@@ -53,6 +53,14 @@ protocol UserProfileRepository: AnyObject {
     func saveStreak(
         count: Int, best: Int, bestAchievedOn: String?, lastActiveDate: Date, userId: String
     ) async throws
+    /// The completion hot path in ONE billed document write: the coin
+    /// delta and all streak fields merged together. Completing a task is
+    /// the app's most frequent action; splitting this into incrementCoins
+    /// plus saveStreak doubles its write cost.
+    func applyCompletion(
+        coinsDelta: Int, streakCount: Int, best: Int,
+        bestAchievedOn: String?, lastActiveDate: Date, userId: String
+    ) async throws
 }
 
 final class FirestoreUserProfileRepository: UserProfileRepository {
@@ -85,6 +93,7 @@ final class FirestoreUserProfileRepository: UserProfileRepository {
         FirestoreReadLog.record(Self.self)
         let snapshot = try await document(account.uid).getDocument()
         guard !snapshot.exists else { return }
+        FirestoreReadLog.recordWrite(Self.self)
         // Not awaited: with offline persistence on, server acks can be
         // arbitrarily delayed - the local cache applies the write instantly.
         document(account.uid).setData([
@@ -163,6 +172,7 @@ final class FirestoreUserProfileRepository: UserProfileRepository {
 
     func stampAdoption(_ dateString: String, moment: Moment, userId: String) async throws {
         guard AdoptedOnDate.isValid(dateString) else { return }
+        FirestoreReadLog.recordWrite(Self.self)
         // One batch, so the date and its adoption moment land (and cache)
         // together. Not awaited - the fire-and-forget convention.
         let batch = firestore.batch()
@@ -225,7 +235,25 @@ final class FirestoreUserProfileRepository: UserProfileRepository {
         try await merge(fields, userId: userId)
     }
 
+    func applyCompletion(
+        coinsDelta: Int, streakCount: Int, best: Int,
+        bestAchievedOn: String?, lastActiveDate: Date, userId: String
+    ) async throws {
+        var fields: [String: Any] = [
+            "coins": FieldValue.increment(Int64(coinsDelta)),
+            "streakCount": streakCount,
+            "bestStreakCount": best,
+            "lastActiveDate": Timestamp(date: lastActiveDate),
+        ]
+        // Nil never clears - same contract as saveStreak.
+        if let bestAchievedOn {
+            fields["bestStreakAchievedOn"] = bestAchievedOn
+        }
+        try await merge(fields, userId: userId)
+    }
+
     private func merge(_ fields: [String: Any], userId: String) async throws {
+        FirestoreReadLog.recordWrite(Self.self)
         // Not awaited - see ensureProfile. The write lands in the local cache
         // immediately and syncs when the network allows.
         document(userId).setData(fields, merge: true, completion: nil)

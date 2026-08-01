@@ -49,7 +49,11 @@ final class TasksRouter: TasksRouting {
             relay: container.notificationOrchestrator,
             suggestionService: container.suggestionService
         )
-        return AnyView(TasksView(viewModel: viewModel, router: self))
+        return AnyView(TasksView(
+            viewModel: viewModel,
+            router: self,
+            coordinator: container.tabCoordinator
+        ))
     }
 
     func taskEditor(task: TaskItem?, draftTitle: String?, draftListId: String?) -> AnyView {

@@ -120,10 +120,19 @@ struct RootView: View {
                         container.session.phase = .flow
                         return
                     }
+                    // The ONE real data refresh per foreground: the task
+                    // cache re-fetches, then the tabs re-derive from warm
+                    // caches via the pulse below (their own scenePhase
+                    // refreshes are gone - three overlapping pipelines
+                    // used to re-read the same collections).
+                    if let userId = container.authRepository.currentAccount?.uid {
+                        await container.cachingTaskRepository.refresh(userId: userId)
+                    }
                     // After the drain, so the composition barrier's flush
                     // sees widget completions already durable.
                     await container.letterCompositionService.handleUserForeground()
                     container.notificationOrchestrator.requestRelay(.appForeground)
+                    container.tabCoordinator.pulseForeground()
                 }
             }
         }

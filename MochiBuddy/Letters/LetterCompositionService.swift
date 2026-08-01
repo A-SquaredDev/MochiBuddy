@@ -37,6 +37,10 @@ final class LetterCompositionService {
 
     /// Marker existence is checked at most once per period per launch.
     @ObservationIgnored private var markerEnsuredForPeriod: String?
+    /// A period whose letter is confirmed to exist (found in the archive
+    /// or composed by us) - the archive existence query runs at most once
+    /// per period per launch instead of every foreground.
+    @ObservationIgnored private var composedCheckedForPeriod: String?
 
     init(
         authRepository: AuthRepository,
@@ -215,9 +219,17 @@ final class LetterCompositionService {
             else { return }
         }
 
+        // The answer for a period cannot change once a letter exists, so
+        // one confirmation per period is enough (markerEnsuredForPeriod's
+        // twin) - without this the whole archive was re-read every
+        // foreground.
+        if composedCheckedForPeriod == candidate.id {
+            return
+        }
         // Cheap existence check from cache before paying the barrier.
         if let cached = try? await letterRepository.letters(userId: userId),
            cached.contains(where: { $0.id == candidate.id }) {
+            composedCheckedForPeriod = candidate.id
             return
         }
 
@@ -307,6 +319,9 @@ final class LetterCompositionService {
         guard let stored = try? await letterRepository.createLetterIfAbsent(letter, userId: userId) else {
             return
         }
+        // Win or lose, the period's letter now exists - the archive check
+        // never needs to run again this launch.
+        composedCheckedForPeriod = period.id
         if stored.composedAt == letter.composedAt, stored.periodSummaryHash == letter.periodSummaryHash {
             // Our create won: this is the one place a letter is born.
             telemetry?.log(.composed(

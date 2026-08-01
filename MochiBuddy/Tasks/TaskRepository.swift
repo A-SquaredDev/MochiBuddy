@@ -188,6 +188,7 @@ final class FirestoreTaskRepository: TaskRepository {
         if let estimatedMinutes = draft.estimatedMinutes {
             fields["estimatedMinutes"] = estimatedMinutes
         }
+        FirestoreReadLog.recordWrite(Self.self)
         // Not awaited: offline persistence applies the write to the local
         // cache instantly; awaiting would block until a server ack.
         if let id {
@@ -221,6 +222,7 @@ final class FirestoreTaskRepository: TaskRepository {
     }
 
     func updateTask(_ task: TaskItem, countingReschedule: Bool, userId: String) async throws {
+        FirestoreReadLog.recordWrite(Self.self)
         var fields: [String: Any] = [
             "title": task.title,
             "hasTime": task.hasTime,
@@ -242,6 +244,7 @@ final class FirestoreTaskRepository: TaskRepository {
     }
 
     func snoozeTask(id: String, to newDueAt: Date, userId: String) async throws {
+        FirestoreReadLog.recordWrite(Self.self)
         tasks(userId).document(id).setData([
             "dueAt": Timestamp(date: newDueAt),
             "rescheduleCount": FieldValue.increment(Int64(1)),
@@ -250,6 +253,7 @@ final class FirestoreTaskRepository: TaskRepository {
     }
 
     func rollForwardTask(id: String, to newDueAt: Date, missedOccurrences: Int, userId: String) async throws {
+        FirestoreReadLog.recordWrite(Self.self)
         tasks(userId).document(id).setData([
             "dueAt": Timestamp(date: newDueAt),
             "missedCount": FieldValue.increment(Int64(missedOccurrences)),
@@ -259,6 +263,7 @@ final class FirestoreTaskRepository: TaskRepository {
     }
 
     func deleteTask(id: String, userId: String) async throws {
+        FirestoreReadLog.recordWrite(Self.self)
         tasks(userId).document(id).delete(completion: nil)
     }
 
@@ -273,6 +278,7 @@ final class FirestoreTaskRepository: TaskRepository {
     }
 
     func setCompleted(taskId: String, completed: Bool, localContext: CompletionLocalContext?, completedAt: Date?, userId: String) async throws {
+        FirestoreReadLog.recordWrite(Self.self)
         var fields: [String: Any] = [
             "completed": completed,
             "updatedAt": FieldValue.serverTimestamp(),

@@ -76,9 +76,11 @@ struct HomeView: View {
         .onAppear { viewModel.trigger(.refresh) }
         // onAppear never re-fires on a resident view, so without this a
         // widget completion drained on foreground stays invisible until a
-        // tab switch. The refresh awaits the drain, so order is safe.
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active { viewModel.trigger(.refresh) }
+        // tab switch. The pulse fires AFTER RootView's pipeline (drain +
+        // task-cache refresh), so this refresh reads warm caches in the
+        // right order instead of racing its own Firestore queries.
+        .onChange(of: coordinator.foregroundPulse) { _, _ in
+            viewModel.trigger(.refresh)
         }
         .sheet(isPresented: viewModel.collectBinding(for: \.showTreats, action: .dismissTreats)) {
             TreatShopSheet(viewModel: viewModel)

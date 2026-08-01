@@ -289,12 +289,18 @@ final class StubProfileRepository: UserProfileRepository {
     /// Parallel to savedStreaks: the bestStreakAchievedOn passed with each
     /// save (nil = pass-through of "no stamped date").
     private(set) var savedBestAchievedOns: [String?] = []
+    /// How many of the writes above arrived through the merged one-write
+    /// completion path (which also appends to coinDeltas and savedStreaks
+    /// so value assertions stay uniform).
+    private(set) var applyCompletionCount = 0
+    private(set) var fetchCount = 0
     private(set) var accountLinks: [(provider: String, displayName: String?, userId: String)] = []
     private(set) var membershipMirrors: [(isSubscribed: Bool, trialEndsAt: Date?, userId: String)] = []
     private(set) var ensuredAccounts: [AuthAccount] = []
 
     func fetchProfile(userId: String) async throws -> UserProfile? {
         if let fetchError { throw fetchError }
+        fetchCount += 1
         return profile
     }
     /// Barrier fetch: a distinct server truth when set, else the profile.
@@ -397,6 +403,22 @@ final class StubProfileRepository: UserProfileRepository {
             self.profile = profile
         }
     }
+
+    func applyCompletion(
+        coinsDelta: Int, streakCount: Int, best: Int,
+        bestAchievedOn: String?, lastActiveDate: Date, userId: String
+    ) async throws {
+        applyCompletionCount += 1
+        coinDeltas.append(coinsDelta)
+        try await saveStreak(
+            count: streakCount, best: best, bestAchievedOn: bestAchievedOn,
+            lastActiveDate: lastActiveDate, userId: userId
+        )
+        if var profile {
+            profile.coins += coinsDelta
+            self.profile = profile
+        }
+    }
 }
 
 final class StubTaskRepository: TaskRepository {
@@ -419,6 +441,13 @@ final class StubTaskRepository: TaskRepository {
     private(set) var snoozeCalls: [(id: String, newDueAt: Date)] = []
     private(set) var rollForwardCalls: [(id: String, newDueAt: Date, missed: Int)] = []
     private(set) var deletedIds: [String] = []
+    // Read counters - the caching decorator's tests pin exactly how many
+    // real fetches a scenario is allowed to cost.
+    private(set) var incompleteFetches = 0
+    private(set) var completedLimitFetches = 0
+    private(set) var completedSinceFetches = 0
+    private(set) var statsFetches = 0
+    private(set) var taskByIdFetches = 0
 
     func allocateTaskId(userId: String) -> String { nextAllocatedTaskId }
     @discardableResult
@@ -427,13 +456,28 @@ final class StubTaskRepository: TaskRepository {
         addedTaskIds.append(id)
         return id ?? nextAddedTaskId
     }
-    func incompleteTasks(userId: String) async throws -> [TaskItem] { incomplete }
-    func task(id: String, userId: String) async throws -> TaskItem? {
-        (incomplete + completed).first { $0.id == id }
+    /// When set, incompleteTasks parks here after counting the fetch -
+    /// lets a test hold a fetch in flight while a mutation lands.
+    var incompleteFetchDelay: (() async -> Void)?
+
+    func incompleteTasks(userId: String) async throws -> [TaskItem] {
+        incompleteFetches += 1
+        if let incompleteFetchDelay {
+            await incompleteFetchDelay()
+        }
+        return incomplete
     }
-    func completedTasks(limit: Int, userId: String) async throws -> [TaskItem] { completed }
+    func task(id: String, userId: String) async throws -> TaskItem? {
+        taskByIdFetches += 1
+        return (incomplete + completed).first { $0.id == id }
+    }
+    func completedTasks(limit: Int, userId: String) async throws -> [TaskItem] {
+        completedLimitFetches += 1
+        return Array(completed.prefix(limit))
+    }
     func completedTasks(since: Date, userId: String) async throws -> [TaskItem] {
-        completed.filter { ($0.completedAt ?? .distantPast) >= since }
+        completedSinceFetches += 1
+        return completed.filter { ($0.completedAt ?? .distantPast) >= since }
     }
     func setCompleted(taskId: String, completed: Bool, localContext: CompletionLocalContext?, completedAt: Date?, userId: String) async throws {
         setCompletedCalls.append((taskId, completed))
@@ -454,15 +498,21 @@ final class StubTaskRepository: TaskRepository {
     func incompleteTaskCount(userId: String) async throws -> Int { incomplete.count }
     func totalTaskCount(userId: String) async throws -> Int { incomplete.count + completed.count }
     func completedTaskStats(since: Date, userId: String) async throws -> [CompletedTaskStat] {
-        completedStats.filter { $0.completedAt >= since }
+        statsFetches += 1
+        return completedStats.filter { $0.completedAt >= since }
     }
     func completedTaskStatsFromServer(since: Date, userId: String) async throws -> [CompletedTaskStat] {
-        completedStats.filter { $0.completedAt >= since }
+        statsFetches += 1
+        return completedStats.filter { $0.completedAt >= since }
     }
     func completedTasksFromServer(since: Date, userId: String) async throws -> [TaskItem] {
-        completed.filter { ($0.completedAt ?? .distantPast) >= since }
+        completedSinceFetches += 1
+        return completed.filter { ($0.completedAt ?? .distantPast) >= since }
     }
-    func incompleteTasksFromServer(userId: String) async throws -> [TaskItem] { incomplete }
+    func incompleteTasksFromServer(userId: String) async throws -> [TaskItem] {
+        incompleteFetches += 1
+        return incomplete
+    }
 }
 
 /// In-memory letters + activityWeeks with an ordered call log so the
@@ -473,9 +523,11 @@ final class StubLetterRepository: LetterRepository {
     var markers: Set<String> = []
     var flushError: Error?
     private(set) var callLog: [String] = []
+    private(set) var archiveFetches = 0
 
     func letters(userId: String) async throws -> [Letter] {
-        stored.sorted { $0.periodStart > $1.periodStart }
+        archiveFetches += 1
+        return stored.sorted { $0.periodStart > $1.periodStart }
     }
     func lettersFromServer(userId: String) async throws -> [Letter] {
         callLog.append("serverArchive")

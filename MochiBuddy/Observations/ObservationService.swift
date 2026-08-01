@@ -46,6 +46,26 @@ final class ObservationService {
         authRepository.currentAccount?.uid
     }
 
+    /// The memoized expensive half of the inputs: the 132-day completion
+    /// scan and the list-id set, keyed by (userId, civil day). The profile
+    /// half (intervals, logSince) is refetched every call - it comes from
+    /// the write-through profile cache, so it is free and always current.
+    /// Invalidated by every task mutation (CachingTaskRepository.onMutation,
+    /// wired in AppContainer) and by the day key rolling over. A list
+    /// deleted mid-day can linger in the set until then; surfaces degrade
+    /// gracefully (a list-return line without a surviving name renders nil,
+    /// pinned by test).
+    private var cachedFetch: (
+        userId: String, day: String,
+        records: [CompletedTaskStat], knownListIds: Set<String>
+    )?
+
+    /// Wired to the task cache's mutation hook - pre-mutation history must
+    /// never satisfy a post-mutation read.
+    func invalidateInputs() {
+        cachedFetch = nil
+    }
+
     /// The full engine evaluation at an instant. `now`/`calendar` are
     /// explicit so the inspector's time travel and tests replay history
     /// without touching a clock.
@@ -122,17 +142,31 @@ final class ObservationService {
         guard let profile = try? await profileRepository.fetchProfile(userId: userId) else {
             return nil
         }
+        let day = CivilDay(of: now, in: calendar).dateString
+        if let cached = cachedFetch, cached.userId == userId, cached.day == day {
+            FirestoreReadLog.recordCacheHit(Self.self)
+            return ObservationEngine.Inputs(
+                records: cached.records,
+                intervals: profile.observationIntervals,
+                logSince: profile.observationLogSince,
+                knownListIds: cached.knownListIds,
+                calendar: calendar,
+                now: now
+            )
+        }
         // The fixed fetch horizon: replay depth + the window each daily
         // snapshot looks back over (part of the algorithm's definition).
         let horizonDays = ObservationConstants.replayDays + ObservationConstants.windowDays
         let since = now.addingTimeInterval(-TimeInterval(horizonDays) * 86_400)
         let records = (try? await taskRepository.completedTaskStats(since: since, userId: userId)) ?? []
         let lists = (try? await listRepository.fetchLists(userId: userId)) ?? []
+        let listIds = Set(lists.map(\.id))
+        cachedFetch = (userId: userId, day: day, records: records, knownListIds: listIds)
         return ObservationEngine.Inputs(
             records: records,
             intervals: profile.observationIntervals,
             logSince: profile.observationLogSince,
-            knownListIds: Set(lists.map(\.id)),
+            knownListIds: listIds,
             calendar: calendar,
             now: now
         )

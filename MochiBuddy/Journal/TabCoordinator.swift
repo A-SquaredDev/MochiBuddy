@@ -43,6 +43,17 @@ final class TabCoordinator {
     /// the didSet above knows this open was routed, not browsed.
     private(set) var pendingLetterRoute: PendingLetterRoute?
 
+    /// Bumped by RootView once its foreground pipeline (widget drain,
+    /// entitlement, task-cache refresh) has finished. Tab views re-derive
+    /// on this instead of running their own scenePhase refreshes, so one
+    /// foreground pays one set of real queries and every tab reads the
+    /// warm caches - in the right order, after the drain.
+    private(set) var foregroundPulse = 0
+
+    func pulseForeground() {
+        foregroundPulse += 1
+    }
+
     private let telemetry: JournalTelemetry?
 
     init(telemetry: JournalTelemetry? = nil) {

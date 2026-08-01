@@ -82,6 +82,16 @@ struct RewardsStreakTests {
         return (RewardsStore(profileRepository: repo), repo)
     }
 
+    @Test("a completion is exactly ONE billed profile write - the merged hot path")
+    func completionIsOneWrite() async {
+        let (store, repo) = store(profile: makeProfile())
+        _ = await store.awardCompletion(userId: "user1")
+        #expect(repo.applyCompletionCount == 1,
+                "coins and streak must merge; the old split path doubled the app's hottest write")
+        #expect(repo.coinDeltas.count == 1)
+        #expect(repo.savedStreaks.count == 1)
+    }
+
     @Test("the very first completion starts a 1-day streak")
     func firstCompletion() async {
         let (store, repo) = store(profile: makeProfile())

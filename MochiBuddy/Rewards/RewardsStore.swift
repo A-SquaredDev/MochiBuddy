@@ -72,10 +72,11 @@ final class RewardsStore {
             ? AdoptedOnDate.string(from: day)
             : profile?.bestStreakAchievedOn
 
-        try? await profileRepository.incrementCoins(by: Self.coinsPerTask, userId: userId)
-        try? await profileRepository.saveStreak(
-            count: streak, best: best, bestAchievedOn: bestAchievedOn,
-            lastActiveDate: lastActiveToSave, userId: userId
+        // One merged write: completions are the app's hottest action, and
+        // coins plus streak in one merge halves its billed write cost.
+        try? await profileRepository.applyCompletion(
+            coinsDelta: Self.coinsPerTask, streakCount: streak, best: best,
+            bestAchievedOn: bestAchievedOn, lastActiveDate: lastActiveToSave, userId: userId
         )
         return CompletionOutcome(
             coinsDelta: Self.coinsPerTask, streak: streak, bestStreak: best, streakExtended: extended

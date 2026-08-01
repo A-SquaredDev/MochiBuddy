@@ -33,6 +33,7 @@ final class FirestoreAccountEraser: AccountEraser {
         try await deleteAllDocuments(in: userDocument.collection("activityWeeks"))
         // Journal moments (Feature 6, edge case 20) ride the same path.
         try await deleteAllDocuments(in: userDocument.collection("moments"))
+        FirestoreReadLog.recordWrite(Self.self)
         try await userDocument.delete()
     }
 
@@ -41,6 +42,7 @@ final class FirestoreAccountEraser: AccountEraser {
         // Firestore caps a batch at 500 writes.
         let snapshot = try await collection.getDocuments()
         for chunk in snapshot.documents.chunked(into: 450) {
+            FirestoreReadLog.recordWrite(Self.self)
             let batch = firestore.batch()
             for document in chunk {
                 batch.deleteDocument(document.reference)

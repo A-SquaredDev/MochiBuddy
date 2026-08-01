@@ -26,11 +26,12 @@ struct CachingProfileRepositoryTests {
         #expect(second?.coins == 5)
     }
 
-    @Test("A cache hit still refreshes from the source in the background")
+    @Test("A cache hit still refreshes from the source once the TTL passes")
     func backgroundRefreshUpdatesCache() async throws {
         let stub = StubProfileRepository()
         stub.profile = makeProfile(coins: 5)
-        let repo = CachingUserProfileRepository(wrapping: stub)
+        // TTL zero: every hit is past the TTL, the pre-TTL behavior.
+        let repo = CachingUserProfileRepository(wrapping: stub, refreshTTL: 0)
 
         _ = try await repo.fetchProfile(userId: "user1")
         stub.profile = makeProfile(coins: 99)
@@ -39,6 +40,41 @@ struct CachingProfileRepositoryTests {
         await repo.refreshTask?.value
         let refreshed = try await repo.fetchProfile(userId: "user1")
         #expect(refreshed?.coins == 99)
+    }
+
+    @Test("Inside the TTL a cache hit costs ZERO source reads")
+    func ttlSuppressesBackgroundRefresh() async throws {
+        let stub = StubProfileRepository()
+        let repo = CachingUserProfileRepository(wrapping: stub, refreshTTL: 300)
+
+        _ = try await repo.fetchProfile(userId: "user1")
+        #expect(stub.fetchCount == 1)
+
+        for _ in 0..<10 {
+            _ = try await repo.fetchProfile(userId: "user1")
+        }
+        await repo.refreshTask?.value
+        #expect(stub.fetchCount == 1,
+                "the old behavior spawned a real server read on every hit - 20 to 40 per session")
+    }
+
+    @Test("The TTL expires on the injected clock, not wall time")
+    func ttlExpiresWithClock() async throws {
+        let stub = StubProfileRepository()
+        var clock = Dates.now
+        let repo = CachingUserProfileRepository(
+            wrapping: stub, refreshTTL: 300, now: { clock }
+        )
+
+        _ = try await repo.fetchProfile(userId: "user1")
+        _ = try await repo.fetchProfile(userId: "user1")
+        await repo.refreshTask?.value
+        #expect(stub.fetchCount == 1)
+
+        clock = Dates.now.addingTimeInterval(301)
+        _ = try await repo.fetchProfile(userId: "user1")
+        await repo.refreshTask?.value
+        #expect(stub.fetchCount == 2, "one refresh per elapsed TTL window")
     }
 
     @Test("Writes flow through to the cached copy")

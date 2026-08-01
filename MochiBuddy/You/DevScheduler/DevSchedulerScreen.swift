@@ -533,6 +533,45 @@ final class DevSchedulerViewModel: StateViewModel<
     }
 }
 
+/// Today's Firestore call tally (NetworkCallMeter): the what-does-a-day-
+/// cost number the caching layer is judged against. Day-keyed, so the
+/// midnight reset is structural.
+private struct DevNetworkMeterSection: View {
+    @Environment(\.mochiTheme) private var theme
+    @State private var snapshot = NetworkCallMeter.shared.snapshot()
+
+    var body: some View {
+        MochiCard(padding: EdgeInsets(top: 12, leading: 15, bottom: 12, trailing: 15)) {
+            HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Firestore calls today")
+                        .font(MochiFont.body(11, weight: .heavy))
+                        .foregroundStyle(theme.muted)
+                    Text("\(snapshot.total) total · \(snapshot.reads) reads · \(snapshot.writes) writes")
+                        .font(MochiFont.display(15, weight: .semibold))
+                        .foregroundStyle(theme.ink)
+                    Text("Resets at midnight · batches count once · SDK traffic not counted")
+                        .font(MochiFont.body(9.5, weight: .bold))
+                        .foregroundStyle(theme.muted)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                VStack(alignment: .trailing, spacing: 8) {
+                    Button("Refresh") {
+                        snapshot = NetworkCallMeter.shared.snapshot()
+                    }
+                    Button("Zero") {
+                        NetworkCallMeter.shared.reset()
+                        snapshot = NetworkCallMeter.shared.snapshot()
+                    }
+                }
+                .font(MochiFont.body(11, weight: .heavy))
+                .foregroundStyle(theme.primaryText)
+            }
+        }
+        .onAppear { snapshot = NetworkCallMeter.shared.snapshot() }
+    }
+}
+
 struct DevSchedulerView: View {
     @State var viewModel: StateViewModel<
         DevSchedulerBehavior.UIState,
@@ -554,6 +593,8 @@ struct DevSchedulerView: View {
                         .font(MochiFont.body(12, weight: .heavy))
                         .foregroundStyle(theme.primaryText)
                 }
+
+                DevNetworkMeterSection()
 
                 if viewModel.isLoading {
                     ProgressView().frame(maxWidth: .infinity, minHeight: 200)

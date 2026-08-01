@@ -71,6 +71,7 @@ final class FirestoreLetterRepository: LetterRepository {
 
     func createLetterIfAbsent(_ letter: Letter, userId: String) async throws -> Letter {
         FirestoreReadLog.record(Self.self)
+        FirestoreReadLog.recordWrite(Self.self)
         let reference = letters(userId).document(letter.id)
         let winnerData = try await firestore.runTransaction { transaction, errorPointer in
             do {
@@ -95,6 +96,7 @@ final class FirestoreLetterRepository: LetterRepository {
     }
 
     func markRead(letterId: String, at readAt: Date, userId: String) async throws {
+        FirestoreReadLog.recordWrite(Self.self)
         // Fire-and-forget like every ordinary write; readAt is the one
         // field the rules leave mutable.
         letters(userId).document(letterId).setData(
@@ -106,6 +108,7 @@ final class FirestoreLetterRepository: LetterRepository {
 
     func ensureActivityMarker(periodId: String, userId: String) async throws {
         guard try await !hasActivityMarker(periodId: periodId, userId: userId) else { return }
+        FirestoreReadLog.recordWrite(Self.self)
         // Create-only by rules; a raced duplicate create is rejected
         // server-side and harmless (the content is the same fact).
         activityWeeks(userId).document(periodId).setData(
