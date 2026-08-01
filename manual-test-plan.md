@@ -38,6 +38,14 @@ is not live yet. Do not file these.
 - [ ] Sign out (You tab) and sign back in: you land in the app, not
   onboarding, with your data intact. The pet name and adoption date
   survive.
+- [ ] Sign out lands on the Landing screen (not the splash spinner), and
+  no new anonymous user appears in the Firebase Auth console. Same after
+  deleting an account. "Let's get started" from there still walks the
+  wizard and saves choices normally.
+- [ ] Sign in with an already-used Apple/Google account from a fresh
+  install: you land in your existing account, and the throwaway anonymous
+  user that splash created is deleted from the Firebase Auth console
+  (not left behind).
 - [ ] Delete the app, reinstall, sign in: everything returns from the
   server (tasks, name, streak, letters).
 
@@ -84,6 +92,21 @@ is not live yet. Do not file these.
   imported rows appear alongside Mochi tasks. Completing one checks it off
   inside the Apple Reminders app too. **But:** Reminders completions earn
   no coins, and tapping a Reminders row never opens the Mochi editor.
+- [ ] **Re-time badge [needs history]:** a recurring task with a time that
+  you habitually finish hours away from its due time shows a small clock
+  glyph with a circling arrow on its row, in the accent color. Tapping the
+  row opens the editor with the re-time suggestion visible.
+  - It appears on the Tasks tab and inside a list, and **never on Home's
+    today list** and never on a Reminders row. That is deliberate.
+  - A row that is both due soon and badged shows the warning clock AND the
+    accent badge, and the two must stay visually distinct. Check all five
+    flavors.
+  - Long title plus badge plus list dot plus priority chip on a small
+    phone: the title truncates, nothing wraps or clips.
+  - Dismissing the suggestion in the editor removes the badge next time
+    you visit the list.
+  - Scrolling a long list stays smooth (the check runs once per load, not
+    per row).
 
 ## 4. Task editor
 
@@ -107,6 +130,34 @@ is not live yet. Do not file these.
     always allowed.
   - The chip must never appear while lapsed, never for an Apple Reminders
     item, and never suggest a time in the past or inside bedtime.
+  - **If** your history is split between weekdays and weekends: the chip
+    can still appear, worded "On Tuesdays you usually wrap up in the
+    evening." That wording only shows for a weekday-specific pattern; it
+    must never appear on a general suggestion.
+- [ ] **Effort:** the Priority row carries a second control on the right
+  under its own EFFORT label. Unset it reads "Set effort"; tapping opens a
+  menu of Tiny, Small, Medium, Large, and Clear.
+  - **No clock times anywhere in that menu.** If you see minutes or hours,
+    file it.
+  - On a small phone (SE class) the priority chips may wrap within their
+    own block, but the effort pill must not fall to its own full-width row.
+  - With priority "Med" AND effort "Medium" both set, the row should still
+    read as two separate questions. If it reads as a duplicate, say so.
+  - The rating persists across save and restart, and a repeating task
+    passes it to its next occurrence.
+  - VoiceOver announces "Effort: Medium" or "Set effort".
+- [ ] **Effort and Mochi's mood [needs two accounts or two days]:**
+  complete one Large task, versus three unrated tasks. The mood lift
+  should look comparable. Coins must be identical either way (effort never
+  changes coins). Rating something Tiny versus leaving it blank must have
+  no effect at all.
+- [ ] Overdue behavior: a long task overdue does NOT stress Mochi more
+  than a short one at the same priority. Effort only counts on the credit
+  side.
+- [ ] Push counting: move an incomplete task's due date to a **later** day
+  from the editor. Moving it earlier, or changing only the time, must not
+  count as a push. (There is no user-visible surface for this yet; it is
+  feeding a future feature, so this only matters if you are checking data.)
 
 ## 5. Journal tab
 
@@ -142,21 +193,67 @@ is not live yet. Do not file these.
   notification action labels, the widget, and future notification copy.
   Rename works even while lapsed.
 - [ ] **Streaks & stats** row opens the stats screen:
+  - Range picker at the top: Week, Month, 3 months. Every card below
+    follows it, and switching back and forth is instant (no reload).
   - Streak card: current streak, encouragement line, 7-day strip whose
     per-day counts match your actual completions.
-  - Tiles: Done this week, On time this week, Best streak, and Days
-    together counting from the adoption date. **If** the profile has no
+  - Tiles: Done this week, On time this week, Best streak, Days together
+    counting from the adoption date, and Effort. **If** the profile has no
     adoption date (very old account), a Coins tile shows instead.
-  - Last 4 weeks bar chart with an "X% on time · busiest on <weekday>s"
-    caption. Sanity-check the caption against your real week.
-  - Your rhythm: morning/afternoon/evening/night bars that reflect when
-    you actually complete things, with a caption naming the top band.
+  - Effort tile: an approximate total like "~3h" with a coverage subtitle
+    ("12 of 34 rated"). A dash until you have rated anything. It counts
+    repeating tasks too, unlike the Best hours cards below.
+  - Last 4 weeks bar chart with an on-time caption. There should be **no**
+    "busiest on <weekday>s" clause any more; Day by day replaced it.
   - Where tasks got done: per-list bars, biggest first, more than five
     lists folds the rest into Other. A deleted list's completions show as
     "Former list".
   - **If** the engine has noticed patterns / mined memories
     **[needs history]**: "has noticed" and "Worth remembering" cards
     appear. Under about 3 weeks of use both are correctly absent.
+- [ ] **Your best hours** card (the histogram):
+  - Appears as soon as you have any completions at all. A brand-new
+    account sees neither this nor Day by day.
+  - The clock runs 5am to 5am, so a 2am completion sits at the far right
+    reading as "late", not clipped off. On a normal schedule the right
+    quarter of the card is empty. That is intended, not a bug.
+  - Two tiles: a PEAK range ("10a to 1p") and IN WINDOW as a percentage.
+  - Mochi's line under the chart is qualitative and names a time of day
+    (morning / afternoon / evening / night), never a clock time and never
+    a percentage. If you see a number in that line, file it.
+  - The "second wind" clause only shows up when there is a genuine second
+    cluster. A small bump should not earn one.
+  - A daily repeating chore must NOT drag the peak toward its time. A
+    burst of one-off completions should.
+  - After changing your device timezone, the bars stay put. Completions
+    render in the zone where they happened.
+- [ ] **Day by day** card (seven weekday rows):
+  - Hidden entirely on the Week range, even when Month shows it.
+  - Its 12p / 6p / 11p gridlines line up with the histogram above it. The
+    two cards should read as a matched pair.
+  - A weekday with little data shows only a small dot, no capsule. Once a
+    day has real history it gains the middle-half capsule and the range
+    line.
+  - Mochi's line names the actually-quiet days, folding Saturday and
+    Sunday into "the weekend" when both are thin.
+  - Day picker: the pill under the eyebrow lists every day that has data.
+    Picking one swaps the middle of the card for that day's own hour
+    curve; "All days" returns to the seven rows.
+  - Pick a thin day: you get bars and a "still learning" line, with NO
+    tiles and no highlighted peak. Two data points must never produce
+    "100% in window".
+  - Changing the range while a day is picked returns you to All days.
+- [ ] The "?" on both card headers opens **About these charts**. Its
+  swatches should match the real card marks. Going back preserves your
+  range and day selection.
+- [ ] Both cards, the day picker, and the help screen in **all five
+  flavors**. Watch specifically for the IN WINDOW value and any tinted
+  text on the inner card surface staying readable outside Black Sesame.
+- [ ] On a 320pt device (SE class) the tiles do not wrap and the legend
+  stays on one line.
+- [ ] VoiceOver: the histogram reads its peak range and in-window share as
+  one summary; each Day by day row reads its typical time or "still
+  quiet"; the day pill announces "Day filter".
 - [ ] Notifications screen: per-category toggles (reminders, mood pings,
   rundown, weekly letter). Turning one off actually stops that category
   (verify over a day or two).

@@ -52,7 +52,7 @@ struct DeleteWarnTests {
     @Test("continue with an ACTIVE subscription detours through the billing warning")
     func activeDetours() async {
         let membership = StubMembershipStore()
-        membership.status = .active(plan: .yearly, renewsAt: nil)
+        membership.status = .active(plan: .yearly, renewsAt: nil, willRenew: true)
         let (vm, _) = makeVM(membership: membership)
         let recorder = EventRecorder(vm)
         await vm.triggerAsync(.continueTapped)
@@ -63,7 +63,7 @@ struct DeleteWarnTests {
     @Test("a trial counts as active billing too")
     func trialDetours() async {
         let membership = StubMembershipStore()
-        membership.status = .trial(endsAt: Dates.days(3))
+        membership.status = .trial(endsAt: Dates.days(3), willRenew: true)
         let (vm, _) = makeVM(membership: membership)
         let recorder = EventRecorder(vm)
         await vm.triggerAsync(.continueTapped)
@@ -102,7 +102,7 @@ struct DeleteSubActiveTests {
 
     private func makeVM() -> DeleteSubActiveViewModel {
         let membership = StubMembershipStore()
-        membership.status = .active(plan: .yearly, renewsAt: nil)
+        membership.status = .active(plan: .yearly, renewsAt: nil, willRenew: true)
         return DeleteSubActiveViewModel(membershipStore: membership)
     }
 
@@ -144,13 +144,20 @@ struct DeleteSubActiveTests {
 struct DeleteConfirmTests {
 
     private func makeVM(
-        auth: StubAuthRepository = StubAuthRepository()
+        auth: StubAuthRepository = StubAuthRepository(),
+        relay: StubRelay? = nil,
+        membership: StubMembershipStore? = nil
     ) -> (DeleteConfirmViewModel, StubAuthRepository, StubAccountEraser, CallLog) {
         let eraser = StubAccountEraser()
         let log = CallLog()
         auth.callLog = log
         eraser.callLog = log
-        let vm = DeleteConfirmViewModel(authRepository: auth, accountEraser: eraser)
+        let vm = DeleteConfirmViewModel(
+            authRepository: auth,
+            accountEraser: eraser,
+            relay: relay,
+            membershipStore: membership
+        )
         return (vm, auth, eraser, log)
     }
 
@@ -246,6 +253,38 @@ struct DeleteConfirmTests {
         #expect(eraser.erasedUserIds == ["user1"], "must erase exactly the signed-in uid")
         #expect(auth.deleteCurrentUserCount == 1)
         #expect(recorder.events == [.deleted])
+    }
+
+    @Test("deletion clears the pending notification queue and the RevenueCat identity")
+    func deletionClearsNotificationsAndMembership() async {
+        let relay = StubRelay()
+        let membership = StubMembershipStore()
+        let (vm, _, _, _) = makeVM(relay: relay, membership: membership)
+        await vm.triggerAsync(.load)
+        await vm.triggerAsync(.appleCompleted(idToken: "t"))
+        await vm.triggerAsync(.deleteTapped)
+
+        #expect(relay.identityExits == ["user1"],
+                "the deleted uid's promises and backstop must not keep firing")
+        #expect(membership.identityResetCount == 1,
+                "the replacement session must not alias onto the deleted identity")
+    }
+
+    @Test("a failed auth delete still clears the queue - the data it referenced is already gone")
+    func authDeleteFailureStillClearsQueue() async {
+        let auth = StubAuthRepository()
+        auth.deleteError = TestError()
+        let relay = StubRelay()
+        let membership = StubMembershipStore()
+        let (vm, _, _, _) = makeVM(auth: auth, relay: relay, membership: membership)
+        await vm.triggerAsync(.load)
+        await vm.triggerAsync(.appleCompleted(idToken: "t"))
+        await vm.triggerAsync(.deleteTapped)
+
+        #expect(relay.identityExits == ["user1"],
+                "the erase already removed the tasks those promises name")
+        #expect(membership.identityResetCount == 0,
+                "membership identity survives until the deletion actually completes")
     }
 
     @Test("if the data erase fails, the Auth user SURVIVES - no orphaned data, retry stays possible")

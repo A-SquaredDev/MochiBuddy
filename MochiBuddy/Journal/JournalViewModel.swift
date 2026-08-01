@@ -236,7 +236,8 @@ final class JournalViewModel: ObservableStateViewModel<
         guard !qualified.isEmpty else { return [] }
 
         let lists = (try? await listRepository.fetchLists(userId: userId)) ?? []
-        let day = CivilDay(of: effectiveNow, in: calendar).dateString
+        let civilDay = CivilDay(of: effectiveNow, in: calendar)
+        let day = civilDay.dateString
 
         var lines: [String] = []
         for observation in qualified.prefix(3) {
@@ -249,6 +250,20 @@ final class JournalViewModel: ObservableStateViewModel<
             if let cached = surfacedLines[cacheKey] {
                 line = cached
             } else if isLapsed {
+                line = observationLedger.peekLine(
+                    for: observation.conclusion, petName: petName, listName: listName, userId: userId
+                )
+            } else if observation.kind == .momentum,
+                      observationLedger.momentumCoolingDown(on: civilDay, userId: userId) {
+                // The cooldown this card's own surfacing starts must also
+                // govern the card: re-recording on every visit would push
+                // lastSurfaced forward daily and starve rundowns and
+                // letters of momentum forever. On the day it surfaced the
+                // line stays visible via the non-rotating peek; on later
+                // cooldown days momentum rests here like everywhere else.
+                guard observationLedger.lastSurfacedDay(
+                    of: observation.conclusion, userId: userId
+                ) == day else { continue }
                 line = observationLedger.peekLine(
                     for: observation.conclusion, petName: petName, listName: listName, userId: userId
                 )

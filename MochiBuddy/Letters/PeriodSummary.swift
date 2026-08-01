@@ -67,6 +67,10 @@ struct PeriodSummary: Equatable {
     let observationConclusion: ObservationConclusion?
     /// Surviving list name for a list-return event that fired this period.
     let listReturnName: String?
+    /// The qualified list-return event behind listReturnName - carried so
+    /// a told beat can be recorded in the ledger's event log under its
+    /// REAL key (listId|firedOn), not a fabricated one.
+    var listReturnObservation: QualifiedObservation? = nil
 
     /// From the create-only activityWeeks marker - the deterministic
     /// dormancy arbiter (gating input; the composer never reads it).

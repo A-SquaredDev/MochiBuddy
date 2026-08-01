@@ -32,7 +32,14 @@ enum PromiseTriggerBuilder {
             components.weekday = calendar.component(.weekday, from: dueAt)
             return components
         case .monthly:
-            components.day = calendar.component(.day, from: dueAt)
+            // Days 29-31 do not exist in every month, and a repeating
+            // day-31 calendar trigger silently skips the short ones.
+            // Those cadences schedule their single next occurrence
+            // (nextOccurrence clamps via byAdding: .month) and lean on
+            // the re-lay, like weekdays and custom sets.
+            let day = calendar.component(.day, from: dueAt)
+            guard day <= 28 else { return nil }
+            components.day = day
             return components
         case .weekdays, .custom:
             return nil

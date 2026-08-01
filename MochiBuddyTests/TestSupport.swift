@@ -241,10 +241,12 @@ final class StubMembershipStore: MembershipStore {
     var restoreError: Error?
 
     private(set) var identifiedUserIds: [String] = []
+    private(set) var identityResetCount = 0
     private(set) var startedTrials: [MembershipPlan] = []
     private(set) var restoredPurchases: [RestorablePurchase] = []
 
     func identify(userId: String) async { identifiedUserIds.append(userId) }
+    func resetIdentity() async { identityResetCount += 1 }
     func currentStatus() async -> MembershipStatus { status }
     func planOptions() async -> [MembershipPlanOption] { options }
     func restorablePurchase() async -> RestorablePurchase? { restorable }
@@ -252,18 +254,18 @@ final class StubMembershipStore: MembershipStore {
     func startTrial(plan: MembershipPlan) async throws {
         if let purchaseError { throw purchaseError }
         startedTrials.append(plan)
-        status = .trial(endsAt: Date.now.addingTimeInterval(7 * 24 * 3600))
+        status = .trial(endsAt: Date.now.addingTimeInterval(7 * 24 * 3600), willRenew: true)
     }
 
     func activate(plan: MembershipPlan) async throws {
         if let purchaseError { throw purchaseError }
-        status = .active(plan: plan, renewsAt: nil)
+        status = .active(plan: plan, renewsAt: nil, willRenew: true)
     }
 
     func restore(_ purchase: RestorablePurchase) async throws {
         if let restoreError { throw restoreError }
         restoredPurchases.append(purchase)
-        status = .active(plan: purchase.plan, renewsAt: purchase.renewsAt)
+        status = .active(plan: purchase.plan, renewsAt: purchase.renewsAt, willRenew: true)
     }
 }
 
@@ -408,6 +410,9 @@ final class StubTaskRepository: TaskRepository {
     private(set) var addedTaskIds: [String?] = []
     private(set) var setCompletedCalls: [(taskId: String, completed: Bool)] = []
     private(set) var setCompletedContexts: [CompletionLocalContext?] = []
+    /// Parallel to `setCompletedCalls`: the completedAt each write would
+    /// stamp (nil means "the repository stamps now" - a live check-off).
+    private(set) var setCompletedTimestamps: [Date?] = []
     private(set) var updatedTasks: [TaskItem] = []
     /// Parallel to `updatedTasks`: whether each update counted a reschedule.
     private(set) var updateRescheduleFlags: [Bool] = []
@@ -430,9 +435,10 @@ final class StubTaskRepository: TaskRepository {
     func completedTasks(since: Date, userId: String) async throws -> [TaskItem] {
         completed.filter { ($0.completedAt ?? .distantPast) >= since }
     }
-    func setCompleted(taskId: String, completed: Bool, localContext: CompletionLocalContext?, userId: String) async throws {
+    func setCompleted(taskId: String, completed: Bool, localContext: CompletionLocalContext?, completedAt: Date?, userId: String) async throws {
         setCompletedCalls.append((taskId, completed))
         setCompletedContexts.append(localContext)
+        setCompletedTimestamps.append(completedAt)
     }
     func updateTask(_ task: TaskItem, countingReschedule: Bool, userId: String) async throws {
         updatedTasks.append(task)
@@ -550,6 +556,7 @@ final class StubListRepository: ListRepository {
 
 final class StubRemindersGateway: RemindersGateway {
     var access: RemindersAccess = .granted
+    var onExternalChange: (() -> Void)?
     var lists: [ReminderList] = []
     var openReminders: [ReminderTaskItem] = []
     var setCompletedResult = true
@@ -620,5 +627,7 @@ final class RecordingTelemetry: NotificationTelemetry {
 @MainActor
 final class StubRelay: NotificationRelaying {
     private(set) var triggers: [RelayTrigger] = []
+    private(set) var identityExits: [String?] = []
     func requestRelay(_ trigger: RelayTrigger) { triggers.append(trigger) }
+    func clearForIdentityExit(userId: String?) async { identityExits.append(userId) }
 }

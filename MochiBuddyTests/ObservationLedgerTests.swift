@@ -108,6 +108,25 @@ struct ObservationLedgerTests {
                 "8 days later, new week: eligible again")
     }
 
+    @Test("lastSurfacedDay reports the surfacing day - the Journal card's day-of guard")
+    func lastSurfacedDayHelper() {
+        let ledger = ObservationLedger(defaults: freshDefaults())
+        let momentum = QualifiedObservation(kind: .momentum, conclusion: .momentumRising, stableSince: "2026-07-01")
+        #expect(ledger.lastSurfacedDay(of: .momentumRising, userId: "u") == nil)
+
+        ledger.recordSurfaced(momentum, surface: .journal, on: "2026-07-01", userId: "u")
+        #expect(ledger.lastSurfacedDay(of: .momentumRising, userId: "u") == "2026-07-01")
+
+        // The Journal card must NOT re-record on later cooldown days -
+        // that would roll this date forward daily and keep momentum out
+        // of rundowns and letters forever. The card's guard reads this
+        // value and peeks instead of surfacing.
+        let day = CivilDay("2026-07-03")!
+        #expect(ledger.momentumCoolingDown(on: day, userId: "u"))
+        #expect(ledger.lastSurfacedDay(of: .momentumRising, userId: "u") == "2026-07-01",
+                "still the original day: nothing but recordSurfaced may advance it")
+    }
+
     @Test("observation_evaluated logs at most once per type per civil day")
     func evaluationThrottle() {
         let ledger = ObservationLedger(defaults: freshDefaults())

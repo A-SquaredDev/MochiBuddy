@@ -186,6 +186,18 @@ struct LetterComposerTests {
         #expect(letter.beatTypes.contains(.milestone))
     }
 
+    @Test("vacation-partial: the structural beat plus fill reaches the full beat budget")
+    func vacationPartialFullBudget() {
+        let letter = LetterComposer.compose(summary: makeSummary(
+            vacationOverlap: true,
+            bestDay: .init(weekdayName: "Tuesday", count: 5),
+            milestonesLanded: [7],
+            comeback: .init(taskTitle: "Renew passport", completedWeekdayName: "Friday")
+        ))
+        #expect(letter.beatTypes == [.vacation, .milestone, .comeback],
+                "slots is the TOTAL budget: one structural beat leaves two fill slots, not one")
+    }
+
     // MARK: - The rough contract
 
     @Test("rough: presence first, max two beats, and the tempting facts stay OUT")

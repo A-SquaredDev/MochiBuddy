@@ -63,9 +63,12 @@ enum LetterComposer {
 
         case .vacationPartial:
             add(.vacation, pool: LetterCopy.vacationPool, key: "vacation")
+            // slots is the TOTAL beat budget - fillOptionalBeats subtracts
+            // the vacation beat above itself, so passing maxBeats - 1 here
+            // would double-count it and cap vacation letters one short.
             fillOptionalBeats(
                 into: &beats, summary: summary, avoid: avoid,
-                slots: LetterConstants.maxBeats - 1
+                slots: LetterConstants.maxBeats
             )
 
         case .great, .steady:

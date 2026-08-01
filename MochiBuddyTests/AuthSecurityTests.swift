@@ -11,6 +11,7 @@
 
 import Foundation
 import CryptoKit
+import FirebaseAuth
 import Testing
 @testable import MochiBuddy
 
@@ -35,6 +36,20 @@ struct AppleNonceTests {
         let allowed = Set("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-._")
         #expect(nonce.raw.allSatisfy { allowed.contains($0) })
         #expect(nonce.sha256.count == 64, "SHA-256 hex is 64 chars")
+    }
+
+    @Test("only a genuinely-gone user counts as a stale session - token trouble never does")
+    func staleSessionClassification() {
+        func authError(_ code: AuthErrorCode) -> NSError {
+            NSError(domain: AuthErrorDomain, code: code.rawValue)
+        }
+        #expect(FirebaseAuthRepository.isStaleSessionError(authError(.userNotFound)))
+        #expect(FirebaseAuthRepository.isStaleSessionError(authError(.userDisabled)))
+        #expect(!FirebaseAuthRepository.isStaleSessionError(authError(.userTokenExpired)),
+                "an expired token is a re-auth state on a REAL account, not a dead session")
+        #expect(!FirebaseAuthRepository.isStaleSessionError(authError(.invalidUserToken)),
+                "treating token trouble as stale silently swaps the identity for a fresh anon")
+        #expect(!FirebaseAuthRepository.isStaleSessionError(authError(.networkError)))
     }
 
     @Test("nonces are single-use randomness - 100 draws, zero repeats")
@@ -140,14 +155,16 @@ struct DataScopingTests {
     func signOutSignsOut() async {
         let auth = StubAuthRepository()
         let profileRepo = StubProfileRepository()
+        let relay = StubRelay()
+        let membership = StubMembershipStore()
         let vm = YouViewModel(
             authRepository: auth,
             profileRepository: profileRepo,
             listRepository: StubListRepository(),
-            membershipStore: StubMembershipStore(),
+            membershipStore: membership,
             membershipSession: MembershipSession(),
             themeStore: ThemeStore(defaults: UserDefaults(suiteName: "mochi-tests-\(UUID())")!),
-            relay: StubRelay(),
+            relay: relay,
             petIdentityStore: PetIdentityStore(
                 profileRepository: profileRepo,
                 defaults: UserDefaults(suiteName: "mochi-tests-\(UUID())")!
@@ -160,5 +177,9 @@ struct DataScopingTests {
         await recorder.drain()
         #expect(auth.signOutCount == 1)
         #expect(recorder.events.count == 1)
+        #expect(relay.identityExits == ["user1"],
+                "sign-out must clear the exiting uid's pending queue and scheduler state")
+        #expect(membership.identityResetCount == 1,
+                "sign-out must log RevenueCat out so the next anon session doesn't alias on")
     }
 }

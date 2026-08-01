@@ -300,14 +300,15 @@ struct PlannerCadenceTests {
         #expect(moodPings(plan).isEmpty)
     }
 
-    @Test("mood-dips off silences pings and the backstop, but not promises")
+    @Test("mood-dips off silences pings but keeps promises AND the backstop safety net")
     func moodDipsOff() {
         let plan = NotificationPlanner.plan(makeInput(
             tasks: floorTasks() + [makeTask(id: "t1", dueAt: Dates.hours(3), hasTime: true)],
             moodDips: false
         ))
         #expect(moodPings(plan).isEmpty)
-        #expect(!plan.contains { $0.kind == .backstop })
+        #expect(plan.contains { $0.kind == .backstop },
+                "the dormant safety net is its own genre - opting out of mood dips must not kill it")
         #expect(plan.contains { $0.kind == .promise })
     }
 }
@@ -343,13 +344,52 @@ struct PlannerRundownTests {
         #expect(!plan.contains { $0.kind == .rundown })
     }
 
-    @Test("one repeating backstop rides along whenever mood pings are on")
+    @Test("one repeating backstop rides along whenever any genre is on")
     func backstopReserved() {
         let plan = NotificationPlanner.plan(makeInput(moodDips: true))
         let backstops = plan.filter { $0.kind == .backstop }
         #expect(backstops.count == 1)
         #expect(backstops.first?.repeats == true)
         #expect(backstops.first?.id == NotificationID.backstop)
+    }
+
+    @Test("only a full opt-out (every genre off) silences the backstop")
+    func backstopFullOptOut() {
+        #expect(NotificationPlanner.plan(makeInput()).contains { $0.kind == .backstop },
+                "standard prefs (mood dips off) still carry the safety net")
+
+        var allOff = makeInput(taskReminders: false, morningRundown: false, moodDips: false)
+        allOff.prefs.weeklyLetter = false
+        #expect(!NotificationPlanner.plan(allOff).contains { $0.kind == .backstop },
+                "turning every genre off is the one request for true silence")
+    }
+
+    @Test("the rundown holds its wall-clock wake across a DST transition")
+    func rundownWallClockAcrossDST() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "America/Chicago")!
+        // Saturday Mar 7 2026, noon - the night before spring-forward
+        // (Mar 8 is 23 hours long).
+        let capture = calendar.date(from: DateComponents(year: 2026, month: 3, day: 7, hour: 12))!
+        var prefs = NotificationPrefs.standard
+        prefs.morningRundown = true
+        let input = NotificationPlanInput(
+            snapshot: MoodSnapshot(
+                tasks: [], completionTimes: [], boosts: [],
+                vacationMode: false, vacationResumeAt: nil, vacationStartedAt: nil,
+                entitlementExpiry: nil, capturedAt: capture
+            ),
+            prefs: prefs,
+            horizon: capture.addingTimeInterval(3 * 24 * 3600)
+        )
+        let plan = NotificationPlanner.plan(input, calendar: calendar)
+        let rundowns = plan.filter { $0.kind == .rundown }
+        #expect(rundowns.contains { calendar.component(.day, from: $0.fireAt) == 8 })
+        for rundown in rundowns {
+            let parts = calendar.dateComponents([.hour, .minute], from: rundown.fireAt)
+            #expect((parts.hour, parts.minute) == (7, 0),
+                    "startOfDay + minutes would fire the Mar 8 briefing at 8:00 wall clock")
+        }
     }
 }
 

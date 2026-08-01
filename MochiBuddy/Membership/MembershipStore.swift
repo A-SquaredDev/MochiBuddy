@@ -27,12 +27,15 @@ enum MembershipPlan: String, CaseIterable {
 
 enum MembershipStatus: Equatable {
     case notSubscribed
-    case trial(endsAt: Date)
-    case active(plan: MembershipPlan, renewsAt: Date?)
+    /// willRenew: auto-renew is on, so the known end date is a renewal
+    /// boundary, not an entitlement cliff. The notification horizon only
+    /// caps at the date when willRenew is false (a real cancellation).
+    case trial(endsAt: Date, willRenew: Bool)
+    case active(plan: MembershipPlan, renewsAt: Date?, willRenew: Bool)
     /// A charge failed and Apple is retrying (~16 days). Still entitled -
     /// treat as active with an "update payment method" nudge, never a
     /// lockout. Misreading this locks out paying customers.
-    case billingGrace(plan: MembershipPlan, renewsAt: Date?)
+    case billingGrace(plan: MembershipPlan, renewsAt: Date?, willRenew: Bool)
     case lapsed
 }
 
@@ -60,6 +63,10 @@ enum MembershipStoreError: Error {
 protocol MembershipStore: AnyObject {
     /// Ties purchases to the signed-in user so they follow the account.
     func identify(userId: String) async
+    /// Sign-out or account deletion: forget the identity so the next
+    /// session's identify starts a fresh chain instead of aliasing the
+    /// new user onto the exiting one.
+    func resetIdentity() async
     func currentStatus() async -> MembershipStatus
     /// Plans with live store pricing (falls back to defaults offline).
     func planOptions() async -> [MembershipPlanOption]
@@ -100,6 +107,8 @@ final class LocalMembershipStore: MembershipStore {
 
     func identify(userId: String) async {}
 
+    func resetIdentity() async {}
+
     func planOptions() async -> [MembershipPlanOption] {
         [.defaultYearly, .defaultMonthly]
     }
@@ -116,9 +125,10 @@ final class LocalMembershipStore: MembershipStore {
         guard expiresAt > .now else {
             return .lapsed
         }
+        // The local stand-in never auto-renews; its expiry is a hard end.
         return defaults.bool(forKey: Key.isTrial)
-            ? .trial(endsAt: expiresAt)
-            : .active(plan: plan, renewsAt: expiresAt)
+            ? .trial(endsAt: expiresAt, willRenew: false)
+            : .active(plan: plan, renewsAt: expiresAt, willRenew: false)
     }
 
     func restorablePurchase() async -> RestorablePurchase? {

@@ -316,17 +316,31 @@ final class LetterCompositionService {
                     composed.fullText.split(separator: " ").count
                 )
             ))
-            // The observation the letter used is consumed for the week
-            // (same-week letter/rundown dedup).
-            if let conclusion = summary.observationConclusion {
+            // Consumed-for-the-week bookkeeping (same-week letter/rundown
+            // dedup) - but only for beats the letter actually TOLD. A
+            // slot-starved compose (milestone + comeback + best day fill
+            // everything) must not burn a conclusion's dedup or momentum's
+            // cooldown on nothing.
+            let surfacedDay = CivilDay(of: now, in: LetterSchedule.calendar(for: serverZone)).dateString
+            if composed.beatTypes.contains(.observation),
+               let conclusion = summary.observationConclusion {
                 observationLedger.recordSurfaced(
                     QualifiedObservation(
                         kind: kind(of: conclusion), conclusion: conclusion,
                         stableSince: period.startDateString
                     ),
                     surface: .letter,
-                    on: CivilDay(of: now, in: LetterSchedule.calendar(for: serverZone)).dateString,
+                    on: surfacedDay,
                     userId: userId
+                )
+            }
+            // The mirror-image bookkeeping for a told list-return beat:
+            // the event enters the ledger's log under its real key so it
+            // cannot resurface within its horizon.
+            if composed.beatTypes.contains(.listReturn),
+               let event = summary.listReturnObservation {
+                observationLedger.recordSurfaced(
+                    event, surface: .letter, on: surfacedDay, userId: userId
                 )
             }
             relay?.requestRelay(.letterChange)
@@ -373,6 +387,7 @@ final class LetterCompositionService {
         // not already told this week; list return is its own beat.
         var observationConclusion: ObservationConclusion?
         var listReturnName: String?
+        var listReturnObservation: QualifiedObservation?
         let observationInputs = ObservationEngine.Inputs(
             records: stats,
             intervals: profile.observationIntervals,
@@ -389,6 +404,7 @@ final class LetterCompositionService {
             if case .listReturn(let listId) = qualified.conclusion {
                 let lists = (try? await listRepository.fetchLists(userId: userId)) ?? []
                 listReturnName = lists.first { $0.id == listId }?.name
+                listReturnObservation = listReturnName != nil ? qualified : nil
             } else if observationConclusion == nil {
                 observationConclusion = qualified.conclusion
             }
@@ -428,6 +444,7 @@ final class LetterCompositionService {
             ),
             observationConclusion: observationConclusion,
             listReturnName: listReturnName,
+            listReturnObservation: listReturnObservation,
             hadUserForeground: hadMarker,
             priorLineIds: archive.prefix(2).flatMap(\.lineIds)
         )

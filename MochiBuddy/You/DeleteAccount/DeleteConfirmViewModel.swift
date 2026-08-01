@@ -20,6 +20,8 @@ final class DeleteConfirmViewModel: ObservableStateViewModel<
     private let observationLedger: ObservationLedger?
     private let callbackLedger: CallbackLedger?
     private let suggestionLedger: SuggestionLedger?
+    private let relay: NotificationRelaying?
+    private let membershipStore: MembershipStore?
 
     private var pendingNonce: AppleSignInNonce?
 
@@ -28,13 +30,17 @@ final class DeleteConfirmViewModel: ObservableStateViewModel<
         accountEraser: AccountEraser,
         observationLedger: ObservationLedger? = nil,
         callbackLedger: CallbackLedger? = nil,
-        suggestionLedger: SuggestionLedger? = nil
+        suggestionLedger: SuggestionLedger? = nil,
+        relay: NotificationRelaying? = nil,
+        membershipStore: MembershipStore? = nil
     ) {
         self.authRepository = authRepository
         self.accountEraser = accountEraser
         self.observationLedger = observationLedger
         self.callbackLedger = callbackLedger
         self.suggestionLedger = suggestionLedger
+        self.relay = relay
+        self.membershipStore = membershipStore
         super.init(initialState: DeleteConfirmBehavior.UIState())
     }
 
@@ -103,7 +109,12 @@ final class DeleteConfirmViewModel: ObservableStateViewModel<
                 observationLedger?.clear(userId: userId)
                 callbackLedger?.clear(userId: userId)
                 suggestionLedger?.clear(userId: userId)
+                // Before the auth delete: the erase above already removed
+                // the tasks these pending promises reference, so the queue
+                // clears even if the auth delete below fails and retries.
+                await relay?.clearForIdentityExit(userId: userId)
                 try await authRepository.deleteCurrentUser()
+                await membershipStore?.resetIdentity()
                 state.isWorking = false
                 setNavigationEvent(.deleted)
             } catch {

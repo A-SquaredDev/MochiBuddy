@@ -50,8 +50,13 @@ final class OnboardingRouter: OnboardingRouting {
         )
     }
 
-    /// Root of the flow - splash.
+    /// Root of the flow - splash on cold start and session re-entries;
+    /// Landing after sign-out or deletion, so no replacement anonymous
+    /// account is minted for someone about to sign in or walk away.
     func start() -> AnyView {
+        if container.session.flowEntry == .landing {
+            return AnyView(LandingView(router: self))
+        }
         let viewModel = SplashViewModel(
             authRepository: container.authRepository,
             profileRepository: container.profileRepository,
@@ -80,6 +85,15 @@ final class OnboardingRouter: OnboardingRouting {
     }
 
     func navigateToMeetMochi() {
+        // The wizard writes every choice against the session's uid. A
+        // normal cold start already has one (splash), but a Landing entry
+        // after sign-out does not - mint it here, at the moment the user
+        // actually commits to the wizard, never for someone who only
+        // looks at Landing or heads to sign-in. Idempotent when a
+        // session already exists.
+        Task { @MainActor in
+            _ = try? await container.authRepository.ensureSession()
+        }
         let viewModel = MeetMochiViewModel(onboardingStore: onboardingStore)
         navController.navigate(
             route: AdHocRoute(key: "meetMochi"),
@@ -212,18 +226,16 @@ final class OnboardingRouter: OnboardingRouting {
         navController.popBackStack()
     }
 
-    /// "Not you? Switch account" - drop the session and run first-run
-    /// again. Lands on the landing screen so the right person can sign in
-    /// immediately instead of re-walking the wizard.
+    /// "Not you? Switch account" - drop the session and land on Landing
+    /// so the right person can sign in immediately. No replacement mint:
+    /// sign-in needs no prior session, and a fresh wizard run mints at
+    /// its first step.
     func restartOnboarding() {
         try? container.authRepository.signOut()
-        Task { @MainActor in
-            _ = try? await container.authRepository.ensureSession()
-            navController.replaceStack(
-                with: AnyView(LandingView(router: self)),
-                route: AdHocRoute(key: "landing")
-            )
-        }
+        navController.replaceStack(
+            with: AnyView(LandingView(router: self)),
+            route: AdHocRoute(key: "landing")
+        )
     }
 
     func finishOnboarding() {

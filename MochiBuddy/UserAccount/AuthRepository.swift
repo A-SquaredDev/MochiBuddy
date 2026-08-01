@@ -59,6 +59,19 @@ protocol AuthRepository: AnyObject {
 
 final class FirebaseAuthRepository: AuthRepository {
 
+    /// Destroys an anonymous placeholder's Firestore subtree when a
+    /// credential collision abandons it - rules lock the subtree to its
+    /// own session, so the erase must happen before the session switches.
+    private let orphanEraser: AccountEraser?
+
+    /// Concurrent ensureSession callers share this one mint - overlapping
+    /// calls with no current user must never create two anonymous accounts.
+    private var mintTask: Task<AuthAccount, Error>?
+
+    init(orphanEraser: AccountEraser? = nil) {
+        self.orphanEraser = orphanEraser
+    }
+
     var currentAccount: AuthAccount? {
         Auth.auth().currentUser.map(Self.account(from:))
     }
@@ -74,12 +87,22 @@ final class FirebaseAuthRepository: AuthRepository {
                 // the account was deleted in the Firebase console). Start over.
                 try? Auth.auth().signOut()
             } catch {
-                // Offline or transient - keep the cached session.
+                // Offline, transient, or a recoverable token problem -
+                // keep the cached session. Minting here would silently
+                // swap a real signed-in identity for a fresh anonymous one.
                 return Self.account(from: user)
             }
         }
-        let result = try await Auth.auth().signInAnonymously()
-        return Self.account(from: result.user)
+        if let mintTask {
+            return try await mintTask.value
+        }
+        let task = Task {
+            let result = try await Auth.auth().signInAnonymously()
+            return Self.account(from: result.user)
+        }
+        mintTask = task
+        defer { mintTask = nil }
+        return try await task.value
     }
 
     func makeAppleNonce() -> AppleSignInNonce {
@@ -187,6 +210,15 @@ final class FirebaseAuthRepository: AuthRepository {
                 } catch let error as NSError where error.code == AuthErrorCode.credentialAlreadyInUse.rawValue {
                     // The provider account already has a Mochi account - sign into it.
                     let existing = (error.userInfo[AuthErrorUserInfoUpdatedCredentialKey] as? AuthCredential) ?? credential
+                    // Destroy the anonymous placeholder first: signing into
+                    // the existing account abandons it, and rules make its
+                    // subtree undeletable once this session is gone. Best
+                    // effort - a failure leaves one orphan for the ops
+                    // sweeper instead of blocking the sign-in.
+                    if user.isAnonymous {
+                        try? await orphanEraser?.eraseAllData(userId: user.uid)
+                        try? await user.delete()
+                    }
                     let result = try await Auth.auth().signIn(with: existing)
                     return Self.account(from: result.user)
                 } catch let error as NSError where error.code == AuthErrorCode.providerAlreadyLinked.rawValue {
@@ -215,11 +247,15 @@ final class FirebaseAuthRepository: AuthRepository {
         }
     }
 
-    private static func isStaleSessionError(_ error: Error) -> Bool {
+    /// Only conditions where the server-side user is genuinely gone or
+    /// blocked count as stale. Token problems (userTokenExpired,
+    /// invalidUserToken) are recoverable re-authentication states that can
+    /// hit a REAL signed-in account - treating them as stale would sign
+    /// the user out and replace their identity with a fresh anonymous one.
+    /// Internal (not private) so the classification stays test-pinned.
+    static func isStaleSessionError(_ error: Error) -> Bool {
         let code = (error as NSError).code
         return code == AuthErrorCode.userNotFound.rawValue
-            || code == AuthErrorCode.userTokenExpired.rawValue
-            || code == AuthErrorCode.invalidUserToken.rawValue
             || code == AuthErrorCode.userDisabled.rawValue
     }
 

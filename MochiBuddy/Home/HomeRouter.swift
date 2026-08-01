@@ -35,7 +35,8 @@ final class HomeRouter {
             celebrationCenter: container.celebrationCenter,
             letterService: container.letterCompositionService,
             memoriesService: container.memoriesService,
-            journalCoordinator: container.tabCoordinator
+            journalCoordinator: container.tabCoordinator,
+            widgetDrain: container.widgetCompletionDrain
         )
         return AnyView(HomeView(viewModel: viewModel, router: self))
     }
@@ -43,6 +44,7 @@ final class HomeRouter {
     /// Lapsed "Wake Mochi" CTA - back through the flow, which recognises
     /// the returning account and lands on the reactivate gate.
     func wakeMochi() {
+        container.session.flowEntry = .splash
         container.session.phase = .flow
     }
 

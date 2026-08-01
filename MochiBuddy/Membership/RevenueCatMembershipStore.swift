@@ -28,6 +28,13 @@ final class RevenueCatMembershipStore: MembershipStore {
         _ = try? await Purchases.shared.logIn(userId)
     }
 
+    func resetIdentity() async {
+        // logOut throws when the current app user is already anonymous -
+        // nothing to forget in that case.
+        guard !Purchases.shared.isAnonymous else { return }
+        _ = try? await Purchases.shared.logOut()
+    }
+
     func currentStatus() async -> MembershipStatus {
         guard let info = try? await Purchases.shared.customerInfo() else {
             return .notSubscribed
@@ -50,9 +57,9 @@ final class RevenueCatMembershipStore: MembershipStore {
     /// (nothing left to go stale) or when RevenueCat sent no date.
     private static func knownExpiry(of status: MembershipStatus) -> Date? {
         switch status {
-        case .trial(let endsAt): endsAt
-        case .active(_, let renewsAt): renewsAt
-        case .billingGrace(_, let renewsAt): renewsAt
+        case .trial(let endsAt, _): endsAt
+        case .active(_, let renewsAt, _): renewsAt
+        case .billingGrace(_, let renewsAt, _): renewsAt
         case .lapsed, .notSubscribed: nil
         }
     }
@@ -124,7 +131,10 @@ final class RevenueCatMembershipStore: MembershipStore {
             return .lapsed
         }
         if entitlement.periodType == .trial {
-            return .trial(endsAt: entitlement.expirationDate ?? .now)
+            return .trial(
+                endsAt: entitlement.expirationDate ?? .now,
+                willRenew: entitlement.willRenew
+            )
         }
         // Active but a charge failed and Apple is retrying: RevenueCat keeps
         // reporting entitled, and so do we. The distinct case only exists to
@@ -132,12 +142,14 @@ final class RevenueCatMembershipStore: MembershipStore {
         if entitlement.billingIssueDetectedAt != nil {
             return .billingGrace(
                 plan: plan(fromProductId: entitlement.productIdentifier),
-                renewsAt: entitlement.expirationDate
+                renewsAt: entitlement.expirationDate,
+                willRenew: entitlement.willRenew
             )
         }
         return .active(
             plan: plan(fromProductId: entitlement.productIdentifier),
-            renewsAt: entitlement.expirationDate
+            renewsAt: entitlement.expirationDate,
+            willRenew: entitlement.willRenew
         )
     }
 

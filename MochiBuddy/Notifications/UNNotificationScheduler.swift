@@ -46,6 +46,10 @@ final class UNNotificationScheduler: NotificationScheduling {
 
     private let center = UNUserNotificationCenter.current()
 
+    /// Set by the container - failures to hand a request to the center
+    /// must land in telemetry, not vanish in a try?.
+    var telemetry: NotificationTelemetry?
+
     func pendingIds() async -> [String] {
         await center.pendingNotificationRequests().map(\.identifier)
     }
@@ -89,9 +93,13 @@ final class UNNotificationScheduler: NotificationScheduling {
             return
         }
 
-        try? await center.add(UNNotificationRequest(
-            identifier: request.plan.id, content: content, trigger: trigger
-        ))
+        do {
+            try await center.add(UNNotificationRequest(
+                identifier: request.plan.id, content: content, trigger: trigger
+            ))
+        } catch {
+            telemetry?.log(.scheduleFailed(id: request.plan.id))
+        }
     }
 }
 

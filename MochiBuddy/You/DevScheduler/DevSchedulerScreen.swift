@@ -433,14 +433,16 @@ final class DevSchedulerViewModel: StateViewModel<
         switch status {
         case .notSubscribed:
             "not subscribed"
-        case .trial(let endsAt):
-            "trial · ends \(dateText(endsAt, now: now))"
-        case .active(let plan, let renewsAt):
-            renewsAt.map { "active \(plan.rawValue) · renews \(dateText($0, now: now))" }
-                ?? "active \(plan.rawValue) · no known expiry"
-        case .billingGrace(let plan, let renewsAt):
-            renewsAt.map { "billing grace \(plan.rawValue) · renews \(dateText($0, now: now))" }
-                ?? "billing grace \(plan.rawValue)"
+        case .trial(let endsAt, let willRenew):
+            "trial · ends \(dateText(endsAt, now: now))\(willRenew ? "" : " · will not renew")"
+        case .active(let plan, let renewsAt, let willRenew):
+            (renewsAt.map { "active \(plan.rawValue) · renews \(dateText($0, now: now))" }
+                ?? "active \(plan.rawValue) · no known expiry")
+                + (willRenew ? "" : " · will not renew")
+        case .billingGrace(let plan, let renewsAt, let willRenew):
+            (renewsAt.map { "billing grace \(plan.rawValue) · renews \(dateText($0, now: now))" }
+                ?? "billing grace \(plan.rawValue)")
+                + (willRenew ? "" : " · will not renew")
         case .lapsed:
             "lapsed"
         }
@@ -504,11 +506,22 @@ final class DevSchedulerViewModel: StateViewModel<
         var windows: [DevSchedulerBehavior.QuietWindow] = []
         var day = calendar.startOfDay(for: start)
         while day < end {
-            if let windowStart = calendar.date(byAdding: .minute, value: bedtime.startMinutes, to: day) {
-                let span = bedtime.startMinutes < bedtime.endMinutes
-                    ? bedtime.endMinutes - bedtime.startMinutes
-                    : 24 * 60 - bedtime.startMinutes + bedtime.endMinutes
-                let windowEnd = windowStart.addingTimeInterval(TimeInterval(span * 60))
+            // Wall-clock anchors, matching the planner and the bedtime
+            // contains check - startOfDay + minutes drifts an hour on
+            // DST transition days and the inspector would lie.
+            if let windowStart = calendar.date(
+                bySettingHour: bedtime.startMinutes / 60,
+                minute: bedtime.startMinutes % 60,
+                second: 0, of: day
+            ) {
+                let endDay = bedtime.startMinutes < bedtime.endMinutes
+                    ? day
+                    : calendar.date(byAdding: .day, value: 1, to: day) ?? day
+                let windowEnd = calendar.date(
+                    bySettingHour: bedtime.endMinutes / 60,
+                    minute: bedtime.endMinutes % 60,
+                    second: 0, of: endDay
+                ) ?? windowStart
                 if windowEnd > start, windowStart < end {
                     windows.append(.init(start: max(windowStart, start), end: min(windowEnd, end)))
                 }

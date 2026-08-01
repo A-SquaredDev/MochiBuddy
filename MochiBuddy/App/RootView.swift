@@ -27,9 +27,12 @@ struct RootView: View {
     /// the schedule.
     private func enteredHome() {
         Task { @MainActor in
+            // Widget completions land first - ahead of the network round
+            // trips below, so the drain the first Home refresh awaits
+            // (coalesced in WidgetCompletionDrain) starts immediately.
+            await container.widgetCompletionDrain.drain()
             container.membershipSession.status = await container.membershipStore.currentStatus()
             await container.notificationPermissionService.requestProvisionalIfUndetermined()
-            await container.widgetCompletionDrain.drain()
             // Pet identity loads (and one-time migrates legacy profiles,
             // incl. the interrupted-onboarding adoptedOn backstop) before
             // the lay so copy and action labels dress with the right name.
@@ -113,6 +116,7 @@ struct RootView: View {
                         // the same path You's "Wake Mochi" takes. A user
                         // who already chose degraded mode stays put (the
                         // wasLapsed guard).
+                        container.session.flowEntry = .splash
                         container.session.phase = .flow
                         return
                     }

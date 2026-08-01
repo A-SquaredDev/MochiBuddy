@@ -100,12 +100,20 @@ final class YouViewModel: ObservableStateViewModel<
 
         case .confirmSignOut:
             state.showSignOutConfirm = false
+            // Capture the uid first: sign-out clears currentAccount, and
+            // the queue + state teardown below is scoped to the exiting
+            // identity. Teardown runs only after a successful sign-out so
+            // a failed one leaves the account fully intact.
+            let exitingUserId = authRepository.currentAccount?.uid
             do {
                 try authRepository.signOut()
-                setNavigationEvent(.signedOut)
             } catch {
                 state.restoreMessage = "Couldn't sign out. \(error.localizedDescription)"
+                return
             }
+            await relay.clearForIdentityExit(userId: exitingUserId)
+            await membershipStore.resetIdentity()
+            setNavigationEvent(.signedOut)
 
         case .editNameTapped:
             state.nameDraft = profile?.displayName
@@ -262,7 +270,7 @@ final class YouViewModel: ObservableStateViewModel<
 
     private func membershipLine(for status: MembershipStatus) async -> (isMember: Bool, line: String) {
         switch status {
-        case .active(let plan, let renewsAt):
+        case .active(let plan, let renewsAt, _):
             let option = await membershipStore.planOptions().first { $0.plan == plan }
             let priceText = option.map {
                 "\($0.localizedPrice)/\(plan == .yearly ? "yr" : "mo")"
@@ -272,7 +280,7 @@ final class YouViewModel: ObservableStateViewModel<
                 line += " · renews \(Self.dateText(renewsAt))"
             }
             return (true, line)
-        case .trial(let endsAt):
+        case .trial(let endsAt, _):
             return (true, "Mochi+ · free trial ends \(Self.dateText(endsAt))")
         case .billingGrace:
             return (true, "Mochi+ · payment method needs a refresh")

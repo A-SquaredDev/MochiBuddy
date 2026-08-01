@@ -83,13 +83,15 @@ final class AppContainer {
 
     init() {
         let firestore = Firestore.firestore()
-        authRepository = FirebaseAuthRepository()
+        accountEraser = FirestoreAccountEraser(firestore: firestore)
+        // The eraser rides into auth so a credential collision can destroy
+        // the orphaned anonymous placeholder before the session switches.
+        authRepository = FirebaseAuthRepository(orphanEraser: accountEraser)
         profileRepository = CachingUserProfileRepository(
             wrapping: FirestoreUserProfileRepository(firestore: firestore)
         )
         taskRepository = FirestoreTaskRepository(firestore: firestore)
         listRepository = FirestoreListRepository(firestore: firestore)
-        accountEraser = FirestoreAccountEraser(firestore: firestore)
         // -mochiLocalMembership keeps membership device-local for UI work
         // without touching StoreKit/sandbox.
         membershipStore = ProcessInfo.processInfo.arguments.contains("-mochiLocalMembership")
@@ -126,7 +128,9 @@ final class AppContainer {
         )
 
         let telemetry = OSLogNotificationTelemetry()
-        notificationScheduler = UNNotificationScheduler()
+        let unScheduler = UNNotificationScheduler()
+        unScheduler.telemetry = telemetry
+        notificationScheduler = unScheduler
         // Auto-updating: the orchestrator and mirror hold their calendar
         // for the app's lifetime, and timed reminders are wall-clock
         // intentions - a landed flight must re-lay against the NEW zone.
@@ -297,6 +301,14 @@ final class AppContainer {
         ) { [weak notificationOrchestrator] _ in
             Task { @MainActor in
                 notificationOrchestrator?.requestRelay(.timezoneChange)
+            }
+        }
+        // Edits made inside Apple Reminders (or by Siri / another device)
+        // re-lay instead of waiting for the next natural trigger. The
+        // orchestrator's debounce absorbs EventKit's notification bursts.
+        remindersGateway.onExternalChange = { [weak notificationOrchestrator] in
+            Task { @MainActor in
+                notificationOrchestrator?.requestRelay(.remindersChange)
             }
         }
 

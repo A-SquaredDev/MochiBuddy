@@ -263,7 +263,14 @@ enum NotificationPlanner {
         var rundowns: [PlannedNotification] = []
         var day = calendar.startOfDay(for: capture)
         while day < end {
-            if let wake = calendar.date(byAdding: .minute, value: input.bedtime.endMinutes, to: day),
+            // Wall-clock wake, never startOfDay + minutes: a DST
+            // transition day is 23 or 25 hours long, and minute
+            // arithmetic drifts the briefing an hour off its promise.
+            if let wake = calendar.date(
+                   bySettingHour: input.bedtime.endMinutes / 60,
+                   minute: input.bedtime.endMinutes % 60,
+                   second: 0, of: day
+               ),
                wake > capture, wake < end,
                !vacationCovers(wake, input: input) {
                 rundowns.append(PlannedNotification(
@@ -305,9 +312,15 @@ enum NotificationPlanner {
     // MARK: - Backstop
 
     /// The repeating safety net so a dormant user past the horizon still
-    /// hears from Mochi. Suppressed while vacation holds.
+    /// hears from Mochi. Suppressed while vacation holds. Its own genre,
+    /// deliberately NOT gated on moodDips: opting out of mood dips (or
+    /// never opting in - they default off) must not remove the only
+    /// notification a fully dormant user would ever get. Only turning
+    /// every genre off reads as a request for true silence.
     private static func planBackstop(_ input: NotificationPlanInput) -> [PlannedNotification] {
-        guard input.prefs.moodDips else { return [] }
+        let prefs = input.prefs
+        guard prefs.taskReminders || prefs.morningRundown
+                || prefs.moodDips || prefs.weeklyLetter else { return [] }
         let fireAt = input.snapshot.capturedAt.addingTimeInterval(Constants.backstopInterval)
         guard !moodPingSuppressed(at: fireAt, input: input) else { return [] }
         return [PlannedNotification(

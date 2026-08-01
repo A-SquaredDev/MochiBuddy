@@ -210,6 +210,13 @@ final class ObservationLedger {
         )
     }
 
+    /// The civil day a conclusion last surfaced anywhere, nil if never -
+    /// lets the Journal card keep a line visible on its surfacing day
+    /// without re-recording it.
+    func lastSurfacedDay(of conclusion: ObservationConclusion, userId: String) -> String? {
+        state(userId: userId).lastSurfaced[Self.conclusionKey(conclusion)]
+    }
+
     // MARK: - Momentum cooldown
 
     /// After momentum surfaces, it stays quiet for the cooldown window

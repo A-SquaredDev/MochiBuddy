@@ -11,6 +11,9 @@ import Foundation
 @MainActor
 protocol NotificationRelaying: AnyObject {
     func requestRelay(_ trigger: RelayTrigger)
+    /// Sign-out or account deletion: wipe the pending queue this app owns
+    /// and the exiting user's persisted scheduler state.
+    func clearForIdentityExit(userId: String?) async
 }
 
 extension NotificationOrchestrator: NotificationRelaying {}

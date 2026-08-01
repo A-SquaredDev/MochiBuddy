@@ -18,6 +18,11 @@ enum NotificationTelemetryEvent {
     case action(name: String, band: MoodBand?)
     /// The shh valve was pulled - the in-app alternative to the OS switch.
     case shhActivated(band: MoodBand)
+    /// UNUserNotificationCenter rejected a request (denied authorization,
+    /// slot pressure) - without this, "scheduled" counts the plan, not
+    /// what iOS actually accepted. The id prefix identifies the genre;
+    /// no task title ever rides along.
+    case scheduleFailed(id: String)
 }
 
 protocol NotificationTelemetry: AnyObject {
@@ -36,6 +41,8 @@ final class OSLogNotificationTelemetry: NotificationTelemetry {
             logger.info("action name=\(name, privacy: .public) band=\(band?.rawValue ?? -1)")
         case .shhActivated(let band):
             logger.info("shh band=\(band.rawValue)")
+        case .scheduleFailed(let id):
+            logger.error("schedule failed id=\(id, privacy: .public)")
         }
     }
 }

@@ -61,6 +61,7 @@ final class YouRouter: YouRouting {
     }
 
     func wakeMochi() {
+        container.session.flowEntry = .splash
         container.session.phase = .flow
     }
 
@@ -202,7 +203,9 @@ final class YouRouter: YouRouting {
             accountEraser: container.accountEraser,
             observationLedger: container.observationLedger,
             callbackLedger: container.callbackLedger,
-            suggestionLedger: container.suggestionLedger
+            suggestionLedger: container.suggestionLedger,
+            relay: container.notificationOrchestrator,
+            membershipStore: container.membershipStore
         )
         navController.navigate(
             route: AdHocRoute(key: "you.deleteConfirm"),
@@ -218,7 +221,10 @@ final class YouRouter: YouRouting {
         navController.popToRoot()
     }
 
+    /// Sign-out and account deletion leave through here: Landing, not
+    /// splash, so no replacement anonymous account is minted.
     func exitToOnboarding() {
+        container.session.flowEntry = .landing
         container.session.phase = .flow
     }
 }

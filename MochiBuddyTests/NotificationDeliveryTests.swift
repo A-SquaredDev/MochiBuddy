@@ -270,6 +270,22 @@ struct PromiseTriggerBuilderTests {
         #expect(PromiseTriggerBuilder.repeatingComponents(for: .weekdays, dueAt: nineAM) == nil)
         #expect(PromiseTriggerBuilder.repeatingComponents(for: .custom([2, 4]), dueAt: nineAM) == nil)
     }
+
+    @Test("monthly on day 29-31 can't repeat either - a day-31 trigger would skip short months")
+    func monthlyShortMonths() {
+        // Jul 31 2026, 9:30 - day 31 exists in only seven months a year.
+        let endOfMonth = Dates.calendar.date(
+            from: DateComponents(year: 2026, month: 7, day: 31, hour: 9, minute: 30)
+        )!
+        #expect(PromiseTriggerBuilder.repeatingComponents(for: .monthly, dueAt: endOfMonth) == nil,
+                "single next fire + re-lay; nextOccurrence clamps via byAdding month")
+
+        let day28 = Dates.calendar.date(
+            from: DateComponents(year: 2026, month: 7, day: 28, hour: 9, minute: 30)
+        )!
+        #expect(PromiseTriggerBuilder.repeatingComponents(for: .monthly, dueAt: day28)?.day == 28,
+                "day 28 exists in every month and keeps the one-slot repeating trigger")
+    }
 }
 
 @Suite("MembershipSession · change hook")
@@ -282,13 +298,13 @@ struct MembershipSessionChangeTests {
         var fired = 0
         session.onChange = { fired += 1 }
 
-        session.status = .active(plan: .yearly, renewsAt: nil) // same as default
+        session.status = .active(plan: .yearly, renewsAt: nil, willRenew: true) // same as default
         #expect(fired == 0)
         session.status = .lapsed
         #expect(fired == 1)
         session.status = .lapsed
         #expect(fired == 1)
-        session.status = .trial(endsAt: Dates.days(7))
+        session.status = .trial(endsAt: Dates.days(7), willRenew: true)
         #expect(fired == 2)
     }
 }
@@ -597,7 +613,8 @@ struct NotificationOrchestratorTests {
                 prefs.moodDips = true
                 return prefs
             }()
-        )
+        ),
+        session: MembershipSession? = nil
     ) -> (NotificationOrchestrator, StubNotificationScheduler, StubTaskRepository, RecordingTelemetry, UserDefaults) {
         let auth = StubAuthRepository()
         let profileRepo = StubProfileRepository()
@@ -613,7 +630,7 @@ struct NotificationOrchestratorTests {
             taskRepository: taskRepo,
             recurrenceRoller: RecurrenceRoller(taskRepository: taskRepo),
             bufferStore: StubComfortBufferStore(),
-            membershipSession: MembershipSession(),
+            membershipSession: session ?? MembershipSession(),
             scheduler: scheduler,
             telemetry: telemetry,
             defaults: defaults
@@ -649,6 +666,32 @@ struct NotificationOrchestratorTests {
         #expect(trigger == "appForeground")
         #expect(scheduled == scheduler.scheduled.count)
         #expect(band == .verySad)
+    }
+
+    @Test("an auto-renewing sub never caps the horizon; a real cancellation still does")
+    func willRenewUncapsHorizon() async {
+        // Renewal boundary one hour out. Sandbox lives here permanently
+        // (yearly subs renew hourly), and production monthly subs pass
+        // through it every cycle.
+        let renewing = MembershipSession()
+        renewing.status = .active(plan: .yearly, renewsAt: Dates.hours(1), willRenew: true)
+        let (orchestrator, scheduler, _, _, _) = makeOrchestrator(
+            tasks: floorTasks(), session: renewing
+        )
+        await orchestrator.relayNow(.appForeground, now: Dates.now)
+        #expect(scheduler.scheduled.contains {
+            $0.plan.kind == .moodPing && $0.plan.fireAt > Dates.hours(1)
+        })
+
+        let cancelled = MembershipSession()
+        cancelled.status = .active(plan: .yearly, renewsAt: Dates.hours(1), willRenew: false)
+        let (capped, cappedScheduler, _, _, _) = makeOrchestrator(
+            tasks: floorTasks(), session: cancelled
+        )
+        await capped.relayNow(.appForeground, now: Dates.now)
+        #expect(!cappedScheduler.scheduled.contains {
+            $0.plan.kind == .moodPing && $0.plan.fireAt > Dates.hours(1)
+        })
     }
 
     @Test("re-laying twice produces the identical id set - idempotent by construction")
@@ -705,14 +748,45 @@ struct NotificationOrchestratorTests {
         #expect(Set(scheduler.removedIds) == ["mood-4-1", "due-f0"], "entering vacation clears the queue")
     }
 
-    @Test("the taper stretch persists across relays via defaults")
+    @Test("the taper stretch persists across relays via user-scoped defaults")
     func taperPersists() async {
         let (orchestrator, _, _, _, defaults) = makeOrchestrator(tasks: floorTasks())
         await orchestrator.relayNow(.appForeground, now: Dates.now)
-        let data = defaults.data(forKey: "mochi.notif.taper")
+        let data = defaults.data(forKey: "mochi.notif.taper.user1")
         #expect(data != nil)
         let state = try? JSONDecoder().decode(TaperState.self, from: data ?? Data())
         #expect(state?.firstFloorDay == Dates.startOfToday)
+    }
+
+    @Test("legacy device-scoped taper state folds into the signed-in user's key")
+    func legacyTaperMigrates() async {
+        let (orchestrator, _, _, _, defaults) = makeOrchestrator()
+        var legacy = TaperState()
+        legacy.firstFloorDay = Dates.startOfToday
+        defaults.set(try? JSONEncoder().encode(legacy), forKey: "mochi.notif.taper")
+
+        #expect(orchestrator.currentTaperState().firstFloorDay == Dates.startOfToday,
+                "the pre-scoping stretch must carry into the current user's state")
+        #expect(defaults.data(forKey: "mochi.notif.taper.user1") != nil)
+        #expect(defaults.object(forKey: "mochi.notif.taper") == nil,
+                "the legacy key is consumed so a later account can never read it")
+    }
+
+    @Test("identity exit clears our whole queue, foreign ids untouched, state wiped")
+    func identityExitClears() async {
+        let (orchestrator, scheduler, _, _, defaults) = makeOrchestrator(tasks: floorTasks())
+        await orchestrator.relayNow(.appForeground, now: Dates.now)
+        let ourIds = scheduler.scheduled.map(\.plan.id)
+        #expect(!ourIds.isEmpty)
+        scheduler.pending = ourIds + ["someOtherSDK"]
+
+        await orchestrator.clearForIdentityExit(userId: "user1")
+
+        #expect(Set(scheduler.removedIds) == Set(ourIds),
+                "every id we own goes; the foreign id is never touched")
+        #expect(defaults.data(forKey: "mochi.notif.taper.user1") == nil)
+        #expect(orchestrator.currentTaperState() == TaperState(),
+                "the next identity starts with no inherited stretch")
     }
 
     @Test("requestRelay debounces a mutation storm into one lay")
