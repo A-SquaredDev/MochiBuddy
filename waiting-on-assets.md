@@ -57,45 +57,52 @@ The five `.icon` bundles contain real PNGs, exports of `MochiPetView` generated 
 
 ## 5. Widget static pose set (blocks shipping, per requirements)
 
-`mochi-requirements.md:1694-1699`. The widget must render static image exports only (never a runtime rig), one set per theme flavor. Today the widget code-draws the pet via `MochiPetView` + `ImageRenderer` (`MochiWidget/MochiWidget.swift:313-328`) and swaps to real exports when the art lands (`mochi-requirements.md:408-410`).
+*mochi-requirements.md → Widgets*. The widget must render static image exports only (never a runtime rig), one set per theme flavor. Today the widget code-draws the pet via `MochiPetView` + `ImageRenderer` (`MochiWidget/MochiWidget.swift:313-328`) and swaps to real exports when the art lands (*Implementation status → Known deltas*).
 
 - [ ] 6 mood idle poses, exported per theme
 - [ ] Asleep pose (lapsed state)
-- [ ] Resting pose (vacation). Currently reuses the sleeping pose (`mochi-requirements.md:433-434`); the brief calls for a distinct hammock / sunglasses holiday pose (`mochi-requirements.md:1464-1465`)
+- [ ] Resting pose (vacation). Currently reuses the sleeping pose (*Implementation status → Known deltas*); the brief calls for a distinct hammock / sunglasses holiday pose (*Vacation mode*)
 - [ ] Every pose must read as a monochrome silhouette for the lock screen
 
 ## 6. Mascot animation commission (Rive rig)
 
-Spec'd in `mochi-requirements.md:940-967` ("Art direction: animation & sound") but not built; the app currently uses code-drawn static poses with SwiftUI springs. Deliverables per the brief:
+Spec'd in *mochi-requirements.md → Art direction: animation & sound* but not built; the app currently uses code-drawn static poses with SwiftUI springs. Deliverables per the brief:
 
 - [ ] Character rig (Rive) matching the design-system Mochi (source SVG viewBox 180x170)
 - [ ] ~6 mood idle loops
 - [ ] Reaction animations: pet, task-complete, fall-asleep, wake-up, receive-treat
+- [ ] **Waking-Mochi onboarding beat (exploratory):** a groggy / half-awake pose and an adoption-happy beat. Neither exists in the scripted idle set, and the sequence is animation-carried, so this may want the rig rather than scripted canvases. Also needs a static equivalent for Reduce Motion (*mochi-requirements.md → Onboarding → Exploring: the waking-Mochi adoption beat*)
 - [ ] Per-state ambient sound (companion deliverable in the same brief)
-- [ ] Onboarding mood-animation beat depends on this commission (`mochi-requirements.md:1577`)
+- [ ] Onboarding mood-animation beat depends on this commission (*Onboarding*)
 
 ## 7. Notification imagery
 
-- [ ] Expressive Mochi-face notification attachments, intensity-capped. Gated on the pose-set commission above; attachments land with the art (`mochi-requirements.md:451`).
+- [ ] Expressive Mochi-face notification attachments, intensity-capped. Gated on the pose-set commission above; attachments land with the art (*Implementation status → Known deltas*).
 
 ## 8. Launch screen
 
-- [~] Themed launch screen. Currently the auto-generated blank one (`submission-checklist.md:62-64`).
+- [~] Themed launch screen. Currently the auto-generated blank one (*submission-checklist.md*).
 
 ## 9. App Store Connect deliverables
 
 Not in-app art, but graphics still owed for submission:
 
 - [ ] App Store screenshots
-- [ ] Subscription review screenshots for both products (`submission-checklist.md:57-58`, `mochi-requirements.md:378-385`)
+- [ ] Subscription review screenshots for both products (*submission-checklist.md*, *Implementation status → Outstanding external setup*)
 
 ## 10. Design comps still needed (not shipped assets)
 
-`design-comp-prompts.md` (2026-07-26) holds three paste-ready comp prompts for the discovery batch, all still open, each across 5 flavors:
+The discovery batch's three comps are **done**, all built and approved 2026-07-26 across 5 flavors (prompts archived at `ProjectDocs/design/design-comp-prompts.md`):
 
-- [ ] Best Hours cards revision
-- [ ] Re-time row badge (`clock.arrow.circlepath` on `TodoItemRow`)
-- [ ] Effort pill and menu (Tiny/Small/Medium/Large)
+- [x] Best Hours cards revision (`Best Hours Cards.dc.html`)
+- [x] Re-time row badge (`Suggestion Badge.dc.html`)
+- [x] Effort pill and menu (`Task Size Control.dc.html`)
+
+Still open:
+
+- [ ] **File cleanup on `Task Size Control.dc.html`:** delete the superseded food-metaphor states (1a-1c) so the file carries only the EFFORT version.
+- [ ] **Editor ghost pill** — the dimmed suggested time inside the time pill, plus its reason caption and dismiss affordance. The last unbuilt discovery-batch item; design is locked but no comp exists (*mochi-requirements.md → The discovery batch → Editor layout*). Needs the dim treatment checked in all five flavors so it stays distinguishable from an empty pill.
+- [ ] **Waking-Mochi onboarding sequence** — the tap-to-wake adoption beat (asleep → groggy → awake → adopted → name). Exploratory, needs a comp before it becomes a spec (*mochi-requirements.md → Onboarding → Exploring: the waking-Mochi adoption beat*).
 
 ---
 

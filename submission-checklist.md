@@ -159,10 +159,19 @@ Companion doc: the "Outstanding external setup" section in
 
 ## Already done
 
-- [x] Remote Config: all 74 keys published and confirmed remote-sourced
-  (July 25, via the DEBUG `remote_tuning_audit` log).
-- [x] `firestore.rules` for adoptedOn write-once, letters, activityWeeks
-  (deployed July 24; only the moments block awaits the redeploy above).
+- [~] Remote Config: 74 keys published and confirmed remote-sourced (July 25,
+  via the DEBUG `remote_tuning_audit` log). **The discovery batch raised the pin
+  to 84**: `suggest_weekday_min` 4, `suggest_weekday_dates` 3, `bh_row_min` 5,
+  `bh_row_dates` 3, `bh_second_wind_min` 5, `bh_second_wind_dates` 3,
+  `effort_weight_tiny` 1.0, `effort_weight_small` 1.4, `effort_weight_medium`
+  2.0, `effort_weight_large` 3.0 are wired and test-pinned but **not yet
+  published**. Shipped defaults apply until they are, so this does not block a
+  build.
+  **Verify:** after publishing, run the suite (`consoleKeysMatch` pins all 84)
+  and launch a DEBUG build to confirm the audit logs
+  `remote_tuning_audit all 84 keys remote-sourced`.
+- [x] `firestore.rules` complete: adoptedOn write-once, letters, activityWeeks
+  (deployed July 24) and Feature 6's moments block (verified live July 27).
 - [x] RevenueCat client wiring, Apple + Google Sign-In client wiring,
   widgets, notifications, Personal Layer Features 1 through 6.
 - [x] App icon: current art accepted for TestFlight (decided July 27, no

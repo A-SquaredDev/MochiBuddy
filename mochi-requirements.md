@@ -1,13 +1,53 @@
 # Mochi — Requirements
 
 *Working title. A companion-driven reminders & todo app.*
-*Status: living draft — v0.7 · implementation current through v0.7 Features 1 + 4 + 3 (see Implementation status)*
+*Status: living draft · v0.8 · implementation current through the discovery batch (see Implementation status)*
+
+**Companion docs.** This is the master spec; four docs stand alongside it rather than
+inside it, because each is a working surface with its own rhythm:
+
+| Doc | What it is |
+|---|---|
+| `Mochi-journal.md` | Long-form reference for the Journal tab: screen anatomy, the moment dictionary, the observation card, copy rules |
+| `manual-test-plan.md` | The human QA pass, screen by screen |
+| `submission-checklist.md` | TestFlight and App Review gating work |
+| `waiting-on-assets.md` | Art and design deliverables the build is waiting on |
+
+Superseded working docs (the per-feature implementation guides, the calendar decision
+record, the design-comp prompts) are archived under `ProjectDocs/`; everything durable
+in them was folded into this doc in v0.8. Code architecture lives separately again in
+`MochiBuddy/DesignDocs/`.
 
 ---
 
 ## Changelog
 
-**v0.7 — July 21 2026** *(current)* — the Personal Layer (new section) · doc renamed
+**v0.8 — July 30 2026** *(current)* · Personal Layer complete · the discovery batch · doc consolidation
+
+- **Personal Layer Feature 6 (Journal tab) shipped**, closing the build order
+  1 → 4 → 3 → 2 → 5 → 6. All six features are now in code. The long-form Journal
+  reference (screen anatomy, moment dictionary, copy rules) lives in its own
+  companion doc, `Mochi-journal.md`.
+  → *The Personal Layer → Feature 6.*
+- **New top-level section: *The discovery batch*** — the four items taken up after
+  the Personal Layer, plus the one that was tabled. Three shipped
+  (Best Hours & Day by day · Suggestion reach · Effort size), one is design-locked
+  and unbuilt (Editor layout), one is tabled with a full decision record
+  (Calendar access). → *The discovery batch.*
+- **Doc consolidation.** The seven implementation guides, the calendar decision
+  record, and the design-comp prompts were folded into this doc and archived under
+  `ProjectDocs/`. Root now carries five living docs: this one, `Mochi-journal.md`,
+  `manual-test-plan.md`, `submission-checklist.md`, `waiting-on-assets.md`.
+  → *ProjectDocs/README.md* for the archive index.
+- **Remote Config pin moved 74 → 84.** Ten new keys from the discovery batch
+  (2 `suggest_weekday_*`, 4 `bh_*`, 4 `effort_weight_*`). Console publish is still
+  user-owned. → *Implementation status → Remote Config parameters.*
+- **Onboarding: a waking-Mochi adoption beat is being explored** for new accounts.
+  Splash stays; a first-run-only sequence taps Mochi from asleep to groggy to awake
+  to adopted, and the naming beat becomes the adoption moment rather than a form
+  field. → *Onboarding → Exploring: the waking-Mochi adoption beat.*
+
+**v0.7 — July 21 2026** — the Personal Layer (new section) · doc renamed
 - **Doc renamed** `mochi-design-doc.md` → `mochi-requirements.md`; title updated to match.
   Same living-draft format, no structural changes to existing sections.
 - **New top-level section: *The Personal Layer*** — six features with one shared job:
@@ -270,14 +310,20 @@
 
 ## Implementation status
 
-> 🛠 **As of July 25 2026 (v0.7 · Features 1 + 4 + 3 + 2 + 5).** Everything the changelog
-> resolved through v0.6.1, plus Personal Layer Features 1, 4, 3, 2, and 5 (the first five
-> stops in the pinned build order 1 → 4 → 3 → 2 → 5 → 6), is built and covered by the
-> automated suite: **667 tests passed, 0 failures** (`MochiBuddyTests`, Swift Testing,
-> app-hosted; one deliberately-skipped icon-export harness). `firestore.rules` deployed
-> July 24 2026 - letter composition confirmed working live against the deployed rules;
-> Features 2 and 5 need no rules change. Remaining user-owned console/account work is
-> tracked in *Outstanding external setup* below. Next up: Feature 6 (Journal tab).
+> 🛠 **As of July 30 2026 (v0.8).** Everything the changelog resolved through v0.6.1,
+> the complete Personal Layer (Features 1 → 4 → 3 → 2 → 5 → 6, the pinned build order
+> run to the end), and three of the four discovery-batch items are built and covered by
+> the automated suite. **`firestore.rules` is fully deployed** (adoptedOn write-once,
+> letters, and activityWeeks July 24 2026; Feature 6's moments block confirmed live
+> July 27 by diffing the console against the repo, byte-for-byte identical). Features 2
+> and 5 needed no rules change, and neither does the discovery batch. The one piece of
+> user-owned work the code is still waiting on is the Remote Config publish; everything
+> else outstanding is App Store Connect and RevenueCat account work, tracked in
+> *Outstanding external setup* below.
+>
+> **Not built:** the editor-layout ghost pill (design locked, spec in *The discovery
+> batch → Editor layout*). **Tabled:** calendar access (*The discovery batch → Calendar
+> access*). Next up is the TestFlight push tracked in `submission-checklist.md`.
 
 | Spec section | Status | Where it lives (code) |
 |---|---|---|
@@ -297,15 +343,25 @@
 | Celebrations (in-app) | ✅ Implemented + tested (v0.6.1) | `Rewards/CelebrationCenter.swift` + `TaskCompletionStore.onMilestone`: every completion surface (Home, Tasks tab, notification Complete action, widget drain) posts a landed sparse milestone (7 / 30 / then every 50) through the one center; Home shows the banner (`celebrationText`, dismissible, fires only on the completion that reaches the milestone). No push celebration class exists **by design** — see deltas |
 | Personal Layer · Feature 1: Name your Mochi + adoption date (v0.7) | ✅ Implemented + tested | `PetIdentity/`: `PetNameSanitizer` (Unicode-precise: controls/bidi stripped, banned whitespace becomes a separator, ZWJ/variation selectors never touched, 16-grapheme cap on boundaries) + pure `PetNameFieldPolicy` behind a UIKit-backed `PetNameTextField` (marked text never blocked, cap on commit) · `AdoptedOnDate` (date-only YYYY-MM-DD, strict round-trip validation, zone-free display) · `PetIdentityStore` (@Observable; one-time persisted migration backfills `mochiName`/`adoptedOn` from `createdAt` with a per-UID flag, doubles as the interrupted-onboarding backstop at `enteredHome`; `PetIdentityDidChange` pipeline: sanitize+persist → action-label re-registration (`NotificationActionTitles`, verb+~12-char compact budget, width-estimated) → `petIdentityChange` re-lay (mood pings + rundowns rewritten; **promises pet-name-free by construction** — the old "Mochi is rooting for you" promise body was removed as a spec violation) → widget mirror (`mochiName` optional in `MochiWidgetState`, stale snapshots decode and fall back) → live UI). Naming beat closes Meet Mochi (skippable, both buttons stamp write-once `adoptedOn`, name used on the very next screen); "Your Mochi" group + rename sheet in "You" (available in every state incl. lapsed); brand-vs-pet audit swept every surface (mood/rundown pools are `{name}` templates through the one `PetCopyTemplate` helper, they/them pronouns; Home/Tasks/editor/You sub-screens/onboarding-post-beat/returning flow/widget incl. VoiceOver); deletion screen lists name + adoption date factually. `firestore.rules` enforces `adoptedOn` write-once server-side (deployed July 24 2026). Instrumentation: `pet_named` (custom bool) / `pet_renamed` (count), never the string |
 
-| Personal Layer · Feature 4: Mochi's observations (v0.7) | ✅ Implemented + tested (no production surface yet, by build order) | `Observations/`: pure `ObservationEngine` (all five v1 types with their evidence floors, spread gates incl. the per-day cap, and margin gates; weekday from one-off completions only; bands + histograms as derived views over canonical minutes; momentum eligibility from the synced interval log with the honest pre-log silence rule; list return as an after-action event; comeback with median + p75 gates; 14-day deterministic-replay hysteresis with switch AND retire; explicit calendar/now parameters, zero clock reads, determinism + current-zone-independence pinned by tests) · `ObservationCandidate`/`QualifiedObservation` type split enforced at compile time · `DistributionResult` with explicit `scopeUsed` provenance + circular minute math (Feature 5's contract, ready) · per-UID `ObservationLedger` (surfacing cadence ONLY: rundown weekly cap, same-week letter/rundown dedup, momentum cooldown, list-return once-per-event, copy rotation, algorithm/schema version gate, cleared on account deletion) · `ObservationCopy` pools (qualitative by locked rule, `{name}` templated, night band affirming) · `observation_evaluated` (≤1/type/day) + `observation_shown` os_log telemetry, never a conclusion payload · `ObservationService` orchestrator (fetch horizon = replay 90 + window 42 days). Inputs: `CompletedTaskStat` extended with task/series ids + completion-local date/minute/zone stamped at the source (Firestore write, widget queue stamps at TAP time; legacy rows re-interpret under the current zone, honestly marked derived); recurring spawns inherit `seriesId`; `users/{uid}.observationIntervals` + `observationLogSince` synced, maintained by `ObservationIntervalRecorder` (vacation entry, TRUE vacation end via re-entry, lapse via the membership hook, reconcile backstop at home entry). DEBUG observation inspector in the DevScheduler tab (gate-by-gate evidence, replay glyph timeline, ledger state, shared time travel). Consumers arrive with Features 3/2/6; 24 `obs_*` Remote Config keys wired + test-pinned (**console publish pending**) |
+| Personal Layer · Feature 4: Mochi's observations (v0.7) | ✅ Implemented + tested (no production surface yet, by build order) | `Observations/`: pure `ObservationEngine` (all five v1 types with their evidence floors, spread gates incl. the per-day cap, and margin gates; weekday from one-off completions only; bands + histograms as derived views over canonical minutes; momentum eligibility from the synced interval log with the honest pre-log silence rule; list return as an after-action event; comeback with median + p75 gates; 14-day deterministic-replay hysteresis with switch AND retire; explicit calendar/now parameters, zero clock reads, determinism + current-zone-independence pinned by tests) · `ObservationCandidate`/`QualifiedObservation` type split enforced at compile time · `DistributionResult` with explicit `scopeUsed` provenance + circular minute math (Feature 5's contract, ready) · per-UID `ObservationLedger` (surfacing cadence ONLY: rundown weekly cap, same-week letter/rundown dedup, momentum cooldown, list-return once-per-event, copy rotation, algorithm/schema version gate, cleared on account deletion) · `ObservationCopy` pools (qualitative by locked rule, `{name}` templated, night band affirming) · `observation_evaluated` (≤1/type/day) + `observation_shown` os_log telemetry, never a conclusion payload · `ObservationService` orchestrator (fetch horizon = replay 90 + window 42 days). Inputs: `CompletedTaskStat` extended with task/series ids + completion-local date/minute/zone stamped at the source (Firestore write, widget queue stamps at TAP time; legacy rows re-interpret under the current zone, honestly marked derived); recurring spawns inherit `seriesId`; `users/{uid}.observationIntervals` + `observationLogSince` synced, maintained by `ObservationIntervalRecorder` (vacation entry, TRUE vacation end via re-entry, lapse via the membership hook, reconcile backstop at home entry). DEBUG observation inspector in the DevScheduler tab (gate-by-gate evidence, replay glyph timeline, ledger state, shared time travel). Consumers arrive with Features 3/2/6; 24 `obs_*` Remote Config keys wired + test-pinned (published July 25 2026) |
 
-| Personal Layer · Feature 3: Weekly letter from Mochi (v0.7) | ✅ Implemented + tested (live compose pending rules deploy) | `Letters/`: `LetterSchedule`/`LetterPeriod` (Monday start, send-hour cutoff with the bedtime clamp moving the cutoff, plain-date ids, attribution window owning the post-cutoff tail, authoritative-zone parameterization; first consumer of the synced `profile.timezone`) · pure `LetterComposer` over `PeriodSummary` (classification table with precedence incl. vacation-partial > rough; two-phase beat selection with structural beats first; insight-family XOR cap; rough letters draw ONLY from the structurally restricted pools, asserted by test, numeral scan as backstop; both share variants composed from beat data, never string surgery; FNV-1a hash rotation with don't-repeat-last-N vs the synced archive, no stored rotation state) · `FirestoreLetterRepository` (archive reads cache-friendly; first composition = the app's ONE fire-and-forget exception: `waitForPendingWrites`, server-backed reads, `runTransaction` create with existence precondition, first writer wins, loser displays the winner) · `LetterCompositionService` on user-visible foreground only (stamps the create-only `activityWeeks/{periodId}` marker - notification taps count via foregrounding, background work structurally can't; gates: first-full-period after `adoptedOn`, dormant skip, full-vacation skip, lapse skip, active-vacation defers late-never-wrong; no backfill) · letter notification class (id = letter doc id, budget order promises → mood → rundowns → LETTER, laid only for a non-dormant period via `letterInputProvider`, vacation/lapse/toggle suppressed, `.active`, invitation-only copy; tap deep-links Home → detail) · `weeklyLetter` pref + toggle row · UI: temporary "Mochi's letters" You row → `LetterArchiveView`/`LetterDetailView` (readAt on open, synced), Home quiet-envelope indicator, `ImageRenderer` share card (private default, full per-share opt-in, rough never offers full; placeholder wordmark) · diagnostic telemetry (composed/indicator_shown/opened-with-source/shared, no text ever) · `letters` + `activityWeeks` rules blocks (create-only + readAt-only update; deployed July 24 2026, composition confirmed live) · AccountEraser covers both subcollections · DEBUG force-compose in the DevScheduler. Known gaps: ~~anniversary references in the milestone beat wait for Feature 2~~ (closed July 24 2026 - Feature 2 wired the anniversary/collision beats); rules immutability untested client-side (no emulator harness); Home envelope/detail/share card still to be driven end-to-end in the sim |
+| Personal Layer · Feature 3: Weekly letter from Mochi (v0.7) | ✅ Implemented + tested, live compose confirmed against the deployed rules | `Letters/`: `LetterSchedule`/`LetterPeriod` (Monday start, send-hour cutoff with the bedtime clamp moving the cutoff, plain-date ids, attribution window owning the post-cutoff tail, authoritative-zone parameterization; first consumer of the synced `profile.timezone`) · pure `LetterComposer` over `PeriodSummary` (classification table with precedence incl. vacation-partial > rough; two-phase beat selection with structural beats first; insight-family XOR cap; rough letters draw ONLY from the structurally restricted pools, asserted by test, numeral scan as backstop; both share variants composed from beat data, never string surgery; FNV-1a hash rotation with don't-repeat-last-N vs the synced archive, no stored rotation state) · `FirestoreLetterRepository` (archive reads cache-friendly; first composition = the app's ONE fire-and-forget exception: `waitForPendingWrites`, server-backed reads, `runTransaction` create with existence precondition, first writer wins, loser displays the winner) · `LetterCompositionService` on user-visible foreground only (stamps the create-only `activityWeeks/{periodId}` marker - notification taps count via foregrounding, background work structurally can't; gates: first-full-period after `adoptedOn`, dormant skip, full-vacation skip, lapse skip, active-vacation defers late-never-wrong; no backfill) · letter notification class (id = letter doc id, budget order promises → mood → rundowns → LETTER, laid only for a non-dormant period via `letterInputProvider`, vacation/lapse/toggle suppressed, `.active`, invitation-only copy; tap deep-links Home → detail) · `weeklyLetter` pref + toggle row · UI: temporary "Mochi's letters" You row → `LetterArchiveView`/`LetterDetailView` (readAt on open, synced), Home quiet-envelope indicator, `ImageRenderer` share card (private default, full per-share opt-in, rough never offers full; placeholder wordmark) · diagnostic telemetry (composed/indicator_shown/opened-with-source/shared, no text ever) · `letters` + `activityWeeks` rules blocks (create-only + readAt-only update; deployed July 24 2026, composition confirmed live) · AccountEraser covers both subcollections · DEBUG force-compose in the DevScheduler. Known gaps: ~~anniversary references in the milestone beat wait for Feature 2~~ (closed July 24 2026 - Feature 2 wired the anniversary/collision beats); rules immutability untested client-side (no emulator harness); Home envelope/detail/share card still to be driven end-to-end in the sim |
 
-| Personal Layer · Feature 2: Anniversaries & memory callbacks (v0.7) | ✅ Implemented + tested, inspector sim-verified July 24 2026 (live: next-milestone date math, relationship-age gate flipping exactly at day 21 under time travel, REAL recovery + best-day facts mined from the profile's own history with correct factIds and 7-day fact ages, register tracking the predicted baseline into `closed` on floor mornings, clean ledger, 4 pending rundowns correctly carrying no Personal-Layer line; banner day itself not yet drivable live - next natural milestone Aug 8) | `Memories/`: pure `AnniversaryCalendar` (1 week / 1 month / yearly from write-once `adoptedOn`, platform clamps Jan 31 → Feb 28/29 and Feb 29 → Feb 28, deliberately not remote-tunable; stateless vacation deferral derived from the interval log: month+ marks acknowledge past-tense on the ONE first post-re-entry rundown, week marks skipped) · pure `CallbackFactMiner` over the SAME 132-day fetch Feature 4 makes (no new query): best day (count + distinct-identity floors, latest-wins tie rule + tie-aware copy flag), recovery (≥3 distinct overdue clears in 48h with ≥1 ≥24h late; greedy non-overlapping episodes; lateness computed in each record's own completion zone), streak era (best ≥7, active-run celebration quiet window derived from `lastActiveDate`, era phrasing only with `bestStreakAchievedOn`, legacy never guessed), date echo (clamped month-back day clearing the best-day floor, date-bound, fact-age exempt); canonical cross-type `factId`s (`completion-day-*` shared by best day + echo, FNV-1a recovery hash, `streak-record-count-date`); relationship activation ≥21 days; fact-age floors · `RundownEmotionalRegister` (bands `MoodForecast.baseline(at: fireAt)`, NEVER displayed - buffer lift changes nothing by construction, pinned by test; chronic taper stretch closes an uneasy morning; open / recoveryOnly / closed → type admission) · `PersonalLayerPlanner` = THE canonical priority (streak milestone > anniversary > crushed yesterday > callback > observation, one line per rundown ever; a streak-claimed date renders NOTHING - celebrations stay in-app per v0.6.1 - and suppresses the anniversary on rundown + banner while the letter still remembers both; deterministic selection contract: echo > recovery > best day > era, never-told > told-and-changed, recency, stable-id ties; only the winner consumes; a losing date echo expires silently) with cadence threaded across the whole laid horizon (weekly cap 2, min gap 3) · per-UID `CallbackLedger` (sibling of ObservationLedger, own schema gate + namespace: fold = freeze past assignments into the never-pruned told-once record, replace future wholesale so re-lays are idempotent and a dropped future line un-consumes; stores rendered openers as `{name}` templates so renames re-render without burning rotation; banner once-per-milestone; `callback_evaluated` throttle; cleared on account deletion beside the observation ledger) · `MemoriesService` orchestrator (assign + commit per re-lay via `orchestrator.personalLayerProvider`, letterInputProvider pattern; the rundown dress case takes a `PersonalLayerSlot` where planner-decided-none ≠ no-planner-fallback; crushed-yesterday now priority-governed, observation tier is Feature 4's first live rundown consumer through `ObservationService.surfaced`; anniversary banner on day's first open via a second `CelebrationCenter` slot consumed streak-first by Home, silent on vacation/lapse) · `MemoriesCopy` pools ({name} templates, coarse relative time, counts in best-day/echo only, recovery family structurally restricted + asserted by test: {name} the only slot, no digits, no asks, no banned constructions; echo never claims "whole list") · letters: `PeriodSummary.anniversary` fact (built by `PeriodSummaryBuilder.anniversary` over the attribution window + vacation intervals), milestone beat now three-way (streak-only / anniversary-only incl. honest vacation-passed phrasing / collision pool carrying BOTH: "Seven days of streak, one week of us"), anniversary in `summaryHash`, `LetterCopy.version` → 2 (closes Feature 3's noted gap) · `bestStreakAchievedOn` end-to-end (model/DTO validated decode/`RewardsStore` strict-exceed stamp atomic in the one `saveStreak` merge/caching mirror/vacation re-entry pass-through, never stamped there) · telemetry `anniversary_shown` (tier+surface) / `callback_shown` / `callback_evaluated` (denominator: qualified + coarse blocked reason, ≤1/type/day), no payloads ever · DEBUG memories inspector in DevScheduler (milestone today/next, register at the time-travel cursor, per-type mining verdicts, ledger dump) · 6 `callback_*` Remote Config keys wired + test-pinned (**console publish pending**); `firestore.rules` needs NO change (owner update rule already admits the new field; strict-exceed monotonicity is client-side by spec). Full implementation guide: `feature2-implementation-guide.md` |
+| Personal Layer · Feature 2: Anniversaries & memory callbacks (v0.7) | ✅ Implemented + tested, inspector sim-verified July 24 2026 (live: next-milestone date math, relationship-age gate flipping exactly at day 21 under time travel, REAL recovery + best-day facts mined from the profile's own history with correct factIds and 7-day fact ages, register tracking the predicted baseline into `closed` on floor mornings, clean ledger, 4 pending rundowns correctly carrying no Personal-Layer line; banner day itself not yet drivable live - next natural milestone Aug 8) | `Memories/`: pure `AnniversaryCalendar` (1 week / 1 month / yearly from write-once `adoptedOn`, platform clamps Jan 31 → Feb 28/29 and Feb 29 → Feb 28, deliberately not remote-tunable; stateless vacation deferral derived from the interval log: month+ marks acknowledge past-tense on the ONE first post-re-entry rundown, week marks skipped) · pure `CallbackFactMiner` over the SAME 132-day fetch Feature 4 makes (no new query): best day (count + distinct-identity floors, latest-wins tie rule + tie-aware copy flag), recovery (≥3 distinct overdue clears in 48h with ≥1 ≥24h late; greedy non-overlapping episodes; lateness computed in each record's own completion zone), streak era (best ≥7, active-run celebration quiet window derived from `lastActiveDate`, era phrasing only with `bestStreakAchievedOn`, legacy never guessed), date echo (clamped month-back day clearing the best-day floor, date-bound, fact-age exempt); canonical cross-type `factId`s (`completion-day-*` shared by best day + echo, FNV-1a recovery hash, `streak-record-count-date`); relationship activation ≥21 days; fact-age floors · `RundownEmotionalRegister` (bands `MoodForecast.baseline(at: fireAt)`, NEVER displayed - buffer lift changes nothing by construction, pinned by test; chronic taper stretch closes an uneasy morning; open / recoveryOnly / closed → type admission) · `PersonalLayerPlanner` = THE canonical priority (streak milestone > anniversary > crushed yesterday > callback > observation, one line per rundown ever; a streak-claimed date renders NOTHING - celebrations stay in-app per v0.6.1 - and suppresses the anniversary on rundown + banner while the letter still remembers both; deterministic selection contract: echo > recovery > best day > era, never-told > told-and-changed, recency, stable-id ties; only the winner consumes; a losing date echo expires silently) with cadence threaded across the whole laid horizon (weekly cap 2, min gap 3) · per-UID `CallbackLedger` (sibling of ObservationLedger, own schema gate + namespace: fold = freeze past assignments into the never-pruned told-once record, replace future wholesale so re-lays are idempotent and a dropped future line un-consumes; stores rendered openers as `{name}` templates so renames re-render without burning rotation; banner once-per-milestone; `callback_evaluated` throttle; cleared on account deletion beside the observation ledger) · `MemoriesService` orchestrator (assign + commit per re-lay via `orchestrator.personalLayerProvider`, letterInputProvider pattern; the rundown dress case takes a `PersonalLayerSlot` where planner-decided-none ≠ no-planner-fallback; crushed-yesterday now priority-governed, observation tier is Feature 4's first live rundown consumer through `ObservationService.surfaced`; anniversary banner on day's first open via a second `CelebrationCenter` slot consumed streak-first by Home, silent on vacation/lapse) · `MemoriesCopy` pools ({name} templates, coarse relative time, counts in best-day/echo only, recovery family structurally restricted + asserted by test: {name} the only slot, no digits, no asks, no banned constructions; echo never claims "whole list") · letters: `PeriodSummary.anniversary` fact (built by `PeriodSummaryBuilder.anniversary` over the attribution window + vacation intervals), milestone beat now three-way (streak-only / anniversary-only incl. honest vacation-passed phrasing / collision pool carrying BOTH: "Seven days of streak, one week of us"), anniversary in `summaryHash`, `LetterCopy.version` → 2 (closes Feature 3's noted gap) · `bestStreakAchievedOn` end-to-end (model/DTO validated decode/`RewardsStore` strict-exceed stamp atomic in the one `saveStreak` merge/caching mirror/vacation re-entry pass-through, never stamped there) · telemetry `anniversary_shown` (tier+surface) / `callback_shown` / `callback_evaluated` (denominator: qualified + coarse blocked reason, ≤1/type/day), no payloads ever · DEBUG memories inspector in DevScheduler (milestone today/next, register at the time-travel cursor, per-type mining verdicts, ledger dump) · 6 `callback_*` Remote Config keys wired + test-pinned (published July 25 2026); `firestore.rules` needs NO change (owner update rule already admits the new field; strict-exceed monotonicity is client-side by spec). Long-form build notes: `ProjectDocs/build-notes/feature2-implementation-guide.md` |
 
-| Personal Layer · Feature 5: Suggested times (v0.7) | ✅ Implemented + tested (app boots clean with the feature live; interactive chip drive in the sim pending - Mac was locked during the build session) | `Suggestions/`: pure `SuggestionEngine` (qualification on RAW day-capped counts: evidence + distinct-date floors per scope, deterministic 48-center window scan with HALF-OPEN ±90 windows so 3h-separated windows are genuinely disjoint - a boundary completion counts once; peak share ≥ 0.35, peak-date spread ≥ 3 inside the primary window, runner-up margin ≥ 0.10 vs the best window ≥ 3 circular hours away, so bimodal means silence by construction; highest-QUALIFYING-scope precedence series > list > global with the list concentration guard (≥ 3 identities, no identity > 40% of the capped count); reschedule weight `1 + min(count,3) × 0.25` shapes the peak of an already-qualified distribution only, nil = unknown = 1; friendly rounding pinned (nearest half hour, quarter ties earlier, next-day 00:00 falls to 23:30); guardrails silence, never clamp: bedtime on the ROUNDED minute, 30-min lead for today-due, lapsed, defensive Apple guard; re-time = series-gated (8 timed / 5 dates / 3 in-peak) + unrounded-peak mismatch ≥ 3h, one-offs structurally excluded, no title inference; dismissal re-arm at ≥ 60 DISPLAYED circular minutes; pure end to end, zero clock reads) · engine contract extended in place: `DistributionResult.Scope.series` + per-entry provenance (`minute/day/identity/rescheduleCount`), `ObservationEngine.suggestionDistribution(scope:)` with day-cap-after-filter and the timed-only series rule · `SuggestionProposal` tier-typed so reason copy CANNOT overreach (`SuggestionCopy` takes the tier: series/list/global voices, list-name-gone narrows to global phrasing, re-time consent copy says DUE TIME and persists-forward, "reminder" banned by test) · per-UID `SuggestionLedger` (trigger-keyed `{trigger}|{taskId|seriesId}` dismissals storing the displayed minute, acceptance records capped at 20 for retention, schema gate, cleared on account deletion) · `SuggestionService` (@MainActor session per editor open over the existing observation fetch - no new query; pure re-scope on list change; telemetry; lazy coarse retention buckets when an accepted task/series is next edited) · `TaskEditorViewModel` session lifecycle (one presentation per trigger per session, frozen proposal never regenerates on field toggles, manual changes satisfy or remove, blocked triggers keep re-evaluating while unpresented; save-based outcomes accepted/adjusted/matched(±30 circular)/dismissed/ignored with tapped > matched > dismissed > ignored precedence, dismissed-then-matched = matched, cancel = no outcome) · chip UI in `TaskEditorView.whenBlock` (clock glyph + label + one-line reason + dismiss, whole-row accept button, quiet confirmed state, Dynamic-Type-wrapping reason, no placeholder when absent) · task-id preallocation (`TaskRepository.allocateTaskId` mints without writing; `addTask(id:)` saves through it so a pre-save dismissal survives) · telemetry `suggestion_evaluated` (once per trigger per session where preconditions held, coarse blocked reason incl. the as-built `mismatch` value) / `suggestion_shown` / `suggestion_outcome` (matched always its own component) / `suggestion_retention`, no payloads ever · DEBUG suggestions inspector in DevScheduler (pick any snapshot task, both triggers gate-by-gate at the time-travel cursor, ledger dump) · 14 `suggest_*` Remote Config keys wired + test-pinned, count guard 74 (**console publish pending**) · Apple-source edge case 10 is structural (Reminders rows never open the editor) and vacation edge 12 is structural (no vacation consult anywhere). `firestore.rules`: no change. Full implementation guide: `feature5-implementation-guide.md` |
+| Personal Layer · Feature 5: Suggested times (v0.7) | ✅ Implemented + tested (app boots clean with the feature live; interactive chip drive in the sim pending - Mac was locked during the build session) | `Suggestions/`: pure `SuggestionEngine` (qualification on RAW day-capped counts: evidence + distinct-date floors per scope, deterministic 48-center window scan with HALF-OPEN ±90 windows so 3h-separated windows are genuinely disjoint - a boundary completion counts once; peak share ≥ 0.35, peak-date spread ≥ 3 inside the primary window, runner-up margin ≥ 0.10 vs the best window ≥ 3 circular hours away, so bimodal means silence by construction; highest-QUALIFYING-scope precedence series > list > global with the list concentration guard (≥ 3 identities, no identity > 40% of the capped count); reschedule weight `1 + min(count,3) × 0.25` shapes the peak of an already-qualified distribution only, nil = unknown = 1; friendly rounding pinned (nearest half hour, quarter ties earlier, next-day 00:00 falls to 23:30); guardrails silence, never clamp: bedtime on the ROUNDED minute, 30-min lead for today-due, lapsed, defensive Apple guard; re-time = series-gated (8 timed / 5 dates / 3 in-peak) + unrounded-peak mismatch ≥ 3h, one-offs structurally excluded, no title inference; dismissal re-arm at ≥ 60 DISPLAYED circular minutes; pure end to end, zero clock reads) · engine contract extended in place: `DistributionResult.Scope.series` + per-entry provenance (`minute/day/identity/rescheduleCount`), `ObservationEngine.suggestionDistribution(scope:)` with day-cap-after-filter and the timed-only series rule · `SuggestionProposal` tier-typed so reason copy CANNOT overreach (`SuggestionCopy` takes the tier: series/list/global voices, list-name-gone narrows to global phrasing, re-time consent copy says DUE TIME and persists-forward, "reminder" banned by test) · per-UID `SuggestionLedger` (trigger-keyed `{trigger}|{taskId|seriesId}` dismissals storing the displayed minute, acceptance records capped at 20 for retention, schema gate, cleared on account deletion) · `SuggestionService` (@MainActor session per editor open over the existing observation fetch - no new query; pure re-scope on list change; telemetry; lazy coarse retention buckets when an accepted task/series is next edited) · `TaskEditorViewModel` session lifecycle (one presentation per trigger per session, frozen proposal never regenerates on field toggles, manual changes satisfy or remove, blocked triggers keep re-evaluating while unpresented; save-based outcomes accepted/adjusted/matched(±30 circular)/dismissed/ignored with tapped > matched > dismissed > ignored precedence, dismissed-then-matched = matched, cancel = no outcome) · chip UI in `TaskEditorView.whenBlock` (clock glyph + label + one-line reason + dismiss, whole-row accept button, quiet confirmed state, Dynamic-Type-wrapping reason, no placeholder when absent) · task-id preallocation (`TaskRepository.allocateTaskId` mints without writing; `addTask(id:)` saves through it so a pre-save dismissal survives) · telemetry `suggestion_evaluated` (once per trigger per session where preconditions held, coarse blocked reason incl. the as-built `mismatch` value) / `suggestion_shown` / `suggestion_outcome` (matched always its own component) / `suggestion_retention`, no payloads ever · DEBUG suggestions inspector in DevScheduler (pick any snapshot task, both triggers gate-by-gate at the time-travel cursor, ledger dump) · 14 `suggest_*` Remote Config keys wired + test-pinned, published July 25 2026 (count guard now 84 after the discovery batch) · Apple-source edge case 10 is structural (Reminders rows never open the editor) and vacation edge 12 is structural (no vacation consult anywhere). `firestore.rules`: no change. Long-form build notes: `ProjectDocs/build-notes/feature5-implementation-guide.md` |
 
-### Remote Config parameters (published July 19 2026 · obs_* + letter_* + callback_* pending)
+| Personal Layer · Feature 6: Journal tab (v0.7) | ✅ Implemented + tested, rules deployed | `Moments/` + `Journal/`: durable `Moment` records on natural event ids (ids identify *events*, not categories, so repeat 30-day streaks and same-date vacation returns never collide) with deterministic snapshot payloads derived from immutable event facts, never live lookups at write time · `MomentWriter` lapse-gated · one unified story timeline merging moments and letters (the hero is a presentation state, not a copy) · record-vs-grade philosophy held: no coins in the footer, no "busiest weekday", nothing that reads as a score · fourth tab (Home · Tasks · Journal · You) with the You tab shedding Stats back to pure settings · zero new engines, zero new gates, zero Remote Config keys. **As-built deltas:** the lapse guard in `TaskCompletionStore` makes the best-streak freeze structural (lapsed completions earn nothing, so the streak can never advance and `onMilestone` can never fire) and the footer needs no special pinning; anniversary moment producers are **two**, not three (day-of detection in `MemoriesService.checkAnniversaryBanner`, written BEFORE dedup so the day counts even when the banner loses, plus vacation re-entry via `MomentWriter.vacationEnded`) and an anniversary that passes while the app is never opened dies quietly, with no backfill inventing it later; list-return moments write from `MemoriesService.assignPersonalLayer` (the layer's most reliable lapse-gated beat) keyed once-per-event by the event itself, not the ledger; vacation-return identity is the interval start's epoch seconds, and a legacy vacation with no `vacationStartedAt` writes no moment; `stampAdoptedOn` became `stampAdoption(_:moment:userId:)` (one `WriteBatch`) so the adoption moment is atomic with `adoptedOn`, with deterministic synthesis as fallback; the letter archive screen is **deleted, not orphaned** (`LetterArchiveView`/`ViewModel`/`Behavior`, `HomeRouter.letterDetail`, `HomeBehavior.PresentedLetter`, `LetterCompositionService.pendingNotificationOpen` all retired) with `TabCoordinator.pendingLetterRoute` as the one notification/envelope handoff; observation cards surface via `surfaced(.journal)` once per (conclusion, day) per VM session, while lapsed loads render through a non-mutating `ObservationLedger.peekLine` so a frozen read-only surface never rotates the deck or logs `observation_shown` (card caps at 3 lines); `journal_opened` logs from `TabCoordinator` on the selection edge, not the view, so pop-backs can't inflate it; timeline pagination fetches both collections fully and merges purely in v1 (bounded by account age, ~52 letters/yr) with the composer taking plain arrays so month-bounded paging slots in later; the 4-week trend renders once the capped stats span ≥ 2 distinct civil weeks and the best-streak tile joins the footer whenever the record is > 0; synthesis repair runs inline in `JournalViewModel.load` (awaited, testable) rather than fire-and-forget. Long-form reference: `Mochi-journal.md` |
+
+| Discovery batch · Best Hours + Day by day (v0.8) | ✅ Implemented + tested, comp-approved | `You/Stats/`: two cards replacing the retired "Your rhythm" four-band card. Pure derivation over `[CompletedTaskStat]` (24 hourly buckets on a 5a-to-5a axis, best-3-hour-window scan, in-window share, per-weekday quartiles with circular handling, per-row qualification), two SwiftUI cards, a state-aware caption generator, the Day by day day picker, and `BestHoursHelpView`. Four `bh_*` keys wired + test-pinned (**console publish pending**). No model change, no migration, no rules change. Spec: *The discovery batch → Best Hours & Day by day* |
+
+| Discovery batch · Suggestion reach: weekday fallback · row badge · push counting (v0.8) | ✅ Implemented + tested | Three independent changes to the shipped Feature 5 machinery, in three commits (push counting first, per its own C4 urgency). **(C)** `rescheduleCount` now increments on an editor move of an incomplete task's due date to a LATER date, and is parsed in `taskItem(id:data:)` so live tasks can read it. **(A)** A weekday-filtered scope tried only as a fallback after the pooled answer is silenced by the runner-up gate, at list and global scope only, with its own lower floors and its own tier-typed copy voice. **(B)** A `clock.arrow.circlepath` badge on Tasks and ListDetail rows (never Home, never Reminders rows) signposting an available re-time, evaluated once per fetch. Two `suggest_weekday_*` keys wired + test-pinned (**console publish pending**). Spec: *The discovery batch → Suggestion reach* |
+
+| Discovery batch · Effort size (v0.8) | ✅ Implemented + tested, comp-approved | An optional four-level effort rating (Tiny · Small · Medium · Large) stored as nominal `estimatedMinutes: Int?`, weighting `MoodEngine` momentum so one large task lifts Mochi about as much as three small ones. Coins stay flat by design. The largest ripple was structural: `completionTimes` became weighted entries rather than bare dates across the snapshot, orchestrator, planner, memories service, and every direct baseline caller, with the weight carried as a **sidecar** so the two count-based consumers (`crushedYesterday` and the notification threshold) keep working on `.count` unchanged. Editor pill on the Priority row under its own EFFORT eyebrow (no eighth block), one Stats tile, recurring inheritance, four `effort_weight_*` keys wired + test-pinned (**console publish pending**). Widget needed no work: the drain re-reads the full document. Spec: *The discovery batch → Effort size* |
+
+| Discovery batch · Editor layout (ghost pill) | ⬜ **Design locked, NOT built** | The one remaining question from the batch: how the editor presents a new-time suggestion. Locked as a ghost inside the time pill rather than a card below it, with one tap accepting and opening the wheel seeded at the suggested minute, and nothing committed until the user taps. All view-and-VM work; no engine, model, or persistence change. No design comp exists. Spec: *The discovery batch → Editor layout* |
+
+### Remote Config parameters (84 keys · 74 published, confirmed remote-sourced July 25 2026 · 10 discovery-batch keys pending)
 
 The console holds exactly these keys, all currently set to the shipped defaults (so
 behavior is unchanged until a deliberate tuning pass). The canonical list lives in
@@ -323,8 +379,7 @@ behavior is unchanged until a deliberate tuning pass). The canonical list lives 
   `vacation_grace_decay_hours` 24 · `vacation_checkin_days` 14 · `vacation_max_days` 30
 - **Rewards:** `coins_per_task` 10 · `streak_milestones`
   `{"fixed":[7,30],"thenEvery":50}` (JSON)
-- **Observations (Number · wired July 23 2026, NOT yet created in the console -
-  shipped defaults apply until published):** `obs_window_days` 42 · `obs_replay_days` 90 ·
+- **Observations (Number · wired July 23 2026, published):** `obs_window_days` 42 · `obs_replay_days` 90 ·
   `obs_day_cap` 3 · `obs_weekday_min` 15 · `obs_weekday_weeks` 3 · `obs_weekday_share`
   0.30 · `obs_timeofday_min` 20 · `obs_timeofday_dates` 5 · `obs_timeofday_weeks` 3 ·
   `obs_timeofday_share` 0.40 · `obs_margin_ratio` 1.5 · `obs_trend_half_min` 10 ·
@@ -332,18 +387,16 @@ behavior is unchanged until a deliberate tuning pass). The canonical list lives 
   `obs_return_quiet_days` 14 · `obs_return_history_min` 5 · `obs_comeback_min` 8 ·
   `obs_comeback_dates` 3 · `obs_comeback_tasks` 3 · `obs_comeback_hours` 24 ·
   `obs_comeback_p75_hours` 48 · `obs_sticky_days` 14 · `obs_rundown_weekly_cap` 2
-- **Weekly letter (Number · wired July 23 2026, NOT yet created in the console):**
+- **Weekly letter (Number · wired July 23 2026, published):**
   `letter_send_weekday` 1 · `letter_send_hour` 19 · `letter_max_beats` 3 ·
   `letter_quiet_max` 2 · `letter_rough_overdue_days` 4 · `letter_great_ratio` 1.5
-- **Memory callbacks (Number · wired July 24 2026, NOT yet created in the console -
-  shipped defaults apply until published):** `callback_weekly_cap` 2 ·
+- **Memory callbacks (Number · wired July 24 2026, published):** `callback_weekly_cap` 2 ·
   `callback_min_gap_days` 3 · `callback_min_age_days` 21 · `callback_fact_age_days` 7 ·
   `callback_best_day_min` 5 · `callback_streak_quiet_days` 14. The anniversary
   milestone set (1 week / 1 month / yearly) is deliberately NOT remote-tunable
   (calendar facts, not levers), and there is no repeat-cooldown key: the
   once-until-changed fact identity replaced it.
-- **Suggested times (Number · wired July 25 2026, NOT yet created in the console -
-  shipped defaults apply until published):** `suggest_min_evidence` 15 ·
+- **Suggested times (Number · wired July 25 2026, published):** `suggest_min_evidence` 15 ·
   `suggest_min_dates` 5 · `suggest_peak_share` 0.35 · `suggest_peak_window_min` 90 ·
   `suggest_peak_dates` 3 · `suggest_runner_up_margin` 0.10 · `suggest_series_min` 8 ·
   `suggest_series_dates` 5 · `suggest_list_min_series` 3 · `suggest_list_series_share`
@@ -351,25 +404,45 @@ behavior is unchanged until a deliberate tuning pass). The canonical list lives 
   `suggest_dismiss_rearm_min` 60 · `suggest_reschedule_weight` 0.25. The runner-up
   center separation (3 circular hours) is deliberately NOT tunable - it is what makes
   the windows disjoint at the shipped ±90 width.
+- **Weekday suggestion fallback (Number · wired July 27 2026, NOT yet created in the
+  console):** `suggest_weekday_min` 4 · `suggest_weekday_dates` 3. A 42-day window
+  holds at most 6 of any given weekday, so the floor must sit below that; 4 across 3
+  dates is reachable yet meaningful. The fallback deliberately **reuses** the pooled
+  `peakShare` (0.35) and `runnerUpMargin` (0.10) rather than adding its own, which is
+  why this is two keys and not four.
+- **Best Hours (Number · wired July 27 2026, NOT yet created in the console):**
+  `bh_row_min` 5 · `bh_row_dates` 3 (a weekday row earns its capsule at 5 completions
+  across 3 distinct dates) · `bh_second_wind_min` 5 · `bh_second_wind_dates` 3 (the
+  evidence floor a secondary window must clear before Mochi names a second wind). The
+  companion "share ≥ half the peak window's share" ratio (0.5) is deliberately a **code
+  constant, not a key**, to hold the count at four.
+- **Effort weights (Number · wired July 27 2026, NOT yet created in the console):**
+  `effort_weight_tiny` 1.0 · `effort_weight_small` 1.4 · `effort_weight_medium` 2.0 ·
+  `effort_weight_large` 3.0. The level→minute mapping stays code-fixed inside
+  `EffortLevel`; only the weights are tunable.
 
 **Deliberately not remote-tunable:** the buffer cap and treat/pet values (the widget
 evaluates them without Firebase) and the 64-slot pending-notification cap (an iOS
 platform fact).
 
-### Outstanding external setup (user-owned, as of July 24 2026)
+### Outstanding external setup (user-owned, as of July 30 2026)
 
 Console/account work no code change can do. The app degrades gracefully without
 each item (shipped defaults, hardcoded fallbacks), so none block development -
 but all block shipping.
 
-- [ ] **Remote Config: create the 50 pending parameters** (Firebase console →
-  Remote Config → publish). The 24 `obs_*`, 6 `letter_*`, 6 `callback_*`
-  (Feature 2, added July 24 2026), and 14 `suggest_*` (Feature 5, added
-  July 25 2026) Number keys listed above, each set to its shipped default so
-  behavior is unchanged until a deliberate tuning pass.
-  `RemoteTuning.numberKeys` is the canonical list and the `consoleKeysMatch`
-  test pins all 74 keys - run the suite after publishing to confirm nothing
-  drifted.
+- [ ] **Remote Config: create the 10 pending discovery-batch parameters**
+  (Firebase console → Remote Config → publish). The first 74 were published
+  and confirmed remote-sourced July 25 2026; the batch added
+  2 `suggest_weekday_*`, 4 `bh_*`, and 4 `effort_weight_*` on July 27 2026,
+  each listed above with its shipped default so behavior is unchanged until a
+  deliberate tuning pass. `RemoteTuning.numberKeys` is the canonical list and
+  the `consoleKeysMatch` test pins all **84** keys - run the suite after
+  publishing to confirm nothing drifted, then launch a DEBUG build and confirm
+  the startup audit logs `remote_tuning_audit all 84 keys remote-sourced`.
+- [x] **`firestore.rules` moments block deployed** (Feature 6). Verified July 27
+  2026 by diffing the console's live rules against the repo, byte-for-byte
+  identical. All `firestore.rules` work is complete.
 - [x] **firestore.rules: NO change needed for Feature 2** (decision, July 24
   2026): `bestStreakAchievedOn` rides the existing owner-scoped `users/{uid}`
   update rule like every other profile scalar; the spec pins its strict-exceed
@@ -434,8 +507,9 @@ widget-mirror horizon tracks `notif_horizon_days`.
   (roadmap #6), with its own distinct VoiceOver label so the two calm states never conflate.
 - Re-lay triggers wired: foreground, every completion, editor saves, pet/treat, vacation,
   bedtime, prefs, entitlement change, notification actions, **timezone change** (v0.6.1;
-  the orchestrator and widget mirror hold `.autoupdatingCurrent` calendars). **Still
-  unwired:** `EKEventStoreChanged`.
+  the orchestrator and widget mirror hold `.autoupdatingCurrent` calendars), and
+  **`EKEventStoreChanged`** (2026-07-30, `.remindersChange` via the gateway's
+  `onExternalChange`). The trigger list is now fully wired.
 - **Celebrations are in-app only — there is no push celebration class** (v0.6.1). A
   milestone can only land on a completion, which happens with the app open or at
   widget-drain time on the next open; a celebration push would always arrive mid-session.
@@ -460,6 +534,56 @@ widget-mirror horizon tracks `notif_horizon_days`.
   the rename surface is a small sheet from the "Your Mochi" card per spec, and the
   one-time migration flag is device-local per-UID (a fresh device simply re-runs the
   idempotent presence-check backfill, same outcome).
+
+### Known open bugs and follow-ups (not deliberate, not yet fixed)
+
+Distinct from the deltas above, which are choices. These are defects or loose ends
+found and recorded but not acted on.
+
+- *(none currently open; the 2026-07-30 sweep below cleared the list)*
+
+**Fixed 2026-07-30** (all six defects this section carried, validated by the full suite):
+
+- **Widget-drained completions stamp one truthful time.** The widget queues the absolute
+  tap instant (`PendingCompletion.tappedAt`) alongside the local context, and the drain
+  threads it through to `completedAt` (entries queued by an older version reconstruct it
+  from the local context via `approximateInstant`). A stale tap can no longer book into
+  today's momentum window, and day-bucketed consumers agree with `completedLocalDate`.
+  The streak also credits the *tap* day and never regresses newer activity. Pinned by
+  `drainLands`, `approximateInstantRoundTrip`, `drainedTapCreditsTapDay`,
+  `staleDrainNeverRegresses`.
+- **The drain and the first refresh are sequenced.** `WidgetCompletionDrain` memoizes its
+  in-flight drain so concurrent callers coalesce; `HomeViewModel.refresh()` awaits the
+  drain before its first read, `RootView.enteredHome()` starts the drain ahead of its
+  network awaits, and Home also refreshes on `scenePhase == .active` (onAppear never
+  re-fires on a resident view). A signed-out drain now preserves the queue instead of
+  losing taps. Pinned by `refreshDrainsWidgetQueueFirst`, `concurrentDrainsCoalesce`,
+  `signedOutPreservesQueue`. `TaskCompletionStore` also gained a session-scoped
+  completion guard: a stale row tapped after the drain (or another surface) already
+  landed it is a full no-op - no second coin award, no duplicate spawned occurrence, no
+  `completedAt` overwrite (an undo re-arms it). Cross-device stale rows remain the one
+  unguarded path; that needs listeners (roadmap). Pinned by `duplicateCompleteIsNoOp`,
+  `undoRearmsAward`.
+- **The entitlement horizon caps on `willRenew`, not on expiry.** `MembershipStatus`
+  carries `willRenew` (populated from RevenueCat); the orchestrator drops the expiry cap
+  when auto-renew is on, so sandbox's hourly renewals and every converting trial plan the
+  full horizon, while a real cancellation still caps. Pinned by `willRenewUncapsHorizon`
+  (with `staleExpiryDoesNotCap` still pinning the past-expiry case).
+- **A lapsed streak zeroes on open.** `RewardsStore.zeroLapsedStreak` writes the zero on
+  Home's first refresh when a day was genuinely missed; the record and `lastActiveDate`
+  are untouched, and the vacation and membership-lapse freezes still never zero. Pinned
+  by `lapseZeroes`, `aliveYesterdayKept`, `zeroStreakNoOp`, `staleStreakZeroesOnRefresh`,
+  `membershipLapseFreezesStreak`, `vacationFreezesStreak`.
+- **`EKEventStoreChanged` is wired** as a re-lay trigger (`.remindersChange`):
+  `EventKitRemindersGateway` observes its own store, refreshes sources, and fans out via
+  `onExternalChange` in `AppContainer`. View freshness rode along: the reminders list
+  detail refreshes per appearance (was once per lifetime), and Tasks and ListDetail
+  re-fetch on foreground. Note the mood-engine *union* of native + Apple tasks remains
+  unbuilt (see the integration spec); the trigger is honest plumbing that becomes
+  load-bearing when the union lands.
+- **`AccentColor.colorset` has a value**: ube `#7B4BC4` for light, Black Sesame lavender
+  `#C9A6FF` for dark, so system chrome (alerts, share sheets) stops falling back to
+  default blue.
 
 ---
 
@@ -1598,6 +1722,54 @@ earn its keep.
    actually happens.
 10. **Home** — plus a nudge to add the home-screen widget (clunky on iOS; guide it —
     it's a top retention driver).
+
+### Exploring: the waking-Mochi adoption beat
+
+> 🆕 **v0.8 — EXPLORING, not specced.** An idea for replacing the passive "Meet Mochi"
+> screens (step 2) with an interactive one for new accounts. Captured here so it isn't
+> lost; needs a design pass and a comp before it is a decision.
+
+**The shape.** The splash still exists and still does its job (branding, Firebase init,
+the anonymous auth session). On a **new account only**, the flow that follows is not a
+carousel you swipe through but a creature you wake up:
+
+1. **Asleep.** Mochi is curled up and sleeping. Minimal chrome, a soft prompt to tap.
+2. **Tap → groggy.** He stirs. Eyes half open, a stretch, still mostly out of it.
+3. **Tap → awake.** He's up, looking at you, curious.
+4. **Tap → adopted.** He lights up happy, and *that* is the naming beat: "What will you
+   call them?" The adoption is something the user performed, not a form field they
+   filled in.
+5. Continue into the existing flow (first task → theme → bedtime → notifications → …).
+
+**Why it's worth exploring.** The naming beat (Feature 1) currently arrives as the tail
+of a passive intro. Three taps of escalating response make the same moment
+*participatory*: the user woke him, so naming him reads as adoption rather than data
+entry. It also teaches the tap-to-pet gesture before Home ever asks for it, and it puts
+the mood system on screen as a thing that responds to you rather than a thing described
+to you.
+
+**What has to be answered before this becomes a spec:**
+
+- **Returning users skip it entirely.** The whole sequence is first-run-only, gated the
+  same way step 1 already gates returning users. An interrupted onboarding must not
+  re-run the wake on the next launch and re-ask for adoption; the
+  `PetIdentityStore` migration backstop at `enteredHome` already covers the
+  interrupted-naming case and needs to stay authoritative.
+- **`adoptedOn` is write-once, enforced by Firestore rules** (Feature 1). The stamp
+  fires at the naming beat regardless of which path reaches it, so the wake sequence
+  must not introduce a second stamping site.
+- **Art dependency.** Asleep and content poses exist in the scripted idle set; groggy
+  and the adoption-happy beat do not. This lands on the pose list in
+  `waiting-on-assets.md` and may want the Rive rig rather than scripted canvases.
+- **Skippability.** Every other onboarding step is skippable by design. Three mandatory
+  taps is a hard gate on the first screen a user ever sees. Either the taps auto-advance
+  on a timer if untouched, or there is a skip that jumps straight to the naming beat.
+- **Reduce Motion and VoiceOver.** The sequence is entirely animation-carried. It needs
+  a static equivalent that still reaches the naming beat, and each state needs a label
+  distinct from the existing sleeping-pose label.
+- **Does the tap escalate mood, or is it scripted?** Scripted is almost certainly right
+  (the real mood engine has no data yet on a fresh account), but the seam between "this
+  scripted sequence" and "the live mood system" should be deliberate.
 
 ## Widgets
 
@@ -3490,6 +3662,355 @@ cursor.
 
 ---
 
+## The discovery batch
+
+> 🆕 **v0.8.** The four items taken up after the Personal Layer shipped, plus the one
+> that was tabled during discovery. TestFlight was deliberately deferred to allow this
+> batch. Original order was five items; the calendar was item 4 and is now tabled, so
+> Editor layout took its number.
+>
+> **Naming warning.** "Feature 4" is overloaded. In *The Personal Layer* it means
+> **Feature 4, Mochi's observations** (`Observations/`), which is shipped and live.
+> The discovery batch's former item 4 was the calendar. Refer to that one as "the
+> calendar layer", never by number.
+>
+> Long-form working notes for every item below are archived under
+> `ProjectDocs/build-notes/`.
+
+**Batch order and state:**
+
+| # | Item | State |
+|---|---|---|
+| 1 | Best Hours & Day by day | ✅ Built July 27 2026, comp-approved |
+| 2 | Suggestion reach (weekday fallback · row badge · push counting) | ✅ Built July 27 2026, comp-approved |
+| 3 | Effort size | ✅ Built July 27 2026, comp-approved |
+| 4 | Editor layout (ghost pill) | ⬜ Design locked, not built, no comp |
+| — | Calendar access | ⛔ Tabled July 25 2026 (not cancelled) |
+
+---
+
+### Best Hours & Day by day
+
+Two cards on **Streaks & stats** (`You/Stats/`) replacing the retired "Your rhythm"
+four-band card. **Card 1 "Your best hours"** is a 24-bucket hourly histogram of
+completion times with the best 3-hour window highlighted, a Mochi commentary line, and
+two stat tiles. **Card 2 "Day by day"** is seven per-weekday box plots (first-to-last
+range, middle-half capsule, typical dot) on the *same* horizontal axis, so the two
+cards stack as a matched pair. Both read `CompletedTaskStat` fields that are already
+captured: no model change, no migration, no new permission, no rules change.
+
+**Decisions locked**
+
+| # | Decision | Rationale |
+|---|---|---|
+| D1 | **Two cards, laddered by evidence.** The histogram shows whenever there is data; Day by day appears only when rows qualify. | A new user sees something. Per-weekday slicing needs roughly 7x the data. |
+| D2 | **Recurring completions are EXCLUDED from both cards.** | A Monday 8am recurring chore would make Mondays the peak forever. Matches what `ObservationEngine.weekdayCandidate` already does. Note this is deliberately the *opposite* of Effort D12, which includes them: different question, different filter. |
+| D3 | **The axis runs 5a to 5a**, not 6a to 11p. | `TimeOfDayBand` already defines the day as starting at 05:00. A 2am completion lands at the far right reading as "late" instead of being clipped. |
+| D4 | **Thin rows show the typical dot only.** No capsule, no range bar. | Honest about "we know roughly when, not how consistently", without looking broken. |
+| D5 | **A row qualifies for a capsule at 5 completions across 3 distinct dates.** Both Remote Config tunable (`bh_row_min`, `bh_row_dates`). | Low enough to fill in within a month, high enough that a middle-half means something. |
+| D6 | **Day by day is hidden on the Week range.** Month and 3 months only. | 7 days is at most 1 sample per row. A box plot of one point is a lie. |
+| D7 | **Stats only. Nothing goes in the Journal.** | The Journal follows record-not-grade and has no range picker. A best-hours chart is a grade. |
+| D8 | **The rhythm card's VIEW is deleted; `TimeOfDayBand` the TYPE stays.** | `ObservationEngine` depends on the type. Only the UI retires. |
+| D9 | **"busiest on Mondays" is dropped from the trend card caption.** | Superseded by Day by day, and it was computed wrong (see below). |
+| D10 | **"In window %" reuses the suggestion engine's existing 180-minute window** (±90 around the peak). | Same definition means the number can never contradict the suggestion chip. |
+
+**The caption is generated from chart state, not drawn from a pool.** Four states, in
+priority order, all in the pet's voice, all qualitative (no percentages):
+
+| State | Condition | Line |
+|---|---|---|
+| Second wind | a secondary window clears its floor | "You get the most done in the {peakBand}, with a smaller second wind in the {secondaryBand}. {name} sees it." |
+| Thin days | Day by day qualifies but ≥1 weekday row is still thin | "{name} has a good read on your week. {thinDays} are still quiet." |
+| Full read | Day by day qualifies and every row has a capsule | "You get the most done in the {peakBand}. {name} sees the pattern." |
+| Learning | histogram only; Day by day not yet earned | "Still learning your week. Here's your day so far." |
+
+`{peakBand}` and `{secondaryBand}` are `TimeOfDayBand` names, never clock times, so the
+line reads warm and never contradicts the tiles. `{thinDays}` is a natural-language
+join with a weekend fold when Sat and Sun are both thin. There is **no FNV-1a rotation**
+here: that system is for static pools, and the state itself is the variety.
+
+**The second-wind floor exists so Mochi never narrates noise.** Name a second wind only
+when its own window holds ≥ `bh_second_wind_min` completions across ≥
+`bh_second_wind_dates` dates AND its share is ≥ half the peak window's share. The
+original comp's "8p second wind" sat under 3% of completions and would fail this, which
+is exactly the point.
+
+**Stat tiles: PEAK (a range, "10a to 1p") paired with IN WINDOW (%).** An arithmetic
+mean is meaningless on a wrapped axis, which is the reason `circularCenterMinute`
+exists. The range form was chosen over a single circular-median "Typical" time because
+peak-range plus in-window is the same fact stated two ways, both computed from the ±90
+window (D10), so no circular-median path is needed on this card.
+
+**Day picker (comp turn 3).** A pill under the eyebrow ("All days" or a weekday) plus
+tappable rows; picking a day swaps the card's middle for that day's own 24-bucket hour
+curve on the shared axis with day-scoped mini tiles. Pickable means any day with data
+(bars show, they don't claim), but the tiles and the peak highlight wait for the row's
+D5 floor, so two data points can never mint "100% in window". Selection is view-state
+only: reset on screen entry and range change, never persisted.
+
+**`BestHoursHelpView`** (route key `you.stats.help`, reached from a
+`questionmark.circle` on both card headers) is a general explainer in the pet's voice:
+the histogram and its tiles, the 5a-to-5a clock, the Day by day anatomy with live
+swatches, and what counts (recurring exclusion, evidence patience, completion-zone
+dating). No user-specific numbers; the cards carry those.
+
+**Known accepted costs.** The 5a-to-5a axis leaves roughly the right quarter of both
+cards empty for a normal-schedule user; a dynamic axis would break the match between
+the two cards and make one month incomparable to the next. And the two cards add ~600px
+to an already-long screen, accepted inline with no collapse: they are self-gating (D1,
+D6), and a default-collapse disclosure would introduce the one expand/collapse
+component the app deliberately lacks, for a single card.
+
+**Bug that died with D9.** `StatsViewModel.busiestWeekday` took the weekday from the
+device's *current* calendar rather than the stored `completedLocalDate` /
+`completionTimeZone` like every other card, so it disagreed with the rhythm bands after
+travel. It was also ungated, which is why the Journal deliberately refused to carry it.
+D9 removed its only consumer, so it died with the caption rather than needing a fix.
+
+---
+
+### Suggestion reach: weekday fallback · row badge · push counting
+
+Three independent changes to the shipped Feature 5 machinery. No new permission, no
+rules change. **A and B do not compound**, and the batch should not be judged as if
+they do: weekday filtering is viable only at list and global scope, while re-timing is
+series-scoped with no fallback. A improves *new-time* suggestions; B improves discovery
+of *re-time* suggestions, which fire at exactly today's rate.
+
+**A · Weekday as a fallback on silence**
+
+| # | Decision | Rationale |
+|---|---|---|
+| A1 | **Weekday is a fallback, not a tier.** Retried only after the pooled answer is silenced by the runner-up-margin gate. | Zero regression risk. Nothing that qualifies today changes. |
+| A2 | **List and global scope only. Never series.** | A 42-day window holds at most **6** of any given weekday, and the series floor is 8 completions across 5 dates, so a weekday-filtered series scope is structurally unreachable. |
+| A3 | **Weekday-filtered scopes get their own, lower floors** (`suggest_weekday_min` 4, `suggest_weekday_dates` 3). | A weekday slice has roughly 1/7 the evidence. Reusing the pooled floors would make the fallback never fire. |
+| A4 | **Provenance is recorded as a type, never a string.** `DistributionResult.Scope` and `SuggestionScopeTier` express "list, this weekday" and "global, this weekday". | `SuggestionCopy` is tier-typed so global can never wear list phrasing. A weekday answer needs its own phrasing and must not borrow the pooled voice. |
+
+*The user this unlocks:* someone who does a chore at 8am on weekdays and 2pm on
+weekends has a textbook bimodal history. The runner-up gate silences them, working
+exactly as designed, and no amount of additional data will ever change that. The
+fallback is the only path that reaches them.
+
+*Weekday chip copy,* deliberately using a distinct verb ("wrap up" vs the pooled
+"finish things") so a user who sees both over time does not hear a template:
+
+| Scope | Line |
+|---|---|
+| weekday + list | "On {weekday}s, {list} usually gets done in the {band}." |
+| weekday + list, name gone | "On {weekday}s you usually wrap up in the {band}." |
+| weekday + global | "On {weekday}s you usually wrap up in the {band}." |
+
+**B · Re-time row badge**
+
+| # | Decision | Rationale |
+|---|---|---|
+| B1 | **A badge, not an action.** Tapping the row does what it always did: opens the editor, where the existing chip explains and offers the time. | The problem is discoverability, not capability. No new navigation, no new tap target. |
+| B2 | **`clock.arrow.circlepath` in the accent tint.** Not a warning triangle, not a red dot, and not a plain clock. | Mochi never scolds. The real row already shows a `clock.fill` for the `.due` state, so a plain clock would collide; clock-plus-cyclic-arrow reads "adjust the time" and stays distinct even when both appear on one row. |
+| B3 | **Icon only. Never the suggested time as text.** | Rows already carry title, due time, list dot, priority chip. "usually 9:20p" competes directly with the real due time inches away and truncates on long titles. |
+| B4 | **Evaluated once per fetch and cached with the list. Never per row render.** | The engine is pure over already-fetched stats (CPU, not network), but a naive implementation re-evaluates the gate for every recurring timed task on every render. |
+| B5 | **Re-time only. Not new-time.** | A "Mochi suggests a time" badge on every undated task would be noise. |
+| B6 | **Tasks tab and ListDetail only. NOT Home's today list, and never a Reminders row.** | Home rows are the most space-constrained, and Home is a today view while re-time is about a recurring series' habitual time. Discovery still happens wherever people browse. |
+
+*Mechanism:* `TodoItemRow` is a single shared component called by Home, Tasks, and
+ListDetail, so B6 is enforced by a caller-supplied `showsRetimeBadge` flag on the Tasks
+and ListDetail row-item models and **not** on Home's. It is computed once per fetch,
+forced false for Apple Reminders rows, and the badge sits immediately after the meta
+text, left of the list dot. Home never sets it, so the badge can never appear there.
+
+**C · Push counting**
+
+| # | Decision | Rationale |
+|---|---|---|
+| C1 | **Increment on any user move of an incomplete task's due date to a LATER date.** Adds the editor date-edit path to the two snooze paths that already counted. | The editor is how most people actually push a task, and it counted nothing. |
+| C2 | **Do NOT increment on:** moving a date earlier, skip-occurrence, vacation triage reschedule, or `RecurrenceRoller` auto-advance. | Different intents. The roller has its own `missedCount`; triage is a bulk system-offered action. |
+| C3 | **Parse `rescheduleCount` in `taskItem(id:data:)`.** | It was write-only. The only reader was the completed-stats query, which filters on `completedAt`, so a task pushed five times and never finished was invisible to the entire app. |
+| C4 | **Ship this first, regardless of when anything consumes it.** | The only time-sensitive item in the batch: push history cannot be reconstructed retroactively. |
+
+There is still **no consumer** for `rescheduleCount` beyond the existing peak-shaping
+reschedule weight. A "you have pushed this five times" surface is a later, separate
+decision, deliberately out of scope.
+
+**Dead code found in passing:** `missedCount` and `lastMissedAt` are written correctly
+by `RecurrenceRoller.rollForwardTask` and read nowhere in the app. They are the natural
+signal for a future "this recurring task keeps getting missed" feature and are already
+accruing.
+
+---
+
+### Effort size
+
+An **optional effort rating** labeled "Effort", chosen from four magnitude levels
+(**Tiny · Small · Medium · Large**) rather than a difficulty or points scale, and
+without ever showing the user a clock time. Each level maps internally to a nominal
+duration, which weights `MoodEngine` momentum so one big task lifts Mochi about as much
+as several small ones, and gives Stats a genuinely new number a completion count cannot
+express. **The coin economy stays flat.**
+
+**The problem, precisely.** `MoodEngine` already weights `TaskPriority` at 1 / 1.5 / 2,
+but applies it **only to overdue incomplete tasks**, i.e. only on the stress side. On
+the credit side momentum is an unweighted count, so one task of any size earns 33% of
+max while three trivial tasks earn 70%. That gap is the entire feature.
+
+**How the framing landed.** The path was iterative: difficulty scale → duration
+(answerable, calendar-usable) → hide the clock, show qualitative labels → a food
+metaphor (Nibble/Snack/Meal/Feast) that tested as unclear because it hid the dimension
+being estimated → the final "Effort" label. The end state satisfies every pressure: the
+stored value is nominal minutes, the visible control names its dimension, and it shows
+no clock.
+
+**Decisions locked**
+
+| # | Decision | Rationale |
+|---|---|---|
+| D1 | **Labeled "Effort", four magnitude labels, no clock times in the picker.** | Explicit durations felt like a rigid timebox; a food metaphor read as "a random quirky thing". "Effort" names the dimension outright, which is the question the user can actually answer. |
+| D1a | **Each label maps to a nominal duration; the stored value is minutes** (`estimatedMinutes: Int?`). Tiny 15 · Small 30 · Medium 60 · Large 120. | Momentum and the Stats total operate on minutes. Only four values are ever written, so minutes→label is an exact lookup. The minutes are internal and never shown. |
+| D1b | **The abstract scale is acceptable beside Priority ONLY because two guards hold:** an explicit "EFFORT" eyebrow beside "PRIORITY", and a different control shape (a pill and menu, never a second chip ladder). | An *unlabeled* difficulty scale was the original rejection reason, not abstraction itself. Watch item: "Med" (priority) and "Medium" (effort) can both appear on one row; tolerable under different labels and shapes, revisit if it reads as a duplicate. |
+| D2 | **Optional, empty by default.** | Users who ignore it pay nothing. |
+| D3 | **Weights: unset 1.0 · Tiny 1.0 · Small 1.4 · Medium 2.0 · Large 3.0.** All Remote Config tunable. | Derived from the intent that one big task should be worth about three small ones. |
+| D4 | **Unset is never penalized.** | Otherwise labeling a task "Tiny" would cost momentum versus leaving it blank, and nobody would honestly size a small task. Unset and Tiny being identical is intended: sizing a small task is a no-op on mood, so honesty is free. |
+| D5 | **Affects momentum and Stats. Coins stay flat.** | Coins buy treats; a currency with a self-declared multiplier is the most gameable surface in the app. `RewardsStore` had already rejected priority scaling for the same reason. |
+| D6 | **`CompletedTaskStat.estimatedMinutes` is a READ-path change only.** | The stat is never written; it is constructed off the task document. No write-path change, no migration, no backfill. |
+| D7 | **Do NOT touch `ComfortBufferStore`.** | Completions never touch the buffer today (pets and treats only). Keep that boundary. |
+| D8 | **The control shares the Priority row under its own EFFORT eyebrow. No eighth block.** A compact right-aligned pill opening a menu of the four levels plus Clear; unset reads "Set effort" in the muted style. | The editor has seven always-visible blocks and must not gain an eighth. Two chip groups side by side would simply wrap, producing the eighth row by another route. |
+| D8a | **The pill lives in exactly one place, by Priority. It is NOT echoed in the Time block.** | An undated task still deserves a size and has no Time block to echo into, so one home is the only consistent rule. |
+| D9 | **Duration is credit-side only. Priority keeps the stress side.** An overdue 2h task accrues no more stress than an overdue 15m one. | Two weights on two axes stay legible. Stacking duration onto stress makes a bad day tank twice over. |
+| D10 | **The "crushed it yesterday" check stays UNWEIGHTED.** | It is a count of *things done*. Weighted, two long tasks would announce "you crushed it yesterday", which is plainly false. |
+| D11 | **"2h+" resolves to exactly 120 minutes for any consumer needing a number.** The weight still caps at 3.0. | Weight and length are two uses of one field and need not share a ceiling. Bounds an otherwise unbounded top bucket. Written for the tabled calendar layer, kept because an unbounded bucket is a latent problem for any future consumer. |
+| D12 | **Recurring completions ARE included in the effort total.** | Deliberately opposite to Best Hours D2. A daily 30-minute workout is real time spent, and a total that omits it is wrong. |
+
+**Why 3.0 for the top bucket.** Fed into the existing curve with no change to
+`momentumSaturation` or `momentumMax`: three Tiny tasks and one Large task both reach a
+weighted sum of 3.0 and land on exactly the same momentum (70% of max), one Medium
+gives 55%, and one unsized task gives the unchanged 33%. Gaming is self-limiting:
+inflating effort buys no coins, and the only effect is a happier pet, which defeats the
+purpose of having one. The user is the only audience for the lie. (That safety is a
+consequence of the calendar layer being tabled. A block-finding consumer would have
+given inflation a real bite by reserving time the user did not need.)
+
+**Momentum is a data type, not an expression** — the largest ripple, and the one most
+likely to be underestimated. `MoodForecast` deliberately passes an array of completion
+*timestamps*, not a count, so momentum ages out mid-forecast. Weighting momentum
+therefore means the array carries a weight per entry, threading through snapshot
+construction, the orchestrator request type, the planner, the memories service, and
+every direct baseline caller. **The weight is a sidecar on the entry rather than a
+replacement for the date**, so the two count-based consumers (`crushedYesterday` and the
+notification threshold, both per D10) keep working on `.count` unchanged and only the
+momentum path reduces over weights. That is the smaller and safer diff.
+
+**The Stats tile.** Value is the summed nominal minutes rounded to the nearest 30 and
+shown as approximate ("~3h"); title "Effort"; subtitle carries coverage ("12 of 34
+rated"). The honesty problem is that existing tasks have no rating and the field is
+optional forever, so any sum is a floor, never a total. The subtitle is the fix, not a
+hidden coverage gate. This is an output aggregate, not an input timebox, so it does not
+violate the no-clock rule. Shows "–" only when zero tasks in the range carry an effort.
+
+**The widget needed no work.** `CompleteTaskIntent` queues only a task id plus a
+completion context, but the drain re-reads the full document before completing, so the
+rating is in hand. No queue schema change, no legacy-decode concern.
+
+**Explicitly not built:** difficulty as a separate axis. A task can be hard but quick (a
+difficult phone call) and size misses that. A real cost, accepted knowingly.
+
+**Open confirms.** Whether the Stats total should stay time-based or fall back to an
+effort-count subtitle ("mostly Small this month") if a rough hour total feels too
+clock-like beside a clockless picker. And nothing surfaces effort in letters or
+observations yet, deliberately, until there is real data: "you took on three Large tasks
+this week" is the obvious future consumer.
+
+---
+
+### Editor layout (ghost pill) · design locked, NOT built
+
+> ⬜ **Status: design locked 2026-07-25, not built, no design comp exists.**
+
+**The reframe that shrank this item.** "Suggestions" and "best hours" are not two
+surfaces; they are one distribution. The editor's suggested-time chip already falls to
+global scope and says "You usually finish things in the evening", and that line *is*
+best hours made actionable. Best Hours the Stats card is the identical
+`CompletedTaskStat` distribution drawn as a chart, and its D10 already forces the chart
+to reuse the suggestion engine's ±90 window so the two can never contradict.
+Consequently **nothing about best hours needs an editor surface**: a mini-chart or
+second hint would duplicate the chip and risk the two disagreeing. This item is only
+about the shape of the new-time chip.
+
+| # | Decision | Rationale |
+|---|---|---|
+| E1 | **New-time renders as a GHOST inside the time pill**, dimmed with a clock glyph while the time is unset, not as a card below it. | A new task has no row to badge, so all new-time discovery happens in the editor. The shipped card disappears the moment the user opens the time wheel, so it is easy to miss. The ghost is visible the instant a date is set and sits exactly where the value will go. |
+| E2 | **Re-time keeps the explanatory card, unchanged.** | A re-time proposal is a *different* time than the one already in the slot, so there is nothing empty to ghost into. The split is forced by the data, not a preference. |
+| E3 | **One tap on the ghost accepts AND opens the wheel, seeded at the suggested minute.** | Fuses the shipped open-picker and set-time intents into one gesture, giving accept, replace, and no-time with no hidden gesture. |
+| E4 | **No time is ever committed without the user tapping the time field.** The ghost is a display state; `hasTime` stays false until the tap. | Kills the false-acceptance risk that ruled out full prefill, and keeps the shipped outcome classifier honest: never-tapped ghost = ignored, tapped = accepted, tapped-then-spun-past-30 = adjusted. |
+| E5 | **The ghost carries a dismiss affordance** in the slot the clear-time x uses (free while there is no time). | Preserves the trigger-keyed `SuggestionLedger` dismissal and its 60-minute re-arm. Dismissing returns the pill to "Set time". |
+| E6 | **In ghost mode the caption is the reason line only**, not a "{name} suggests 9:20 PM" label. | The time is already visible in the pill; repeating it is redundant. The muted one-liner carries the provenance. |
+| E7 | **For new-time the solid pill IS the confirmed state; drop the confirmed card.** Re-time's confirmed behavior is unchanged for now. | After acceptance the accepted time shows solid in the pill, making the shipped quiet-confirmed card redundant. Leaving re-time alone keeps the change small. |
+
+*Not built here:* any chart or sparkline in the editor; any change to when the chip
+qualifies (that is the engine's job); and no "Details" disclosure to collapse Priority /
+List / Repeat / Notes. The disclosure was the original reason to sequence this item
+last, but the row badge and the effort pill both landed at zero row cost, so the
+seven-block sheet is not growing and the app has no disclosure component to build on.
+Revisit only if a later feature actually adds an eighth always-visible block.
+
+*Open items:* the exact dim treatment that reads as "suggested, not set" in all five
+flavors and stays distinguishable from an empty pill; whether tapping should auto-open
+the wheel (E3 as written) or accept quietly and open on a second tap; whether re-time
+should also lose its confirmed card for symmetry; and a design comp, which does not yet
+exist.
+
+---
+
+### Calendar access · TABLED (not cancelled)
+
+> ⛔ **Tabled 2026-07-25.** Nothing in the shipped batch forecloses it; reviving it is
+> additive. Full long-form record archived at
+> `ProjectDocs/decisions/calendar-decision-record.md`.
+
+**What was proposed.** EventKit access so Mochi could take existing commitments into
+account when suggesting a time. Explicitly not a scheduler: *"It shouldn't be a
+scheduler, it should just apply a suggested time."* Concretized as **the calendar is a
+mask, never a source** — completion history proposes, the calendar may veto and shift to
+the nearest free edge, and the calendar never proposes on its own.
+
+**The objection that opened the question,** and its clean fix. A calendar event does not
+mean *unavailable*, it means *spoken for*, and sometimes what it is spoken for is the
+task itself: a 6–9pm block might be exactly the studying the task describes, so avoiding
+it is backwards. The fix, worth keeping if this ever returns: **history outranks the
+calendar, always.** The calendar may only veto a time the history is neutral about; it
+can never overrule an endorsed peak. Under that rule the study block is never treated as
+a conflict, because that is precisely where the history is strongest.
+
+**Why it was cut anyway: every use is redundant, too narrow, or ruled out.**
+
+| Use | Verdict |
+|---|---|
+| **Recurring commitments** (the exact scope explored in the comp) | **Redundant with completion history by construction.** A standing commitment is already a hole in the distribution: someone with class every MWF morning has never completed a task then, so the distribution already avoids mornings without knowing why. The calendar supplies a *name* for the hole, not a fact. |
+| **One-off events** | **Genuinely unknowable from history, but structurally hard to reach.** The engine produces a *minute of day*, not a date, so the check could fire only after the user picked a date, on dated tasks, on dates carrying a non-recurring event. It is also where the objection above bites hardest. |
+| **Cold start** (day one, no history) | **Violates the app's own doctrine.** The strongest case, since on day one the calendar is the only signal that exists. But "your evening has no meeting in it" is not insight about the user, it is the absence of a meeting, and it would be the one place in the app where Mochi speaks without evidence. |
+| **Block finding** ("this takes 2h, where are 2 free hours?") | **The one irreplaceable use, and the one explicitly ruled out.** History knows when the user *finishes* things, never when they are *free*. But finding a contiguous block is scheduling, and the founding constraint was that this must not be a scheduler. |
+
+The decisive line: the calendar's only irreplaceable capability is the one the feature
+was forbidden to have.
+
+**Cost avoided:** a second EventKit permission on top of Reminders plus its denied and
+lapsed states; an onboarding screen; a foreground re-check for existing users; an App
+Store privacy disclosure for calendar data; a permanent third-party data dependency with
+a new failure mode where a stale calendar produces a wrong suggestion; and the chart
+work (hatch layer, header chip, free-time label).
+
+**Two triggers should reopen it:** Mochi starts suggesting a **date**, not only a time
+(the one-off case becomes load-bearing the moment a specific-day conflict is knowable),
+or **block finding is reconsidered** (Effort D11 already fixes a block length, so the
+input side is ready). If revived, `Permissions/RemindersGateway.swift` is a working
+template for the exact shape, including the hard boundary that EventKit types never
+leave the file; carry forward "history outranks the calendar" and "recurring-only was
+the wrong scope, one-offs are the half worth having".
+
+**The cheap substitute,** if the explanatory value is ever missed: a user who wants
+Mochi to know they are in class 9–12 MWF can express it as a recurring task or a
+quiet-hours setting typed once. Same named hole, no permission, no sync dependency, no
+privacy disclosure.
+
+---
+
 ## Tech & infrastructure
 
 - **Firebase Auth** — Continue with Apple / Google; anonymous-first, linked on signup.
@@ -3558,12 +4079,18 @@ cursor.
 | 7 | Analytics / instrumentation | ⬜ **Pending** | Firebase Analytics + Crashlytics (in-stack) + RevenueCat's built-in subscription funnel. Must-have metric: **daily mood-state distribution across users** — the single readout of whether the product philosophy is working. |
 | 8 | Small pile | ⬜ **Pending** | Widget memory ceiling (mood engine in a shared target; never load Rive in the widget); localization (String Catalogs from day one, English-only v1); morning-rundown ranking (drafted above); task-content privacy (no E2E v1, never log titles to analytics/Crashlytics). |
 | 9 | Widgets (home + lock) | ✅ **Resolved** | WidgetKit extension + shared engine framework, App Group contract (`MochiWidgetState`), forecast-driven timeline, tap-to-pet + **complete-from-widget in v1**, iOS 26 `fullColor`, vacation = resting pose (distinct from lapsed). See *Widgets.* |
-| 10 | The Personal Layer | ✅ **Design resolved (v0.7)** | All six features fully specced after review passes: 1 naming + adoption date · 4 observation engine · 3 weekly letter · 2 anniversaries + callbacks · 5 suggested times · 6 Journal tab. **Implementation pending**, in build order 1 → 4 → 3 → 2 → 5 → 6. See *The Personal Layer.* |
+| 10 | The Personal Layer | ✅ **Resolved and shipped (v0.8)** | All six features specced in v0.7 and built in the pinned order 1 → 4 → 3 → 2 → 5 → 6, ending with the Journal tab. See *The Personal Layer* and, for the Journal, `Mochi-journal.md`. |
+| 11 | The discovery batch | 🟡 **3 of 4 built** | Best Hours & Day by day, Suggestion reach, and Effort size shipped July 27 2026. Editor layout (the ghost pill) is design-locked and unbuilt with no comp. Calendar access was tabled with a full record. See *The discovery batch.* |
+| 12 | Waking-Mochi onboarding | ⬜ **Exploring** | Replace the passive Meet Mochi carousel with a tap-to-wake adoption sequence (asleep → groggy → awake → adopted → name). Needs a design pass, a comp, and two new poses. See *Onboarding → Exploring: the waking-Mochi adoption beat.* |
 
 ## Still to flesh out
 
 - **Screens not yet designed:** paywall, sign-in, onboarding, notification primer,
-  Apple Reminders settings, account & legal section of "You."
+  Apple Reminders settings, account & legal section of "You." *[v0.8: onboarding now
+  has a direction to design against, the waking-Mochi adoption beat.]*
+- **Design comps not yet made:** the editor ghost pill (the last unbuilt discovery-batch
+  item) and the waking-Mochi onboarding sequence. Both want a pass in the Claude Design
+  project. Shipped-asset gaps are tracked separately in `waiting-on-assets.md`.
 - **Notification mechanics** — *[v0.4: fully resolved — copy, constants, actions, winback,
   instrumentation, mood-ping technical requirements & dev inspector tab all locked. See
   Notifications.]* Remaining is a writing pass on the line-by-line copy strings + numeric
