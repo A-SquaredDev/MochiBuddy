@@ -507,3 +507,138 @@ struct TasksDoneAndListsTests {
         #expect(item.chip == "Soon")
     }
 }
+
+// MARK: - Done pagination (done-tab-implementation-guide.md §9)
+
+@Suite("TasksViewModel · Done pagination")
+@MainActor
+struct TasksDonePaginationTests {
+
+    /// `count` completions spread newest-first across distinct days.
+    private func completions(_ count: Int, startingDaysAgo: Int = 1) -> [TaskItem] {
+        (0..<count).map { index in
+            makeTask(
+                id: "c\(index)",
+                completed: true,
+                completedAt: Dates.days(-(startingDaysAgo + index / 12))
+                    .addingTimeInterval(Double(-(index % 12)) * 600)
+            )
+        }
+    }
+
+    @Test("selecting Done fetches page one and renders newest-first day groups")
+    func firstPageRenders() async {
+        let (vm, taskRepo, _) = makeTasksVM(completed: completions(35))
+        await vm.triggerAsync(.refresh)
+        #expect(taskRepo.pageFetches.isEmpty, "Today never pays the history read")
+
+        await vm.triggerAsync(.selectSegment(.done))
+        #expect(taskRepo.pageFetches.count == 1)
+        #expect(taskRepo.pageFetches.first?.limit == TasksViewModel.donePageSize)
+        #expect(vm.uiState.groups.flatMap(\.items).count == TasksViewModel.donePageSize)
+        #expect(vm.uiState.canLoadMoreDone, "35 rows leave an older page behind the cursor")
+        let first = vm.uiState.groups.first?.items.first
+        #expect(first?.id == "c0", "newest first")
+    }
+
+    @Test("load more appends the older page without duplicates")
+    func loadMoreAppends() async {
+        let (vm, taskRepo, _) = makeTasksVM(completed: completions(45))
+        await vm.triggerAsync(.refresh)
+        await vm.triggerAsync(.selectSegment(.done))
+        await vm.triggerAsync(.loadMoreDone)
+
+        #expect(taskRepo.pageFetches.count == 2)
+        let ids = vm.uiState.groups.flatMap(\.items).map(\.id)
+        #expect(ids.count == 45)
+        #expect(Set(ids).count == 45, "id de-dupe holds across appended pages")
+        #expect(!vm.uiState.canLoadMoreDone, "the short second page ends the history")
+    }
+
+    @Test("end of history: the cursor exhausts and further loads are free")
+    func endOfHistory() async {
+        let (vm, taskRepo, _) = makeTasksVM(completed: completions(10))
+        await vm.triggerAsync(.refresh)
+        await vm.triggerAsync(.selectSegment(.done))
+
+        #expect(!vm.uiState.canLoadMoreDone)
+        #expect(vm.uiState.footnote?.contains("whole story") == true)
+        await vm.triggerAsync(.loadMoreDone)
+        #expect(taskRepo.pageFetches.count == 1, "no cursor, no fetch")
+    }
+
+    @Test("the week subtitle is exact via aggregation and falls back when it fails")
+    func exactWeekSubtitle() async {
+        let (vm, taskRepo, _) = makeTasksVM(completed: completions(35))
+        taskRepo.aggregationCount = 87
+        await vm.triggerAsync(.refresh)
+        await vm.triggerAsync(.selectSegment(.done))
+        #expect(vm.uiState.subtitle == "87 done this week",
+                "the paged array caps at 30; the aggregation must not")
+        #expect(vm.uiState.doneWeekText == "This week · 87")
+
+        // Real-clock fixtures: the week window anchors to the live now,
+        // not Dates.now (the suite's standing gotcha for week math).
+        let recent = (0..<10).map { index in
+            makeTask(
+                id: "r\(index)", completed: true,
+                completedAt: Date.now.addingTimeInterval(Double(-(index + 1)) * 3600)
+            )
+        }
+        let (fallbackVM, fallbackRepo, _) = makeTasksVM(completed: recent)
+        fallbackRepo.aggregationError = TestError()
+        await fallbackVM.triggerAsync(.refresh)
+        await fallbackVM.triggerAsync(.selectSegment(.done))
+        #expect(fallbackVM.uiState.subtitle == "10 done this week",
+                "offline degrades to counting the loaded rows, never zero")
+    }
+
+    @Test("toggling with pages loaded moves rows without refetching history")
+    func toggleDuringPagedState() async {
+        let open = makeTask(id: "open1", dueAt: Dates.now, hasTime: true)
+        let (vm, taskRepo, _) = makeTasksVM(incomplete: [open], completed: completions(35))
+        await vm.triggerAsync(.refresh)
+        await vm.triggerAsync(.selectSegment(.done))
+
+        await vm.triggerAsync(.toggleTask("open1"))
+        let ids = vm.uiState.groups.flatMap(\.items).map(\.id)
+        #expect(vm.uiState.groups.first?.label == "Today")
+        #expect(vm.uiState.groups.first?.items.first?.id == "open1")
+        #expect(ids.count { $0 == "open1" } == 1, "in both arrays, rendered once")
+
+        await vm.triggerAsync(.toggleTask("c5"))
+        #expect(!vm.uiState.groups.flatMap(\.items).contains { $0.id == "c5" })
+        #expect(taskRepo.pageFetches.count == 1, "toggles are write-through, never refetches")
+    }
+
+    @Test("refresh while Done is visible resets to page one and drops the cursor")
+    func refreshResetsPagination() async {
+        let (vm, taskRepo, _) = makeTasksVM(completed: completions(65))
+        await vm.triggerAsync(.refresh)
+        await vm.triggerAsync(.selectSegment(.done))
+        await vm.triggerAsync(.loadMoreDone)
+        #expect(vm.uiState.groups.flatMap(\.items).count == 60)
+
+        await vm.triggerAsync(.refresh)
+        #expect(vm.uiState.groups.flatMap(\.items).count == TasksViewModel.donePageSize,
+                "a fresh first page must never keep stale appended pages")
+        #expect(vm.uiState.canLoadMoreDone)
+        #expect(taskRepo.pageFetches.count == 3, "select + loadMore + refresh's re-fetch")
+    }
+
+    @Test("month boundaries annotate the first group of each older month")
+    func monthHeaders() async {
+        let calendar = Calendar.current
+        let thisMonth = makeTask(id: "recent", completed: true, completedAt: Dates.days(-1))
+        let lastMonthDay = calendar.date(byAdding: .month, value: -1, to: Dates.now)!
+        let older = makeTask(id: "older", completed: true, completedAt: lastMonthDay)
+        let (vm, _, _) = makeTasksVM(completed: [thisMonth, older])
+        await vm.triggerAsync(.refresh)
+        await vm.triggerAsync(.selectSegment(.done))
+
+        let groups = vm.uiState.groups
+        #expect(groups.first?.monthHeader == nil, "the current month needs no divider")
+        #expect(groups.last?.monthHeader?.contains("2026") == true,
+                "crossing into the older month renders the archive divider")
+    }
+}

@@ -127,6 +127,43 @@ final class CachingTaskRepository: TaskRepository {
         return fetched
     }
 
+    func completedTasksPage(
+        limit: Int, after cursor: CompletedPageCursor?, userId: String
+    ) async throws -> CompletedTasksPage {
+        scope(userId)
+        // Page one is the newest-first prefix - exactly what the limit
+        // coverage can prove. Older pages always pass through: they are
+        // on-demand, bounded, and don't fit the newest-first cache model.
+        if cursor == nil, let completed, coversLimit(limit) {
+            FirestoreReadLog.recordCacheHit(Self.self)
+            let items = Array(completed.prefix(limit))
+            let moreMayExist = completed.count > limit
+                || !(completedCoverageLimit > 0 && completed.count < completedCoverageLimit)
+            let nextCursor: CompletedPageCursor? = moreMayExist
+                ? items.last.flatMap { last in
+                    last.completedAt.map { CompletedPageCursor(completedAt: $0, documentID: last.id) }
+                }
+                : nil
+            return CompletedTasksPage(items: items, nextCursor: nextCursor)
+        }
+        let startVersion = version
+        let page = try await wrapped.completedTasksPage(limit: limit, after: cursor, userId: userId)
+        if cursor == nil, version == startVersion, cachedUserId == userId {
+            completed = page.items
+            completedCoverageLimit = limit
+            completedCoverageSince = nil
+        }
+        return page
+    }
+
+    func completedTaskCount(since: Date, userId: String) async throws -> Int {
+        try await wrapped.completedTaskCount(since: since, userId: userId)
+    }
+
+    func completedTasks(listId: String, limit: Int, userId: String) async throws -> [TaskItem] {
+        try await wrapped.completedTasks(listId: listId, limit: limit, userId: userId)
+    }
+
     func task(id: String, userId: String) async throws -> TaskItem? {
         scope(userId)
         if let hit = incomplete?.first(where: { $0.id == id })

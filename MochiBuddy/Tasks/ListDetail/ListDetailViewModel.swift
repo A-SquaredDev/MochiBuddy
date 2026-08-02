@@ -140,8 +140,20 @@ final class ListDetailViewModel: StateViewModel<
             userId: userId
         )
         open = fetched.filter { $0.listId == scopedListId }
-        done = ((try? await taskRepository.completedTasks(limit: 50, userId: userId)) ?? [])
-            .filter { $0.listId == scopedListId }
+        // A real list gets its OWN recent completions (guide D6) so other
+        // lists' activity can never starve this section. The scoped query
+        // needs the console composite index (listId ASC, completedAt DESC);
+        // until it exists, or for the Inbox (no indexable predicate for a
+        // missing field), fall back to filtering the global page.
+        if let scopedListId,
+           let scoped = try? await taskRepository.completedTasks(
+               listId: scopedListId, limit: 20, userId: userId
+           ) {
+            done = scoped
+        } else {
+            done = ((try? await taskRepository.completedTasks(limit: 50, userId: userId)) ?? [])
+                .filter { $0.listId == scopedListId }
+        }
         coins = profile?.coins ?? coins
         retimeBadgeIds = await suggestionService?.retimeBadgeTaskIds(tasks: open) ?? []
         rebuild()

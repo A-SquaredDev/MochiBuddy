@@ -49,6 +49,24 @@ is not live yet. Do not file these.
 - [ ] Delete the app, reinstall, sign in: everything returns from the
   server (tasks, name, streak, letters).
 
+## 1b. Done tab pagination
+
+- [ ] Tasks → Done: the timeline loads and scrolling near the bottom
+  quietly loads older history (shimmer rows, then more days). The "Load
+  older" button does the same with VoiceOver.
+- [ ] With more than 30 completions, "N done this week" shows the exact
+  count, not a capped number. In airplane mode it falls back to counting
+  the loaded rows and never shows zero wrongly.
+- [ ] Scrolling past a month boundary shows the "JULY 2026" divider.
+- [ ] Reaching the very end shows "That's the whole story since you
+  adopted {pet}" and no spinner.
+- [ ] Airplane-mode load-more: the shimmer resolves without a crash and
+  the end-of-history footnote is not shown falsely.
+- [ ] A list's detail screen shows that list's own recent completions
+  even right after completing many tasks in other lists. (Requires the
+  console composite index: tasks · listId ASC, completedAt DESC. Until
+  it exists this falls back to the old behavior.)
+
 ## 2. Home
 
 - [ ] Greeting uses your display name; the mood line and pet references use

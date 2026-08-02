@@ -178,3 +178,39 @@ struct ListDetailToggleTests {
         #expect(vm.uiState.doneItems.map(\.id) == ["w1"])
     }
 }
+
+@Suite("ListDetailViewModel · scoped done section")
+@MainActor
+struct ListDetailScopedDoneTests {
+
+    @Test("a list's done section survives other lists' recent activity")
+    func scopedQueryBeatsStarvation() async {
+        let workList = TaskList(id: "work", name: "Work", colorHex: "#FF9DC4", icon: "briefcase.fill", order: 0)
+        // 50 newer completions on another list would have starved the old
+        // global-page filter entirely.
+        var completed = (0..<50).map {
+            makeTask(id: "other\($0)", listId: "home", completed: true, completedAt: Dates.hours(Double(-$0)))
+        }
+        completed.append(makeTask(
+            id: "work1", listId: "work", completed: true, completedAt: Dates.days(-3)
+        ))
+        let (vm, taskRepo, _) = makeListDetailVM(source: .mochi(workList), completed: completed)
+        await vm.triggerAsync(.refresh)
+
+        #expect(taskRepo.scopedCompletedCalls.first?.listId == "work")
+        #expect(vm.uiState.doneItems.map(\.id) == ["work1"],
+                "the list's own completion shows regardless of global recency")
+    }
+
+    @Test("the scoped query failing (index not built yet) falls back to the global page")
+    func scopedQueryFallsBack() async {
+        let workList = TaskList(id: "work", name: "Work", colorHex: "#FF9DC4", icon: "briefcase.fill", order: 0)
+        let completed = [makeTask(id: "work1", listId: "work", completed: true, completedAt: Dates.days(-1))]
+        let (vm, taskRepo, _) = makeListDetailVM(source: .mochi(workList), completed: completed)
+        taskRepo.scopedCompletedError = TestError()
+        await vm.triggerAsync(.refresh)
+
+        #expect(vm.uiState.doneItems.map(\.id) == ["work1"],
+                "shipping ahead of the console index degrades to the old behavior")
+    }
+}

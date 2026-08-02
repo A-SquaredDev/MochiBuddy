@@ -91,6 +91,8 @@ Verify: a debug read/write counter surface in DevScheduler or logs, comparing a 
 
 ### Step 8: Done tab pagination and makeover
 
+Status: DONE 2026-08-01, per done-tab-implementation-guide.md (see its BUILT header for as-built deltas). Cursor pagination with the (completedAt, documentID) tiebreak, 30-row pages, infinite scroll sentinel plus a ghost Load older button, shimmer rows while loading, exact week count via aggregation with an honest offline fallback, month boundary headers, LazyVStack outer list, segment-gated history (Today never pays the read), the dead Earlier branch deleted, and ListDetail's scoped done query with graceful fallback. Nine new tests (pagination suite plus two ListDetail scoping tests). AARON OWNS: create the composite index in the Firebase console (tasks: listId ASC, completedAt DESC) to activate the ListDetail fix; the code falls back safely until then. Fold-then-archive of the guide into mochi-requirements.md is pending. Verified: full suite 818 passed, 0 failed.
+
 Why: the 50-doc cap makes older history permanently unreachable, caps the weekly counter at 50, and starves per-list done sections. The screen also reads as one undifferentiated list.
 
 Integration method: follow done-tab-implementation-guide.md as written. Cursor pagination on the existing completedAt ordering with a documentID tiebreak, 30-row pages, sentinel-driven infinite scroll with a Load older fallback button, an aggregation count query for the exact weekly number, month-boundary headers, a compact summary strip, and LazyVStack for the group list. Fits the existing MVVM shape with one new ViewAction (loadMoreDone) and two UIState fields; no new Router routes. The one new composite index (listId plus completedAt) fixes the ListDetail starvation in the same pass. Also trim the five-source refetch to the sources the visible segment needs.
@@ -101,6 +103,8 @@ Depends on: nothing, but land after step 7 if both touch TaskRepository in the s
 ## Phase 4: backend and ops
 
 ### Step 9: Anonymous account backlog cleanup and sweeper
+
+Status: DEFERRED 2026-08-01 by Aaron (back burner). Not urgent: steps 1 and 3 stopped new orphans from being minted, so the backlog is static clutter, not a growing cost. When picked up, start with the one-shot Admin SDK script in dry-run mode (needs a service-account key from the console); decide on the weekly Cloud Function after seeing the candidate list. The console clutter and the unreachable users/{uid} subtrees stay as-is until then.
 
 Why: the client can never delete orphaned anon users or their Firestore subtrees under current rules, so the existing backlog needs the Admin SDK, and steps 1 and 3 only prevent new orphans.
 

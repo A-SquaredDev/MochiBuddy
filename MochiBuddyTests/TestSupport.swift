@@ -475,6 +475,55 @@ final class StubTaskRepository: TaskRepository {
         completedLimitFetches += 1
         return Array(completed.prefix(limit))
     }
+    // Done-tab pagination surface. Pages walk `completed` newest-first;
+    // set `aggregationError` to exercise the offline fallback and
+    // `aggregationCount` to decouple the exact count from the array.
+    private(set) var pageFetches: [(limit: Int, cursor: CompletedPageCursor?)] = []
+    var aggregationCount: Int?
+    var aggregationError: Error?
+    private(set) var scopedCompletedCalls: [(listId: String, limit: Int)] = []
+    var scopedCompletedError: Error?
+
+    func completedTasksPage(
+        limit: Int, after cursor: CompletedPageCursor?, userId: String
+    ) async throws -> CompletedTasksPage {
+        pageFetches.append((limit, cursor))
+        let sorted = completed.sorted {
+            let a = ($0.completedAt ?? .distantPast, $0.id)
+            let b = ($1.completedAt ?? .distantPast, $1.id)
+            return a > b
+        }
+        var remaining = sorted[...]
+        if let cursor {
+            remaining = remaining.drop { item in
+                let key = (item.completedAt ?? .distantPast, item.id)
+                return key >= (cursor.completedAt, cursor.documentID)
+            }
+        }
+        let items = Array(remaining.prefix(limit))
+        let nextCursor: CompletedPageCursor? = items.count < limit
+            ? nil
+            : items.last.flatMap { last in
+                last.completedAt.map { CompletedPageCursor(completedAt: $0, documentID: last.id) }
+            }
+        return CompletedTasksPage(items: items, nextCursor: nextCursor)
+    }
+
+    func completedTaskCount(since: Date, userId: String) async throws -> Int {
+        if let aggregationError { throw aggregationError }
+        return aggregationCount
+            ?? completed.count { ($0.completedAt ?? .distantPast) >= since }
+    }
+
+    func completedTasks(listId: String, limit: Int, userId: String) async throws -> [TaskItem] {
+        if let scopedCompletedError { throw scopedCompletedError }
+        scopedCompletedCalls.append((listId, limit))
+        return completed
+            .filter { $0.listId == listId }
+            .sorted { ($0.completedAt ?? .distantPast) > ($1.completedAt ?? .distantPast) }
+            .prefix(limit)
+            .map { $0 }
+    }
     func completedTasks(since: Date, userId: String) async throws -> [TaskItem] {
         completedSinceFetches += 1
         return completed.filter { ($0.completedAt ?? .distantPast) >= since }

@@ -1,10 +1,15 @@
 # Done Tab Implementation Guide · History pagination + screen makeover
 
-> **Status: PROPOSED, investigation complete 2026-08-01.** No code has been
-> changed. This guide records the verified current behavior, the decision
-> rationale, and the build plan. Design comp not yet commissioned; the layout
-> proposals in §6 reuse existing design-system components only, so a comp is
-> optional.
+> **Status: BUILT 2026-08-01** (roadmap step 8; full suite 818 passed, 0
+> failed). As-built deltas from the plan: the Done fetch splits into an
+> always-fetched today window (the Today segment and celebration math need
+> it; served by the task cache) plus segment-gated history pages; the
+> end-of-history footnote renders only when the timeline has content; the
+> ListDetail scoped query falls back to the old global-page filter until
+> the console composite index exists (tasks: listId ASC, completedAt DESC,
+> still to create); the optional donePageSize Remote Config knob was NOT
+> added (RC pin stays 84). Fold-then-archive into mochi-requirements.md
+> still pending.
 
 ---
 

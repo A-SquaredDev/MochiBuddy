@@ -33,12 +33,27 @@ final class TasksViewModel: ObservableStateViewModel<
     private let suggestionService: SuggestionService?
     private let defaults: UserDefaults
 
+    /// Done-history page size (guide D1): each page is a bounded read and
+    /// a light user never issues a second one.
+    static let donePageSize = 30
+
     // Domain source of truth - UIState is derived from these.
     private var incomplete: [TaskItem] = []
     /// Re-time badge ids, computed once per fetch (guide B4) - never
     /// re-evaluated per row render.
     private var retimeBadgeIds: Set<String> = []
-    private var completed: [TaskItem] = []
+    /// Today's completions - always fetched (the Today segment and the
+    /// celebration math need them) and cheap: the window query is served
+    /// by the task cache.
+    private var todayCompleted: [TaskItem] = []
+    /// The Done timeline's accumulated pages, newest first. Loaded only
+    /// once the Done segment is selected (guide D7).
+    private var donePages: [TaskItem] = []
+    private var doneCursor: CompletedPageCursor?
+    private var doneLoaded = false
+    /// Exact week count from the aggregation query; nil falls back to
+    /// counting the loaded rows (offline degradation, guide 4b).
+    private var doneWeekCount: Int?
     private var lists: [TaskList] = []
     private var reminders: [ReminderTaskItem] = []
     private var reminderLists: [ReminderList] = []
@@ -82,6 +97,15 @@ final class TasksViewModel: ObservableStateViewModel<
         case .selectSegment(let segment):
             state.segment = segment
             rebuild()
+            // First visit to Done fetches page one (guide D7) - users who
+            // live in Today never pay the history read.
+            if segment == .done, !doneLoaded {
+                await loadDoneFirstPage()
+                rebuild()
+            }
+
+        case .loadMoreDone:
+            await loadMoreDone()
 
         case .toggleTask(let id):
             await toggleTask(id: id)
@@ -89,7 +113,7 @@ final class TasksViewModel: ObservableStateViewModel<
         case .taskTapped(let id):
             // Reminder rows have no editor - they're managed in Apple Reminders.
             guard !id.hasPrefix(Self.reminderIdPrefix) else { return }
-            let all = incomplete + completed
+            let all = incomplete + donePages + todayCompleted
             if let task = all.first(where: { $0.id == id }) {
                 state.editingTask = TasksBehavior.EditingTask(task: task)
             }
@@ -142,7 +166,15 @@ final class TasksViewModel: ObservableStateViewModel<
         defer { state.isLoading = false }
         guard let userId else { return }
         incomplete = (try? await taskRepository.incompleteTasks(userId: userId)) ?? []
-        completed = (try? await taskRepository.completedTasks(limit: 50, userId: userId)) ?? []
+        todayCompleted = (try? await taskRepository.completedTasks(
+            since: Calendar.current.startOfDay(for: .now), userId: userId
+        )) ?? []
+        // Segment-gated history (guide D7): only a visible Done timeline
+        // re-fetches page one; the reset drops the cursor so stale pages
+        // can never be appended onto a fresh first page.
+        if uiState.segment == .done, doneLoaded {
+            await loadDoneFirstPage()
+        }
         lists = (try? await listRepository.fetchLists(userId: userId)) ?? []
         var syncedReminderListIds: [String] = []
         var onVacation = false
@@ -197,16 +229,28 @@ final class TasksViewModel: ObservableStateViewModel<
             nowCompleted = true
             incomplete[index].completed = true
             incomplete[index].completedAt = .now
-            completed.insert(incomplete[index], at: 0)
+            todayCompleted.insert(incomplete[index], at: 0)
+            if doneLoaded {
+                donePages.insert(incomplete[index], at: 0)
+            }
+            if let count = doneWeekCount {
+                doneWeekCount = count + 1
+            }
             incomplete.remove(at: index)
             Haptics.success()
-        } else if let index = completed.firstIndex(where: { $0.id == id }) {
-            task = completed[index]
+        } else if var flipped = (donePages + todayCompleted).first(where: { $0.id == id }) {
+            task = flipped
             nowCompleted = false
-            completed[index].completed = false
-            completed[index].completedAt = nil
-            incomplete.append(completed[index])
-            completed.remove(at: index)
+            flipped.completed = false
+            flipped.completedAt = nil
+            let wasThisWeek = (task.completedAt ?? .distantPast)
+                > Date.now.addingTimeInterval(-7 * 24 * 3600)
+            if wasThisWeek, let count = doneWeekCount {
+                doneWeekCount = max(0, count - 1)
+            }
+            donePages.removeAll { $0.id == id }
+            todayCompleted.removeAll { $0.id == id }
+            incomplete.append(flipped)
         } else {
             return
         }
@@ -266,7 +310,7 @@ final class TasksViewModel: ObservableStateViewModel<
 
         // Firestore completions only - reminder check-offs earn no coins,
         // so they must never feed the celebration math.
-        let doneToday = completed.filter {
+        let doneToday = todayCompleted.filter {
             $0.completedAt.map { Calendar.current.isDateInToday($0) } ?? false
         }
         // Reminder rows ride the same pipelines as pseudo-tasks.
@@ -316,10 +360,13 @@ final class TasksViewModel: ObservableStateViewModel<
             next.listItems = listRows()
 
         case .done:
-            let doneThisWeek = completed.filter {
+            // Exact via the aggregation (guide D3); the loaded rows are
+            // the honest fallback when the count query fails offline.
+            let doneThisWeek = doneWeekCount ?? doneRows().count {
                 $0.completedAt.map { $0 > now.addingTimeInterval(-7 * 24 * 3600) } ?? false
-            }.count
+            }
             next.subtitle = "\(doneThisWeek) done this week"
+            next.doneWeekText = "This week · \(doneThisWeek)"
             // Honest math (today's completions × the flat per-task rate) and
             // per-day dismissible - never a running total of stale history.
             let dismissedToday = defaults.string(forKey: Self.celebrationDismissedDayKey) == Self.dayKey(for: now)
@@ -327,6 +374,13 @@ final class TasksViewModel: ObservableStateViewModel<
                 next.doneCelebration = "Earned +\(doneToday.count * RewardsStore.coinsPerTask) coins today"
             }
             next.groups = doneGroups(now: now)
+            next.canLoadMoreDone = doneCursor != nil
+            next.isLoadingMoreDone = uiState.isLoadingMoreDone
+            // Only a timeline with content earns the end-of-history line -
+            // an empty Done tab saying "that's the whole story" reads wrong.
+            if doneLoaded, doneCursor == nil, !next.groups.isEmpty {
+                next.footnote = "That's the whole story since you adopted \(petName)."
+            }
         }
 
         setUIState(next)
@@ -388,22 +442,62 @@ final class TasksViewModel: ObservableStateViewModel<
         return groups
     }
 
-    /// One group per calendar day, newest first - the Done tab renders these
-    /// as a dated timeline. Fetch is capped at the 50 newest completions, so
-    /// the oldest day may be partial.
+    /// The Done timeline's rows: accumulated pages plus today's window,
+    /// de-duped by id (a toggle can land in both before a page refresh).
+    private func doneRows() -> [TaskItem] {
+        var seen = Set<String>()
+        return (donePages + todayCompleted).filter { seen.insert($0.id).inserted }
+    }
+
+    /// Loads (or reloads) page one plus the exact week count. Always
+    /// resets the cursor - a fresh first page must never have stale older
+    /// pages appended onto it (guide D7).
+    private func loadDoneFirstPage() async {
+        guard let userId else { return }
+        let page = (try? await taskRepository.completedTasksPage(
+            limit: Self.donePageSize, after: nil, userId: userId
+        )) ?? CompletedTasksPage(items: [], nextCursor: nil)
+        donePages = page.items
+        doneCursor = page.nextCursor
+        doneLoaded = true
+        doneWeekCount = try? await taskRepository.completedTaskCount(
+            since: Date.now.addingTimeInterval(-7 * 24 * 3600), userId: userId
+        )
+    }
+
+    private func loadMoreDone() async {
+        guard let userId, let cursor = doneCursor, !uiState.isLoadingMoreDone else { return }
+        state.isLoadingMoreDone = true
+        defer {
+            state.isLoadingMoreDone = false
+            rebuild()
+        }
+        guard let page = try? await taskRepository.completedTasksPage(
+            limit: Self.donePageSize, after: cursor, userId: userId
+        ) else { return }
+        // Append with id de-dupe: a task completed after page one loaded
+        // shifts the offsets, and de-dupe makes that harmless (guide §5).
+        let known = Set(donePages.map(\.id))
+        donePages += page.items.filter { !known.contains($0.id) }
+        doneCursor = page.nextCursor
+    }
+
+    /// One group per calendar day, newest first - the Done tab renders
+    /// these as a dated timeline. Groups crossing into an older month
+    /// carry a month header so the scroll reads as a dated archive.
     private func doneGroups(now: Date) -> [TasksBehavior.Group] {
         let calendar = Calendar.current
         var byDay: [Date: [TaskItem]] = [:]
-        var undated: [TaskItem] = []
-        for task in completed {
-            guard let completedAt = task.completedAt else {
-                undated.append(task)
-                continue
-            }
+        for task in doneRows() {
+            // The query guarantees completedAt exists; a nil here cannot
+            // arrive (the old "Earlier" branch was dead code, guide §8.5).
+            guard let completedAt = task.completedAt else { continue }
             byDay[calendar.startOfDay(for: completedAt), default: []].append(task)
         }
 
-        var groups: [TasksBehavior.Group] = byDay.keys.sorted(by: >).map { day in
+        var groups: [TasksBehavior.Group] = []
+        var previousDay: Date?
+        for day in byDay.keys.sorted(by: >) {
             let label: String
             if calendar.isDateInToday(day) {
                 label = "Today"
@@ -415,10 +509,13 @@ final class TasksViewModel: ObservableStateViewModel<
             let tasks = byDay[day]!.sorted {
                 ($0.completedAt ?? .distantPast) > ($1.completedAt ?? .distantPast)
             }
-            return group(Self.dayKey(for: day), label, tasks, now: now)
-        }
-        if !undated.isEmpty {
-            groups.append(group("earlier", "Earlier", undated, now: now))
+            var dayGroup = group(Self.dayKey(for: day), label, tasks, now: now)
+            if let previousDay,
+               !calendar.isDate(previousDay, equalTo: day, toGranularity: .month) {
+                dayGroup.monthHeader = day.formatted(.dateTime.month(.wide).year()).uppercased()
+            }
+            groups.append(dayGroup)
+            previousDay = day
         }
         return groups
     }

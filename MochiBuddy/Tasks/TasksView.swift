@@ -90,7 +90,18 @@ struct TasksView: View {
             if let celebration = viewModel.doneCelebration {
                 celebrationCard(celebration)
             }
-            doneTimeline
+            if let weekText = viewModel.doneWeekText {
+                doneSummaryStrip(weekText)
+            }
+            // Lazy (guide D5): the outer list grows without bound once
+            // pagination lands; each day's timeline stays small and eager.
+            LazyVStack(spacing: 12) {
+                doneTimeline
+                doneLoadMoreSection
+            }
+            if !viewModel.canLoadMoreDone, let footnote = viewModel.footnote {
+                footnoteCard(footnote)
+            }
         case .lists:
             listRows
             MochiButton(title: "Manage lists", variant: .ghost) {
@@ -189,9 +200,13 @@ struct TasksView: View {
     }
 
     /// Done tab: per-day timeline - date header, dashed rail, node per task.
+    /// A month header renders above groups that cross into an older month.
     private var doneTimeline: some View {
         ForEach(viewModel.groups) { group in
             VStack(spacing: 7) {
+                if let month = group.monthHeader {
+                    monthHeader(month)
+                }
                 MochiTimelineDateHeader(text: doneHeaderText(group))
                     .padding(.horizontal, 2)
                     .padding(.top, 4)
@@ -199,6 +214,58 @@ struct TasksView: View {
                     todoRow(item)
                 }
             }
+        }
+    }
+
+    /// "JULY 2026" - the uppercased muted archive divider (guide §6.3).
+    private func monthHeader(_ text: String) -> some View {
+        HStack(spacing: 8) {
+            Text(text)
+                .font(MochiFont.display(11, weight: .semibold))
+                .kerning(1.2)
+                .foregroundStyle(theme.muted)
+            MochiDashedDivider()
+        }
+        .padding(.horizontal, 2)
+        .padding(.top, 10)
+        .accessibilityAddTraits(.isHeader)
+    }
+
+    /// Compact facts row under the celebration: the exact week count and
+    /// the streak. The timeline stays the hero; analysis lives on Streaks
+    /// and stats (guide §6.2).
+    private func doneSummaryStrip(_ weekText: String) -> some View {
+        MochiCard(padding: EdgeInsets(top: 10, leading: 15, bottom: 10, trailing: 15)) {
+            HStack(spacing: 8) {
+                Text(weekText)
+                    .font(MochiFont.body(12, weight: .heavy))
+                    .foregroundStyle(theme.ink)
+                Spacer()
+                Text("Streak · \(viewModel.streakDays) day\(viewModel.streakDays == 1 ? "" : "s")")
+                    .font(MochiFont.body(12, weight: .heavy))
+                    .foregroundStyle(theme.muted)
+            }
+        }
+    }
+
+    /// Infinite scroll (guide §6.4): the sentinel's onAppear fires the
+    /// page fetch; the ghost button is the explicit fallback for
+    /// accessibility and scroll-restoration edge cases. While loading,
+    /// two shimmer rows hold the space.
+    @ViewBuilder
+    private var doneLoadMoreSection: some View {
+        if viewModel.isLoadingMoreDone {
+            VStack(spacing: 7) {
+                SkeletonTodoRow(titleWidth: 164, metaWidth: 98)
+                SkeletonTodoRow(titleWidth: 122, metaWidth: 74)
+            }
+            .mochiShimmer()
+        } else if viewModel.canLoadMoreDone {
+            MochiButton(title: "Load older", variant: .ghost) {
+                viewModel.trigger(.loadMoreDone)
+            }
+            .onAppear { viewModel.trigger(.loadMoreDone) }
+            .accessibilityLabel("Load older completed tasks")
         }
     }
 

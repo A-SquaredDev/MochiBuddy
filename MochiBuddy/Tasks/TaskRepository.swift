@@ -81,6 +81,21 @@ struct CompletedTaskStat: Equatable {
     }
 }
 
+/// Where a completed-history page ended - the next page starts strictly
+/// after this. Two fields because completedAt is client-stamped and
+/// collisions (widget drains) are unlikely but not impossible; the
+/// documentID tiebreak makes the cursor exact for free.
+struct CompletedPageCursor: Equatable {
+    let completedAt: Date
+    let documentID: String
+}
+
+struct CompletedTasksPage: Equatable {
+    let items: [TaskItem]
+    /// nil when this page reached the end of history.
+    let nextCursor: CompletedPageCursor?
+}
+
 protocol TaskRepository: AnyObject {
     /// Mints a task id without writing anything - the suggestion chip's
     /// dismissal ledger keys unsaved tasks by it, so a dismissal made
@@ -119,6 +134,20 @@ protocol TaskRepository: AnyObject {
     func incompleteTaskCount(userId: String) async throws -> Int
     func totalTaskCount(userId: String) async throws -> Int
     func completedTaskStats(since: Date, userId: String) async throws -> [CompletedTaskStat]
+    /// One page of completed history, newest first. A nil cursor is page
+    /// one; the Done tab's infinite scroll walks the cursor chain.
+    func completedTasksPage(
+        limit: Int, after cursor: CompletedPageCursor?, userId: String
+    ) async throws -> CompletedTasksPage
+    /// Exact completion count via a server aggregation - the "N done this
+    /// week" number must never be capped by whatever page happens to be
+    /// loaded.
+    func completedTaskCount(since: Date, userId: String) async throws -> Int
+    /// A real list's own recent completions, independent of global
+    /// recency - fixes ListDetail's done-section starvation. The Inbox
+    /// (listId nil) has no indexable predicate (Firestore cannot query
+    /// field absence) and keeps the filter-a-global-page approach.
+    func completedTasks(listId: String, limit: Int, userId: String) async throws -> [TaskItem]
 
     // Server-backed variants for the letter composition barrier ONLY
     // (Personal Layer, Feature 3): composing over stale cache would
@@ -217,6 +246,55 @@ final class FirestoreTaskRepository: TaskRepository {
         let snapshot = try await tasks(userId)
             .whereField("completedAt", isGreaterThanOrEqualTo: Timestamp(date: since))
             .order(by: "completedAt", descending: true)
+            .getDocuments()
+        return snapshot.documents.map(Self.taskItem(from:))
+    }
+
+    func completedTasksPage(
+        limit: Int, after cursor: CompletedPageCursor?, userId: String
+    ) async throws -> CompletedTasksPage {
+        FirestoreReadLog.record(Self.self)
+        // Range + first order stay on completedAt (the range-field-first
+        // rule); the __name__ order is the implicit tiebreak made explicit
+        // so the cursor can include it. Firestore serves field + __name__
+        // orderings from the single-field index - no composite needed.
+        var query = tasks(userId)
+            .whereField("completedAt", isGreaterThan: Timestamp(date: Date(timeIntervalSince1970: 0)))
+            .order(by: "completedAt", descending: true)
+            .order(by: FieldPath.documentID(), descending: true)
+            .limit(to: limit)
+        if let cursor {
+            query = query.start(after: [Timestamp(date: cursor.completedAt), cursor.documentID])
+        }
+        let snapshot = try await query.getDocuments()
+        let items = snapshot.documents.map(Self.taskItem(from:))
+        let nextCursor: CompletedPageCursor? = items.count < limit
+            ? nil
+            : items.last.flatMap { last in
+                last.completedAt.map { CompletedPageCursor(completedAt: $0, documentID: last.id) }
+            }
+        return CompletedTasksPage(items: items, nextCursor: nextCursor)
+    }
+
+    func completedTaskCount(since: Date, userId: String) async throws -> Int {
+        FirestoreReadLog.record(Self.self)
+        let query = tasks(userId)
+            .whereField("completedAt", isGreaterThanOrEqualTo: Timestamp(date: since))
+            .count
+        let snapshot = try await query.getAggregation(source: .server)
+        return snapshot.count.intValue
+    }
+
+    func completedTasks(listId: String, limit: Int, userId: String) async throws -> [TaskItem] {
+        FirestoreReadLog.record(Self.self)
+        // The one query needing a composite index (tasks: listId ASC,
+        // completedAt DESC) - created in the Firebase console. Callers
+        // fall back to the global page on error, so shipping ahead of the
+        // index degrades to the old behavior instead of breaking.
+        let snapshot = try await tasks(userId)
+            .whereField("listId", isEqualTo: listId)
+            .order(by: "completedAt", descending: true)
+            .limit(to: limit)
             .getDocuments()
         return snapshot.documents.map(Self.taskItem(from:))
     }

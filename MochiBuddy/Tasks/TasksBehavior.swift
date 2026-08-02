@@ -36,6 +36,10 @@ enum TasksBehavior {
         let count: Int?
         let isDanger: Bool
         let items: [TodoUIItem]
+        /// Done only: "JULY 2026" rendered above this group when the
+        /// timeline crosses into an older month - the scroll reads as a
+        /// dated archive without a separate screen.
+        var monthHeader: String? = nil
     }
 
     struct ListUIItem: Equatable, Identifiable {
@@ -72,6 +76,12 @@ enum TasksBehavior {
         var streakDays = 0
         /// Done only: the coins-earned celebration card.
         var doneCelebration: String?
+        /// Done only: an older page of history is available.
+        var canLoadMoreDone = false
+        /// Done only: the load-older request is in flight (shimmer rows).
+        var isLoadingMoreDone = false
+        /// Done only: the compact summary strip ("This week · N").
+        var doneWeekText: String?
         /// Muted caption under the segment's content (Upcoming's explainer).
         var footnote: String?
         /// Upcoming only: entry point into the repeating-tasks screen.
@@ -87,6 +97,7 @@ enum TasksBehavior {
     enum ViewAction {
         case refresh
         case selectSegment(Segment)
+        case loadMoreDone
         case toggleTask(String)
         case taskTapped(String)
         case addTapped
