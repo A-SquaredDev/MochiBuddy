@@ -125,14 +125,16 @@ struct NotificationCopyTests {
         }
     }
 
-    @Test("reminders name the task; the privacy toggle swaps in the nameless variant")
+    @Test("reminders knock generically and carry the task in the body; the privacy toggle swaps in the nameless variant")
     func reminderPrivacy() {
         let named = NotificationCopy.reminder(taskTitle: "Call the dentist", hideTaskNames: false)
-        #expect(named.title == "Call the dentist")
+        #expect(named.title == "You have something due!")
+        #expect(named.body == "Call the dentist")
 
         let hidden = NotificationCopy.reminder(taskTitle: "Call the dentist", hideTaskNames: true)
         #expect(!hidden.title.contains("dentist"))
         #expect(!hidden.body.contains("dentist"))
+        #expect(hidden.body == "One new task is due. Check the app to view!")
     }
 
     @Test("promise copy never embeds the pet name - renames can never touch a promise")
@@ -145,60 +147,40 @@ struct NotificationCopyTests {
         }
     }
 
-    @Test("every rundown leads with Good morning and never dumps the bare task list")
+    @Test("every rundown leads with Good morning and speaks in counts, never a task title")
     func rundownTone() {
         var deck = CopyDeck()
         let calm = NotificationCopy.rundown(
-            tasks: [], totalDue: 0, hideTaskNames: false, petName: "Nori", deck: &deck
+            dueCount: 0, petName: "Nori", deck: &deck
         )
         #expect(calm.title.hasPrefix("Good morning"))
         #expect(calm.body.contains("Nori"), "the empty-day body speaks as the pet")
 
         let full = NotificationCopy.rundown(
-            tasks: [
-                .init(title: "Pay rent", timeText: "9:00 AM"),
-                .init(title: "Gym", timeText: nil),
-                .init(title: "Groceries", timeText: nil),
-            ],
-            totalDue: 5, hideTaskNames: false, petName: "Mochi", deck: &deck
+            dueCount: 5, petName: "Mochi", deck: &deck
         )
         #expect(full.title.hasPrefix("Good morning"))
-        #expect(full.body.contains("5 things today, starting with Pay rent at 9:00 AM."))
-        #expect(!full.body.contains("Pay rent · Gym"), "never the bare joined list")
+        #expect(full.body.contains("5 tasks are due today."))
         #expect(full.body.split(separator: "\n").count == 2, "one warm line plus one summary")
 
         let one = NotificationCopy.rundown(
-            tasks: [.init(title: "Gym", timeText: nil)],
-            totalDue: 1, hideTaskNames: false, petName: "Mochi", deck: &deck
+            dueCount: 1, petName: "Mochi", deck: &deck
         )
         #expect(one.title.hasPrefix("Good morning"))
-        #expect(one.body.contains("Just one today: Gym."))
-
-        let hidden = NotificationCopy.rundown(
-            tasks: [
-                .init(title: "Pay rent", timeText: "9:00 AM"),
-                .init(title: "Gym", timeText: nil),
-            ],
-            totalDue: 2, hideTaskNames: true, petName: "Mochi", deck: &deck
-        )
-        #expect(hidden.title.hasPrefix("Good morning"))
-        #expect(!hidden.body.contains("rent"))
-        #expect(hidden.body.contains("2 things on deck"))
+        #expect(one.body.contains("One task is due today."))
     }
 
     @Test("the crushed beat keeps the greeting first; the opener replaces the warm line")
     func rundownBeats() {
         var deck = CopyDeck()
         let crushed = NotificationCopy.rundown(
-            tasks: [.init(title: "Gym", timeText: nil)],
-            totalDue: 1, hideTaskNames: false, petName: "Mochi",
+            dueCount: 1, petName: "Mochi",
             crushedYesterday: true, deck: &deck
         )
         #expect(crushed.title == "Good morning. You crushed yesterday")
 
         let opened = NotificationCopy.rundown(
-            tasks: [.init(title: "Gym", timeText: nil)],
-            totalDue: 1, hideTaskNames: false, petName: "Mochi",
+            dueCount: 1, petName: "Mochi",
             openerLine: "Six months of us today.", deck: &deck
         )
         #expect(opened.body.hasPrefix("Six months of us today.\n"),
@@ -214,7 +196,7 @@ struct NotificationCopyTests {
         var titles: Set<String> = []
         for _ in NotificationCopy.rundownTitlePool {
             titles.insert(NotificationCopy.rundown(
-                tasks: [], totalDue: 0, hideTaskNames: false, petName: "Mochi", deck: &deck
+                dueCount: 0, petName: "Mochi", deck: &deck
             ).title)
         }
         #expect(titles.count == NotificationCopy.rundownTitlePool.count)
@@ -435,7 +417,8 @@ struct NotificationRequestBuilderTests {
             PlannedNotification(id: "due-t1", kind: .promise, fireAt: Dates.hours(23), repeats: true, taskId: "t1"),
             tasks: [task]
         )
-        #expect(request.content.title == "Water plants")
+        #expect(request.content.title == "You have something due!")
+        #expect(request.content.body == "Water plants")
         #expect(request.urgency == .timeSensitive)
         #expect(request.categoryId == NotificationCategoryID.reminder)
         #expect(request.repeatingComponents != nil)
@@ -468,7 +451,7 @@ struct NotificationRequestBuilderTests {
         #expect(!request.content.body.contains("Very private thing"))
     }
 
-    @Test("a rundown is active and carries the ranked top tasks")
+    @Test("a rundown is active and carries the due count, never a task title")
     func rundownDressing() {
         let fireAt = Dates.calendar.date(
             byAdding: .minute, value: 7 * 60, to: Dates.calendar.startOfDay(for: Dates.days(1))
@@ -478,7 +461,8 @@ struct NotificationRequestBuilderTests {
             tasks: [makeTask(id: "a", title: "Pay rent", dueAt: Dates.hours(-2), hasTime: true)]
         )
         #expect(request.urgency == .active)
-        #expect(request.content.body.contains("Pay rent"))
+        #expect(request.content.body.contains("One task is due today."))
+        #expect(!request.content.body.contains("Pay rent"))
     }
 
     @Test("a productive yesterday takes over the rundown title - the no-cost celebration beat")
@@ -527,7 +511,7 @@ struct NotificationRequestBuilderTests {
         let tasks = [makeTask(id: "a", title: "Pay rent", dueAt: Dates.hours(-2), hasTime: true)]
         let byId = ["a": tasks[0]]
 
-        // An opener line leads the body; the task list still follows.
+        // An opener line leads the body; the count summary still follows.
         let milestone = AnniversaryMilestone(tier: .week, day: CivilDay("2026-07-09")!)
         let opener = NotificationRequestBuilder.request(
             for: plan, tasksById: byId, allTasks: tasks,
@@ -539,7 +523,7 @@ struct NotificationRequestBuilderTests {
             deck: &deck
         )
         #expect(opener.content.body.hasPrefix("One week with Nori today.\n"))
-        #expect(opener.content.body.contains("Pay rent"))
+        #expect(opener.content.body.contains("due today"))
         #expect(!opener.content.title.contains("crushed"),
                 "the anniversary outranked crushed yesterday upstream; the title must not sneak it back")
 

@@ -4,7 +4,10 @@
 //
 //  Three classes, three non-negotiable voices (design doc: Copy & voice):
 //  mood pings are the pet's blame-free monologue and never name a task;
-//  reminders and the rundown always name the task; celebrations celebrate.
+//  reminders knock with a generic title and carry the task title as the
+//  body; the rundown greets and speaks in counts, never a list of titles
+//  (title lists read confusing on a lock screen - review 2026-08-02);
+//  celebrations celebrate.
 //  Floor copy is two pools - acute (day 1-2, gentle and hopeful) and
 //  chronic (day 3+, pure presence, zero ask). Emoji live in celebrations
 //  only. Ship test for every line: would this make a fragile person at
@@ -62,11 +65,13 @@ enum NotificationCopy {
 
     static let uneasyPool = [
         "{name} is getting a little fidgety. One small win would settle them right down.",
-        "{name} keeps glancing at the list. Nothing scary, just a nudge.",
+        "{name} keeps glancing at the list… nudge nudge.",
         "One tiny task and {name} will glow all afternoon.",
         "{name} is doing little pacing circles. They believe in you.",
         "One check-off and {name} curls right back up.",
         "{name} noticed something slipping. No rush, whenever you're ready.",
+        "{name} flopped dramatically across the list. They'll recover the second you check something off.",
+        "{name} is giving you the big eyes. The really big ones.",
     ]
 
     static let anxiousPool = [
@@ -76,6 +81,8 @@ enum NotificationCopy {
         "{name} is chewing on a blanket corner again. Come sit with the list together.",
         "{name} is worried, but they know you always come through.",
         "Deep breaths, says {name}. One thing at a time.",
+        "{name} has burrowed into the blanket pile. Only the ears are poking out.",
+        "{name} is sitting in worried loaf position. One small step would un-loaf them.",
     ]
 
     static let floorAcutePool = [
@@ -135,34 +142,24 @@ enum NotificationCopy {
         )
     }
 
-    /// Reminders name the task - that is their whole job. The opt-in
-    /// lock-screen privacy toggle swaps in the nameless variant.
+    /// Reminders lead with a generic knock and carry the task title as
+    /// the body. The opt-in lock-screen privacy toggle swaps in the
+    /// nameless variant.
     /// Promise copy never embeds the pet name (locked rule): a promise is
     /// never re-laid, so a rename must never need to touch one.
-    static func reminder(taskTitle: String?, hideTaskNames: Bool, untimed: Bool = false) -> Content {
-        // Date-only tasks fire at the default reminder slot, not a chosen
-        // instant - "today", never a false "now".
-        let when = untimed ? "today" : "now"
+    static func reminder(taskTitle: String?, hideTaskNames: Bool) -> Content {
         guard let taskTitle, !hideTaskNames else {
             return Content(
-                title: "Reminder",
-                body: "Something on your list is due \(when)."
+                title: "You have something due!",
+                body: "One new task is due. Check the app to view!"
             )
         }
-        return Content(title: taskTitle, body: "Due \(when). Rooting for you.")
+        return Content(title: "You have something due!", body: taskTitle)
     }
 
     /// Yesterday needs at least this many completions to earn the
     /// "crushed it" beat. Remote-tunable, set once at launch.
     static var crushedYesterdayThreshold = 5
-
-    /// One line of the briefing's task summary. The builder pre-formats
-    /// the time so locale handling stays out of the copy layer.
-    struct RundownTaskLine: Equatable {
-        var title: String
-        /// "9:00 AM" for timed tasks, nil for date-only.
-        var timeText: String?
-    }
 
     /// The greeting is the brand: every briefing leads with it so the
     /// rundown is recognizable at a glance on a crowded lock screen.
@@ -179,17 +176,16 @@ enum NotificationCopy {
     ]
 
     /// The morning briefing: always greeting-first, then one warm line
-    /// plus one compact summary - never a bare list of task titles, and
-    /// length never flexes with the load. A notably productive yesterday
-    /// joins the title - the no-cost celebration beat folded in, never a
-    /// separate ping. The one Personal-Layer opener line (anniversary /
-    /// callback / observation, Feature 2's canonical priority already
-    /// applied upstream) replaces the warm line so the body stays two
-    /// lines flat.
+    /// plus one compact count summary - never a task title (titles read
+    /// confusing on a crowded lock screen), so length never flexes with
+    /// the load and the privacy toggle has nothing left to hide here. A
+    /// notably productive yesterday joins the title - the no-cost
+    /// celebration beat folded in, never a separate ping. The one
+    /// Personal-Layer opener line (anniversary / callback / observation,
+    /// Feature 2's canonical priority already applied upstream) replaces
+    /// the warm line so the body stays two lines flat.
     static func rundown(
-        tasks: [RundownTaskLine],
-        totalDue: Int,
-        hideTaskNames: Bool,
+        dueCount: Int,
         petName: String,
         crushedYesterday: Bool = false,
         openerLine: String? = nil,
@@ -202,7 +198,7 @@ enum NotificationCopy {
                 deck.next(from: rundownTitlePool, key: "rundown-title"), petName: petName
             )
         }
-        guard let first = tasks.first else {
+        guard dueCount > 0 else {
             let restBody = PetCopyTemplate.render(
                 "Nothing due today. {name} is taking it easy with you.",
                 petName: petName
@@ -212,19 +208,9 @@ enum NotificationCopy {
                 body: openerLine.map { "\($0)\n\(restBody)" } ?? restBody
             )
         }
-        let count = max(totalDue, tasks.count)
-        let summary: String
-        if hideTaskNames {
-            summary = "\(count) \(count == 1 ? "thing" : "things") on deck when you're ready."
-        } else if count == 1 {
-            summary = first.timeText
-                .map { "Just one today: \(first.title) at \($0)." }
-                ?? "Just one today: \(first.title)."
-        } else {
-            summary = first.timeText
-                .map { "\(count) things today, starting with \(first.title) at \($0)." }
-                ?? "\(count) things today, starting with \(first.title)."
-        }
+        let summary = dueCount == 1
+            ? "One task is due today."
+            : "\(dueCount) tasks are due today."
         let lead = openerLine ?? PetCopyTemplate.render(
             deck.next(from: rundownCheerPool, key: "rundown-cheer"), petName: petName
         )
