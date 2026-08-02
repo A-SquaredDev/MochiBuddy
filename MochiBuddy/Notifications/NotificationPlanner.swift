@@ -30,6 +30,9 @@ struct NotificationPlanInput {
     /// Weekly-letter invitation (Feature 3), provided only once the
     /// current period is already non-dormant. Nil plans nothing.
     var letter: LetterNotificationInput? = nil
+    /// Upcoming trial-to-paid conversion, provided only while the
+    /// membership is `.trial(willRenew: true)`. Nil plans nothing.
+    var trialCharge: TrialChargeInput? = nil
     /// Requested planning horizon (the forecast further caps this at
     /// entitlement expiry for everything except promises).
     var horizon: Date
@@ -73,12 +76,19 @@ enum NotificationPlanner {
         calendar: Calendar = .current
     ) -> [PlannedNotification] {
         let promises = planPromises(input, calendar: calendar)
+        let trialEnding = planTrialEnding(input)
 
         // Lapsed: the quiet checklist keeps its real reminders,
         // indefinitely, and gets nothing else - the winback IS the app
         // staying useful. No mood, no rundown, no backstop, no guilt.
+        // (A lapsed user has no trial, so trialEnding is empty here by
+        // construction - carried through anyway so the invariant is
+        // structural, not situational.)
         guard !input.lapsed else {
-            return budget(promises: promises, backstop: [], moodPings: [], rundowns: [], letter: [])
+            return budget(
+                promises: promises, trialEnding: trialEnding, backstop: [],
+                moodPings: [], rundowns: [], letter: []
+            )
         }
 
         let moodPings = planMoodPings(input, calendar: calendar)
@@ -86,9 +96,32 @@ enum NotificationPlanner {
         let backstop = planBackstop(input)
         let letter = planLetter(input)
         return budget(
-            promises: promises, backstop: backstop, moodPings: moodPings,
-            rundowns: rundowns, letter: letter
+            promises: promises, trialEnding: trialEnding, backstop: backstop,
+            moodPings: moodPings, rundowns: rundowns, letter: letter
         )
+    }
+
+    // MARK: - Trial-ending billing notices
+
+    /// One notice per stage before the charge instant. Transactional, so
+    /// deliberately exempt from everything that shapes the mood system:
+    /// no prefs gate (turning off mood dips must not silence a billing
+    /// notice), no bedtime silence, no shh, no vacation, and no horizon
+    /// cap (a 14-day trial's notices are laid from day one, past the
+    /// 7-day planning horizon). The only gates are the input boundary
+    /// (auto-renew on) and the fire time still being ahead.
+    private static func planTrialEnding(_ input: NotificationPlanInput) -> [PlannedNotification] {
+        guard let trial = input.trialCharge else { return [] }
+        let capture = input.snapshot.capturedAt
+        return TrialEndingStage.allCases.compactMap { stage in
+            let fireAt = trial.endsAt.addingTimeInterval(-stage.leadTime)
+            guard fireAt > capture else { return nil }
+            return PlannedNotification(
+                id: NotificationID.trialEnding(stage: stage, endsAt: trial.endsAt),
+                kind: .trialEnding,
+                fireAt: fireAt
+            )
+        }
     }
 
     // MARK: - Promises
@@ -345,25 +378,28 @@ enum NotificationPlanner {
     // MARK: - Budget
 
     /// Priority over the 64 slots: promises by nearest due, the reserved
-    /// backstop, mood pings, rundowns, then the letter. Under promise
-    /// pressure mood pings degrade to zero (the widget carries) - a
-    /// reminder is never the thing dropped; the letter drops FIRST (it
-    /// alone has a full in-app backstop).
+    /// backstop and trial notices, mood pings, rundowns, then the letter.
+    /// Under promise pressure mood pings degrade to zero (the widget
+    /// carries) - a reminder is never the thing dropped; the letter drops
+    /// FIRST (it alone has a full in-app backstop). Trial notices are
+    /// reserved off the top like the backstop: a billing notice being
+    /// squeezed out by a task flood is indefensible.
     private static func budget(
         promises: [PlannedNotification],
+        trialEnding: [PlannedNotification],
         backstop: [PlannedNotification],
         moodPings: [PlannedNotification],
         rundowns: [PlannedNotification],
         letter: [PlannedNotification]
     ) -> [PlannedNotification] {
-        var slots = Constants.slotCap - backstop.count
+        var slots = Constants.slotCap - backstop.count - trialEnding.count
         var out: [PlannedNotification] = []
         for group in [promises, moodPings, rundowns, letter] {
             let take = min(slots, group.count)
             out += group.sorted { $0.fireAt < $1.fireAt }.prefix(take)
             slots -= take
         }
-        out += backstop
+        out += backstop + trialEnding
         return out.sorted { ($0.fireAt, $0.id) < ($1.fireAt, $1.id) }
     }
 

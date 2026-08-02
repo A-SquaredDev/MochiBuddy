@@ -36,6 +36,7 @@ with mood(now) by construction.
 | Morning rundown | `rundown-YYYY-MM-DD` | Every morning in horizon | Wake time (end of bedtime window) | One per day | Fires at wake by definition | Vacation, lapsed | `morningRundown` |
 | Backstop | `backstop` | Always laid (dormant-user safety net) | 7 days after last relay, repeating | One pending slot, weekly | Not checked | Vacation plus grace, lapsed | any pref on |
 | Weekly letter invitation | `letter-{periodStart}` | Current letter period is non-dormant | Period cutoff (Sunday 19:00 by tuning) | One per period | Not checked | Vacation, lapsed, adoption-age gate, slot budget (dropped first) | `weeklyLetter` |
+| Trial-ending notice | `trial-{stage}-{chargeEpoch}` | Membership is `.trial(willRenew: true)` | 24 h and 3 h before the charge instant | Two per trial, ever | Deliberately ignored | Nothing (transactional; auto-renew off plans none) | None (no pref may silence a billing notice) |
 
 Celebrations are deliberately NOT a notification genre: `celebrationPool`
 exists in NotificationCopy.swift:108-114 and a `celebration()` renderer at
@@ -235,6 +236,38 @@ because mood only rises on action and every action re-lays
   in-app backstop (NotificationPlanner.swift:320-341). Never counts against
   the mood-ping cap. Gated by the `weeklyLetter` pref.
 
+## Genre 6: Trial-ending billing notices
+
+- Planner: `planTrialEnding`. Two fixed stages per trial, `dayBefore` (24 h
+  before the charge instant) and `dayOf` (3 h before), anchored to the exact
+  `trialEndsAt` RevenueCat reports, never to a calendar morning: an 11 pm
+  charge gets an 8 pm day-of notice, not a 9 am one with a 14-hour gap.
+- Input boundary: the orchestrator supplies `TrialChargeInput` only while the
+  status is `.trial(willRenew: true)`. Cancelling mid-trial re-lays with a nil
+  input, and the diff sweeps the pending notices (`trial-` is in `isOurs`):
+  no charge coming, no nag. If RevenueCat moves the end date, the charge
+  epoch in the id changes and the diff swaps the notices cleanly.
+- Deliberately exempt from EVERYTHING that shapes the mood system: no pref
+  gate, no bedtime silence, no shh, no vacation, no horizon cap (a 14-day
+  trial's notices are laid from day one, past the 7-day horizon), and
+  reserved off the top of the slot budget beside the backstop. Dressed
+  time-sensitive so Focus cannot swallow the last chance to cancel.
+- Copy is fixed and plain (`NotificationCopy.trialEnding`): no pools, no
+  rotation, no pet name - a notice about money reads the same for every user
+  every time and states both outcomes (stay: do nothing; stop: cancel in App
+  Store subscription settings).
+- The audit trail: every freshly scheduled notice writes a create-only
+  document to `users/{uid}/billingNotices/{noticeId}`
+  (FirestoreBillingNoticeRecorder) carrying the stage, fire time, trial end,
+  server-stamped `scheduledAt`, the notification permission status at
+  scheduling time, and the time zone. `deliveryConfirmedAt` is the one
+  mutable field, written best-effort when iOS shows the notice fired: the
+  delivered-notifications sweep on each relay, foreground presentation, or a
+  tap. The record says "scheduled" and "delivery confirmed", never "user was
+  notified" - iOS has no delivery receipts for local notifications, and the
+  trail must not claim more than the platform can prove. Rules mirror the
+  letters/readAt pattern; erased with the account by AccountEraser.
+
 ## Suppression and budget composition
 
 Order of operations inside one plan (NotificationPlanner.swift:71-92):
@@ -248,9 +281,10 @@ Order of operations inside one plan (NotificationPlanner.swift:71-92):
 4. Bedtime silence drops mood-ping candidates inside the window (pref
    `bedtimeSilence`, on by default); promises and the letter ignore it and
    the rundown fires at the window's end by construction.
-5. Budget over iOS's 64-slot ceiling: promises by nearest due, one reserved
-   backstop slot, mood pings, rundowns, then the letter. A reminder is never
-   the thing dropped.
+5. Budget over iOS's 64-slot ceiling: promises by nearest due, reserved
+   slots for the backstop and any trial-ending notices, mood pings,
+   rundowns, then the letter. A reminder is never the thing dropped, and a
+   billing notice can never be squeezed out by a task flood.
 6. Horizon: 7 days, hard-capped at a known entitlement cliff (a real
    cancellation, `willRenew == false`) so nothing but promises is ever laid
    into a lapsed state; an auto-renewing boundary never caps
@@ -603,6 +637,17 @@ Title: "A letter from {name}". Body pool:
 
 No copy of its own: title = pet name, body drawn from the floor chronic pool
 above (pure presence, no ask, safe at any staleness).
+
+### Trial-ending notices (NotificationCopy.trialEnding)
+
+Fixed, unpooled, unrotated - transactional copy about money:
+
+- dayBefore: "Your free trial ends tomorrow" / "Your yearly membership starts
+  tomorrow when the trial ends. To keep Mochi, do nothing. If you'd rather
+  not continue, cancel anytime in your App Store subscription settings."
+- dayOf: "Your free trial ends today" / "Your yearly membership starts later
+  today when the trial ends. If you'd rather not continue, there is still
+  time to cancel in your App Store subscription settings."
 
 ### Action button labels
 

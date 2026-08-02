@@ -92,6 +92,11 @@ final class NotificationOrchestrator {
     /// the rundown's civil date string.
     var personalLayerProvider: ((PersonalLayerRequest) async -> [String: PersonalLayerContent])?
 
+    /// The billing-notice audit trail: freshly scheduled trial notices
+    /// are recorded, fired ones get delivery confirmed - wired by
+    /// AppContainer to the Firestore recorder.
+    var billingNoticeRecorder: BillingNoticeRecording?
+
     /// Everything the Personal-Layer assignment needs from one relay.
     struct PersonalLayerRequest {
         let rundowns: [PlannedNotification]
@@ -151,6 +156,9 @@ final class NotificationOrchestrator {
         let petName: String
         /// The weekly-letter invitation input, when its period qualifies.
         var letter: LetterNotificationInput? = nil
+        /// The upcoming trial-to-paid conversion, only while auto-renew
+        /// is on - a cancelled trial plans no billing notices.
+        var trialCharge: TrialChargeInput? = nil
     }
 
     func makeContext(now: Date = .now) async -> RelayContext? {
@@ -190,8 +198,14 @@ final class NotificationOrchestrator {
             bedtime: profile?.bedtime ?? .standard,
             lapsed: lapsed,
             petName: profile?.mochiName ?? PetNameSanitizer.defaultName,
-            letter: await letterInputProvider?(now)
+            letter: await letterInputProvider?(now),
+            trialCharge: trialCharge()
         )
+    }
+
+    private func trialCharge() -> TrialChargeInput? {
+        guard case .trial(let endsAt, true) = membershipSession.status else { return nil }
+        return TrialChargeInput(endsAt: endsAt)
     }
 
     /// The persisted taper stretch - read-only view for the inspector.
@@ -223,12 +237,14 @@ final class NotificationOrchestrator {
                 shhUntil: shhUntil(now: now),
                 consecutiveFloorDays: floorDays,
                 letter: context.letter,
+                trialCharge: context.trialCharge,
                 horizon: horizon
             ),
             calendar: calendar
         )
 
-        let diff = NotificationPlanDiffer.diff(desired: plan, pendingIds: await scheduler.pendingIds())
+        let pendingBefore = await scheduler.pendingIds()
+        let diff = NotificationPlanDiffer.diff(desired: plan, pendingIds: pendingBefore)
         scheduler.removePending(ids: diff.removeIds)
 
         // The one Personal-Layer line per rundown morning (Feature 2's
@@ -273,6 +289,27 @@ final class NotificationOrchestrator {
             await scheduler.schedule(request)
         }
         saveDeck(deck)
+
+        // The billing-notice audit trail. Recording keys off "newly
+        // pending": every re-lay re-schedules the same ids in place, but
+        // only a notice iOS didn't already hold is a fresh scheduling
+        // fact. The delivered sweep runs regardless of current status -
+        // a notice fired during a trial is still confirmable after the
+        // trial converts.
+        if let recorder = billingNoticeRecorder {
+            if let trial = context.trialCharge {
+                let alreadyPending = Set(pendingBefore)
+                for planned in diff.schedule
+                where planned.kind == .trialEnding && !alreadyPending.contains(planned.id) {
+                    await recorder.recordScheduled(planned, trialEndsAt: trial.endsAt)
+                }
+            }
+            let fired = await scheduler.deliveredIds()
+                .filter { $0.hasPrefix(NotificationID.trialPrefix) }
+            if !fired.isEmpty {
+                recorder.confirmDelivered(ids: fired)
+            }
+        }
 
         telemetry.log(.relaid(
             trigger: trigger.rawValue,

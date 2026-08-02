@@ -62,6 +62,10 @@ final class UNNotificationScheduler: NotificationScheduling {
         }
     }
 
+    func deliveredIds() async -> [String] {
+        await center.deliveredNotifications().map(\.request.identifier)
+    }
+
     func removePending(ids: [String]) {
         guard !ids.isEmpty else { return }
         center.removePendingNotificationRequests(withIdentifiers: ids)
@@ -154,12 +158,19 @@ final class MochiNotificationDelegate: NSObject, UNUserNotificationCenterDelegat
     /// A letter-invitation tap carries the letter DOCUMENT id (Feature 3);
     /// the container wires this to route Home straight to the letter.
     var onLetterTap: ((String) -> Void)?
+    /// A trial-ending notice reached the user (presented in foreground or
+    /// tapped) - the strongest delivery evidence the audit trail gets;
+    /// the container wires this to the billing-notice recorder.
+    var onBillingNoticeSeen: ((String) -> Void)?
 
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse
     ) async {
         let notificationId = response.notification.request.identifier
+        if notificationId.hasPrefix(NotificationID.trialPrefix) {
+            onBillingNoticeSeen?(notificationId)
+        }
         if response.actionIdentifier == UNNotificationDefaultActionIdentifier,
            let letterId = NotificationID.parseLetter(notificationId) {
             await MainActor.run {
@@ -184,6 +195,12 @@ final class MochiNotificationDelegate: NSObject, UNUserNotificationCenterDelegat
         if id.hasPrefix(NotificationID.duePrefix) { return [.banner, .sound, .list] }
         if id.hasPrefix(NotificationID.rundownPrefix) { return [.banner, .list] }
         if id.hasPrefix(NotificationID.letterPrefix) { return [.list] }
+        if id.hasPrefix(NotificationID.trialPrefix) {
+            // A billing notice is never swallowed by the app being open -
+            // and foreground presentation IS confirmed delivery.
+            onBillingNoticeSeen?(id)
+            return [.banner, .sound, .list]
+        }
         return []
     }
 }

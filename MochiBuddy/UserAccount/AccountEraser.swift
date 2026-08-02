@@ -31,6 +31,7 @@ final class FirestoreAccountEraser: AccountEraser {
         // and are destroyed with it (Feature 3, edge case 23).
         try await deleteAllDocuments(in: userDocument.collection("letters"))
         try await deleteAllDocuments(in: userDocument.collection("activityWeeks"))
+        try await deleteAllDocuments(in: userDocument.collection("billingNotices"))
         // Journal moments (Feature 6, edge case 20) ride the same path.
         try await deleteAllDocuments(in: userDocument.collection("moments"))
         FirestoreReadLog.recordWrite(Self.self)

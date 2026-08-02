@@ -325,7 +325,7 @@ final class DevSchedulerViewModel: StateViewModel<
         }
         next.pending = rows
         next.slotText = "\(pending.count) / \(NotificationPlanner.Constants.slotCap) · "
-            + ["promise", "mood", "rundown", "backstop"]
+            + ["promise", "mood", "rundown", "backstop", "trial"]
                 .compactMap { key in counts[key].map { "\($0) \(key)" } }
                 .joined(separator: " · ")
         next.invariantOK = violations == 0
@@ -490,6 +490,7 @@ final class DevSchedulerViewModel: StateViewModel<
         if id.hasPrefix(NotificationID.moodPrefix) { return "mood" }
         if id.hasPrefix(NotificationID.rundownPrefix) { return "rundown" }
         if id.hasPrefix(NotificationID.letterPrefix) { return "letter" }
+        if id.hasPrefix(NotificationID.trialPrefix) { return "trial" }
         if id == NotificationID.backstop { return "backstop" }
         return "other"
     }
@@ -501,6 +502,7 @@ final class DevSchedulerViewModel: StateViewModel<
         case "rundown": "morning briefing at wake time"
         case "backstop": "repeating weekly safety net for dormant users"
         case "letter": "Sunday letter invitation, laid only for a non-dormant period"
+        case "trial": "trial-ending billing notice, anchored to the charge instant"
         default: "unrecognized id"
         }
     }

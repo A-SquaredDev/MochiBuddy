@@ -54,6 +54,10 @@ struct PendingNotificationSummary: Equatable {
 protocol NotificationScheduling: AnyObject {
     func pendingIds() async -> [String]
     func pendingRequests() async -> [PendingNotificationSummary]
+    /// Fired notifications still sitting in Notification Center - the
+    /// billing-notice audit trail's best-effort delivery evidence (a
+    /// cleared notification vanishes from here; absence proves nothing).
+    func deliveredIds() async -> [String]
     func removePending(ids: [String])
     func schedule(_ request: ScheduledNotificationRequest) async
 }
@@ -180,6 +184,20 @@ enum NotificationRequestBuilder {
                 plan: plan,
                 content: NotificationCopy.letterInvitation(petName: petName, deck: &deck),
                 urgency: .active,
+                categoryId: nil,
+                threadId: nil
+            )
+
+        case .trialEnding:
+            // Time-sensitive on purpose: a billing notice anchored to the
+            // charge instant is exactly what the interruption level is
+            // for, and Focus must not swallow the last chance to cancel.
+            return ScheduledNotificationRequest(
+                plan: plan,
+                content: NotificationCopy.trialEnding(
+                    stage: NotificationID.parseTrialStage(plan.id) ?? .dayBefore
+                ),
+                urgency: .timeSensitive,
                 categoryId: nil,
                 threadId: nil
             )

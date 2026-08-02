@@ -273,6 +273,18 @@ final class AppContainer {
             telemetry: telemetry
         )
         notificationDelegate.actionHandler = notificationActionHandler
+        // The trial-ending audit trail: scheduling facts and delivery
+        // confirmations land in users/{uid}/billingNotices, permission
+        // state included, so a billing dispute can be answered honestly.
+        let billingNoticeRecorder = FirestoreBillingNoticeRecorder(
+            authRepository: authRepository,
+            permissionService: notificationPermissionService,
+            firestore: firestore
+        )
+        notificationOrchestrator.billingNoticeRecorder = billingNoticeRecorder
+        notificationDelegate.onBillingNoticeSeen = { noticeId in
+            billingNoticeRecorder.confirmDelivered(ids: [noticeId])
+        }
         UNUserNotificationCenter.current().delegate = notificationDelegate
         NotificationCategories.register()
 

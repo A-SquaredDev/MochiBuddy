@@ -217,6 +217,30 @@ enum NotificationCopy {
         return Content(title: title, body: "\(lead)\n\(summary)")
     }
 
+    /// Trial-ending billing notices: plain, unambiguous, and fixed - no
+    /// pools, no rotation, no pet name. A notice about money must read the
+    /// same for every user every time, state both outcomes (stay: do
+    /// nothing; stop: cancel), and never guilt. The plan is named because
+    /// only the yearly plan carries the trial.
+    static func trialEnding(stage: TrialEndingStage) -> Content {
+        switch stage {
+        case .dayBefore:
+            Content(
+                title: "Your free trial ends tomorrow",
+                body: "Your yearly membership starts tomorrow when the trial ends. "
+                    + "To keep Mochi, do nothing. If you'd rather not continue, "
+                    + "cancel anytime in your App Store subscription settings."
+            )
+        case .dayOf:
+            Content(
+                title: "Your free trial ends today",
+                body: "Your yearly membership starts later today when the trial ends. "
+                    + "If you'd rather not continue, there is still time to cancel "
+                    + "in your App Store subscription settings."
+            )
+        }
+    }
+
     static func letterInvitation(petName: String, deck: inout CopyDeck) -> Content {
         Content(
             title: "A letter from \(petName)",

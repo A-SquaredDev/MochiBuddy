@@ -863,4 +863,100 @@ struct NotificationOrchestratorTests {
         try await Task.sleep(for: .milliseconds(500))
         #expect(telemetry.events.count == 1)
     }
+
+    @Test("a renewing trial lays both notices and records each in the audit trail exactly once")
+    func trialNoticesRecordedOnce() async {
+        let endsAt = Dates.days(10)
+        let session = MembershipSession()
+        session.status = .trial(endsAt: endsAt, willRenew: true)
+        let (orchestrator, scheduler, _, _, _) = makeOrchestrator(session: session)
+        let recorder = StubBillingNoticeRecorder()
+        orchestrator.billingNoticeRecorder = recorder
+
+        await orchestrator.relayNow(.appForeground, now: Dates.now)
+
+        let noticeIds = scheduler.scheduled.filter { $0.plan.kind == .trialEnding }.map(\.plan.id)
+        #expect(noticeIds.count == 2)
+        #expect(recorder.recorded.map(\.id).sorted() == noticeIds.sorted())
+        #expect(recorder.recorded.allSatisfy { $0.trialEndsAt == endsAt })
+
+        // Already pending: a re-lay re-schedules in place but records no
+        // new audit fact - the trail is scheduling events, not lays.
+        scheduler.pending = noticeIds
+        await orchestrator.relayNow(.appForeground, now: Dates.now)
+        #expect(recorder.recorded.count == 2)
+    }
+
+    @Test("cancelling mid-trial sweeps the pending notices and plans none - no charge, no nag")
+    func cancelledTrialSweeps() async {
+        let session = MembershipSession()
+        session.status = .trial(endsAt: Dates.days(10), willRenew: false)
+        let (orchestrator, scheduler, _, _, _) = makeOrchestrator(session: session)
+        let recorder = StubBillingNoticeRecorder()
+        orchestrator.billingNoticeRecorder = recorder
+        let stale = NotificationID.trialEnding(stage: .dayOf, endsAt: Dates.days(10))
+        scheduler.pending = [stale]
+
+        await orchestrator.relayNow(.appForeground, now: Dates.now)
+
+        #expect(scheduler.removedIds.contains(stale))
+        #expect(!scheduler.scheduled.contains { $0.plan.kind == .trialEnding })
+        #expect(recorder.recorded.isEmpty)
+    }
+
+    @Test("fired trial notices get delivery confirmed; foreign delivered ids never do")
+    func deliveredSweepConfirms() async {
+        // Default session is .active: the sweep must run regardless of
+        // current status - a notice fired during the trial is still
+        // confirmable after conversion.
+        let (orchestrator, scheduler, _, _, _) = makeOrchestrator()
+        let recorder = StubBillingNoticeRecorder()
+        orchestrator.billingNoticeRecorder = recorder
+        let fired = NotificationID.trialEnding(stage: .dayBefore, endsAt: Dates.days(1))
+        scheduler.delivered = [fired, "mood-1-123", "someOtherSDK"]
+
+        await orchestrator.relayNow(.appForeground, now: Dates.now)
+
+        #expect(recorder.confirmedIds == [fired])
+    }
+}
+
+@Suite("NotificationRequestBuilder · trial-ending")
+struct TrialEndingDressingTests {
+
+    @Test("both stages dress time-sensitive and uncategorized, with fixed plain copy naming the outcome")
+    func dressing() {
+        var deck = CopyDeck()
+        let endsAt = Dates.days(2)
+        for stage in TrialEndingStage.allCases {
+            let request = NotificationRequestBuilder.request(
+                for: PlannedNotification(
+                    id: NotificationID.trialEnding(stage: stage, endsAt: endsAt),
+                    kind: .trialEnding,
+                    fireAt: endsAt.addingTimeInterval(-stage.leadTime)
+                ),
+                tasksById: [:],
+                allTasks: [],
+                floorPhase: .acute,
+                hideTaskNames: false,
+                deck: &deck
+            )
+            #expect(request.urgency == .timeSensitive)
+            #expect(request.categoryId == nil)
+            #expect(request.content.title.contains(stage == .dayBefore ? "tomorrow" : "today"))
+            #expect(request.content.body.contains("yearly membership"))
+            #expect(request.content.body.contains("cancel"))
+        }
+    }
+
+    @Test("trial ids round-trip their stage and belong to us")
+    func idRoundTrip() {
+        let endsAt = Dates.days(2)
+        for stage in TrialEndingStage.allCases {
+            let id = NotificationID.trialEnding(stage: stage, endsAt: endsAt)
+            #expect(NotificationID.parseTrialStage(id) == stage)
+            #expect(NotificationPlanDiffer.isOurs(id))
+        }
+        #expect(NotificationID.parseTrialStage("mood-1-123") == nil)
+    }
 }
