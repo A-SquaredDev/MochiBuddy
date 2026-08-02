@@ -73,6 +73,14 @@ struct MeetMochiView: View {
                 router.navigateToFirstTask()
             }
         }
+        .alert(
+            "No connection",
+            isPresented: viewModel.collectBinding(for: \.sessionFailed, action: .dismissSessionAlert)
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Mochi needs a connection to get set up. Check your internet and tap the button again.")
+        }
     }
 
     /// Same silhouette as the first-task input; the field itself owns the

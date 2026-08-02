@@ -42,28 +42,44 @@ final class SplashViewModel: ObservableStateViewModel<
         // Keep the brand beat visible even when everything resolves instantly.
         let minimumBeat = Task { try? await Task.sleep(for: .seconds(1.1)) }
 
+        let session: AuthAccount?
         do {
-            let account = try await authRepository.ensureSession()
-            await membershipStore.identify(userId: account.uid)
-            try? await profileRepository.ensureProfile(for: account)
-            let profile = try? await profileRepository.fetchProfile(userId: account.uid)
-            await minimumBeat.value
-
-            guard let profile, profile.onboardingComplete else {
-                setNavigationEvent(.showLanding)
-                return
-            }
-
-            switch await membershipStore.currentStatus() {
-            case .active, .trial, .billingGrace:
-                setNavigationEvent(.enterApp)
-            case .lapsed, .notSubscribed:
-                setNavigationEvent(.showWelcomeBack(summary(account: account, profile: profile)))
-            }
+            session = try await authRepository.currentSession()
         } catch {
-            // Offline or Firebase unreachable - never trap the user on splash.
+            // The auth layer itself failed (distinct from "no session",
+            // which is a normal fresh install). Proceeding used to mean a
+            // sessionless flow whose onboarding writes silently vanished -
+            // the Try again beat is finally reachable instead.
+            await minimumBeat.value
+            state.failedToStart = true
+            return
+        }
+
+        guard let account = session else {
+            // Fresh install or a post-sign-out relaunch: nothing exists
+            // and nothing is minted here. The wizard's first step creates
+            // the account for users who actually start; browsers and
+            // sign-ins never leave one behind.
             await minimumBeat.value
             setNavigationEvent(.showLanding)
+            return
+        }
+
+        await membershipStore.identify(userId: account.uid)
+        try? await profileRepository.ensureProfile(for: account)
+        let profile = try? await profileRepository.fetchProfile(userId: account.uid)
+        await minimumBeat.value
+
+        guard let profile, profile.onboardingComplete else {
+            setNavigationEvent(.showLanding)
+            return
+        }
+
+        switch await membershipStore.currentStatus() {
+        case .active, .trial, .billingGrace:
+            setNavigationEvent(.enterApp)
+        case .lapsed, .notSubscribed:
+            setNavigationEvent(.showWelcomeBack(summary(account: account, profile: profile)))
         }
     }
 

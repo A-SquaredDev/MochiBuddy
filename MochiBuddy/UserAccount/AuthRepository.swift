@@ -38,6 +38,11 @@ enum AuthRepositoryError: Error {
 
 protocol AuthRepository: AnyObject {
     var currentAccount: AuthAccount? { get }
+    /// The existing session, revalidated - NEVER mints. Splash routes on
+    /// this: no session means Landing, and the wizard's first step is the
+    /// only place an anonymous account is created, so an install that
+    /// only browses or signs in never leaves one behind.
+    func currentSession() async throws -> AuthAccount?
     /// Signs in anonymously when no valid session exists; recovers when the
     /// cached session points at a user deleted server-side.
     @discardableResult
@@ -76,22 +81,28 @@ final class FirebaseAuthRepository: AuthRepository {
         Auth.auth().currentUser.map(Self.account(from:))
     }
 
+    func currentSession() async throws -> AuthAccount? {
+        guard let user = Auth.auth().currentUser else { return nil }
+        do {
+            try await user.reload()
+            return Self.account(from: user)
+        } catch where Self.isStaleSessionError(error) {
+            // The keychain session outlived the server-side user (e.g.
+            // the account was deleted in the Firebase console). Drop it.
+            try? Auth.auth().signOut()
+            return nil
+        } catch {
+            // Offline, transient, or a recoverable token problem - keep
+            // the cached session. Dropping it here would silently swap a
+            // real signed-in identity for a fresh anonymous one later.
+            return Self.account(from: user)
+        }
+    }
+
     @discardableResult
     func ensureSession() async throws -> AuthAccount {
-        if let user = Auth.auth().currentUser {
-            do {
-                try await user.reload()
-                return Self.account(from: user)
-            } catch where Self.isStaleSessionError(error) {
-                // The keychain session outlived the server-side user (e.g.
-                // the account was deleted in the Firebase console). Start over.
-                try? Auth.auth().signOut()
-            } catch {
-                // Offline, transient, or a recoverable token problem -
-                // keep the cached session. Minting here would silently
-                // swap a real signed-in identity for a fresh anonymous one.
-                return Self.account(from: user)
-            }
+        if let existing = try await currentSession() {
+            return existing
         }
         if let mintTask {
             return try await mintTask.value

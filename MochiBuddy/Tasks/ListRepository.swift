@@ -35,8 +35,8 @@ final class FirestoreListRepository: ListRepository {
     }
 
     func fetchLists(userId: String) async throws -> [TaskList] {
-        FirestoreReadLog.record(Self.self)
         let snapshot = try await lists(userId).order(by: "order").getDocuments()
+        FirestoreReadLog.record(Self.self, docs: snapshot.documents.count)
         return snapshot.documents.map { document in
             let data = document.data()
             // Lists created before the SF Symbol migration stored an emoji

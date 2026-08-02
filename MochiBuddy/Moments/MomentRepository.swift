@@ -84,10 +84,10 @@ final class FirestoreMomentRepository: MomentRepository {
     }
 
     func moments(userId: String) async throws -> [Moment] {
-        FirestoreReadLog.record(Self.self)
         let snapshot = try await collection(userId)
             .order(by: "occurredOn", descending: true)
             .getDocuments()
+        FirestoreReadLog.record(Self.self, docs: snapshot.documents.count)
         return snapshot.documents.compactMap { MomentFields.moment(id: $0.documentID, data: $0.data()) }
     }
 

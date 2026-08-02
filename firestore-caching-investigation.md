@@ -147,3 +147,61 @@ Invalidation rules summary:
 - Observation inputs: invalidate on any completion-affecting mutation and on civil-day change; recompute lazily on next consumer.
 - Profile cache: write-through (already); background refresh at most once per TTL or foreground.
 - Letters/moments per-period and per-id memos: reset on period roll and sign-out.
+
+---
+
+# Round 2 audit: where the remaining ~500 reads per day come from
+
+Date: 2026-08-01, after the round-1 plan landed (commit 3833d38 and follow-ups). IMPLEMENTATION STATUS 2026-08-01, same day: R1, R2, R3, R4, R5, and R6 below all landed - CachingListRepository, CachingLetterRepository (archive write-through + per-period marker memo), CachingMomentRepository, the warm-refresh delta reconcile with its count-aggregation audit in CachingTaskRepository, the 90-second foreground cool-down in RootView (a non-empty widget drain overrides it), and the meter now counting billed documents (`FirestoreReadLog.record(_:docs:)`, `NetworkCallMeter.count(_:by:)`, DevScheduler caption updated). R7 (the tasks snapshot listener) remains deferred. Watch the console for a few days; the DevScheduler meter is now directly comparable to it. Verified in code: the observation-inputs memo (ObservationService.swift:58-65, keyed by user + civil day, invalidated via CachingTaskRepository.onMutation wired in AppContainer.swift:173-175), the write-through CachingTaskRepository with coverage-aware completion windows, the profile TTL (CachingUserProfileRepository.swift:50-69, 5 min), the single foreground pipeline (RootView.swift:99-137 with tab pulses), applyCompletion's merged coins+streak write, composedCheckedForPeriod, and the blind-create ensureMoment. All seven round-1 recommendations are in. The console still shows ~500 reads per day. This section explains why and ranks what is left.
+
+## Framing: the meter measures round trips, the console bills documents
+
+NetworkCallMeter counts one per query (its stated design). Firestore's console counts one read per document returned. A single `completedTaskStats(since: 132 days ago)` call is 1 on the meter and N-completions-in-132-days on the bill. So a day that looks like "40 calls" on the meter is entirely consistent with 500 billed reads. Every estimate below is in billed documents. Recommendation R6 closes this instrumentation gap.
+
+## The per-foreground residual bill
+
+`CachingTaskRepository.refresh` (RootView.swift:129) drops every cached array and re-warms only `incomplete`. Everything else refills lazily, once, on its next consumer - per foreground. With tabs mounted, one activation costs roughly:
+
+| What | Where | Billed docs (typical) |
+|---|---|---|
+| incompleteTasks warm-up | CachingTaskRepository.swift:58-65 | N incomplete (10-30) |
+| completedTasks 24h/today refill | NotificationOrchestrator.swift:167 or HomeViewModel.swift:339 / TasksViewModel.swift:169 | last-24h completions, 1-2 queries (see anchor churn, F4) |
+| completedTaskStats 24h refill | HomeViewModel.swift:342 | last-24h completions again |
+| Letters archive, every foreground | LetterCompositionService.swift:89 → refreshUnread :474-477 | N letters (grows 1/week) |
+| fetchLists, per surface | HomeViewModel.swift:340 + TasksViewModel.swift:178 (+ editor :94, Journal :238, Stats :112...) | N lists × 2-4 |
+| Done page one + count, if Done segment visible | TasksViewModel.swift:457-463 | donePageSize (30) + 1 aggregation |
+| Profile TTL background refresh | CachingUserProfileRepository.swift:57 | 1 |
+| hasActivityMarker (cold launch only; in-memory period memo otherwise) | LetterCompositionService.swift:83-86 | 0-1 |
+
+That is ~50-90 billed docs per activation for a modest account. Five or six activations a day is 300-450 on its own.
+
+## The per-session history scan (F3, the growing term)
+
+The interaction that survived round 1: `refresh()` drops the task cache's `stats` array but deliberately does NOT fire `onMutation`, so the observation memo (same civil day) stays valid - good. But the first check-off of the session runs `mutate` → `onMutation` → `invalidateInputs()`. The next relay (`.taskChange`, i.e. milliseconds later) rebuilds observation inputs, finds the task cache's `stats` still nil from the foreground drop, and pays the full 132-day server scan (ObservationService.swift:159-162 → TaskRepository.swift:466-505) plus a lists fetch. Subsequent completions in the same session are free (the synthesized-stat write-through keeps `stats` coherent and the memo rebuilds from a cache hit).
+
+Net: one full 132-day completion scan per activation-that-contains-a-completion. At 90+42 days of horizon this term scales with total completion volume - at 3 completions/day it is ~400 docs per scan within a year of use, several scans a day. This is the number one residual cost and the only one that grows without bound (until the horizon saturates).
+
+## Findings, ranked by billed-read volume
+
+- F1. `fetchLists` is completely uncached. Twelve call sites (HomeViewModel.swift:340, TasksViewModel.swift:178, TaskEditorViewModel.swift:94 - every editor open, JournalViewModel.swift:238, StatsViewModel.swift:112, YouViewModel.swift:235, ManageListsViewModel.swift:143, MomentWriter.swift:108, ObservationService.swift:162, LetterCompositionService.swift:410 and :420, DeleteWarnViewModel.swift:67), each a billed query of the whole collection. Lists change rarely and every mutation already funnels through the ListRepository protocol - this is exactly the CachingUserProfileRepository shape, unbuilt.
+- F2. Letters archive re-read every single foreground. `handleUserForeground` unconditionally calls `refreshUnread` (LetterCompositionService.swift:89), a whole-archive query, even though the unread flag only changes on compose (this device, weekly) and markRead (this device, or another device rarely). `composeIfDue` also reads the archive once per period before its memo sets (:230). The Journal reads the archive and the whole `moments` collection again on every tab visit (JournalViewModel.swift:120-121). None of letters/moments have a caching decorator; both are append-mostly.
+- F3. The foreground drop + first-completion 132-day scan, described above. Also re-bills the 24h/today completion windows every activation.
+- F4. Window-anchor churn on the shared `completed`/`stats` arrays. The cache keeps ONE coverage anchor (CachingTaskRepository.swift:99-113), so consumers that run narrow-first each pay a fresh server query over overlapping docs: orchestrator wants 24h (NotificationOrchestrator.swift:167), Home wants startOfToday (HomeViewModel.swift:339) and 24h stats (:342), Journal wants 28 days (JournalViewModel.swift:142, trendDays), Stats wants 7/28/90 (StatsViewModel.swift:108), observations want 132. Because the relay is debounced 300ms, the orchestrator-vs-Home ordering is racy; the same day's docs can be fetched 2-3 times under successively wider anchors before the widest lands.
+- F5. No cool-down on the foreground pipeline. A 10-second detour to another app (share sheet, notification, app switcher) re-runs the entire pipeline: drop + warm-up + letters archive + lists + refills. Quick bounces bill the full ~50-90 docs each time.
+- F6. Done tab: page one (30 docs) + the count aggregation re-fetch on every foreground while the Done segment is visible (TasksViewModel.swift:175-177), because the drop cleared page-one coverage.
+- F7. Minor: cold-launch widget drain does `task(id:)` against a cold cache, one billed doc read per queued tap (WidgetCompletionDrain.swift; on warm foregrounds the previous session's arrays usually still cover it).
+- F8. Instrumentation: the meter cannot see the number the console shows (round trips vs documents). Every diagnosis of "why 500" is currently guesswork by design.
+- F9. Coherence note, not a cost: `refresh()` drops task arrays without invalidating the observation memo, so a cross-device completion delete can survive in observation inputs until midnight or the next local mutation. Accepted staleness, worth a comment.
+- F10. Healthy paths confirmed: profile cache + TTL behaves as designed (~a dozen billed profile reads/day at heavy use), ensureProfile is 1 read per cold launch, aggregations bill 1 per 1000, the letter composition barrier's `.server` reads run weekly, the widget bills zero, and the meter/read-log choke points are correctly placed at every repository.
+
+## Round 2 recommendations, ranked
+
+- R1. CachingListRepository decorator (write-through, same pattern; drop on uid change; optional refresh on foreground). Kills ~10-15 queries × N lists per day for an afternoon's work. Highest value-per-effort.
+- R2. Cache letters and moments. Letters: keep the archive in memory in a decorator (or in LetterCompositionService, which already owns the period memos); maintain `unreadLetter` by write-through on markRead/compose; hit the server once per period or per civil day instead of per foreground. Moments: append-only with every write already funneling through ensureMoment - cache the array, write through, refresh per day. Together this removes two whole-collection queries per foreground plus two per Journal visit.
+- R3. Replace the foreground drop with a delta refresh. Keep `completed`/`stats`/their anchors across foregrounds; on refresh, fetch only `completedAt > newest-cached` (bills only genuinely new cross-device completions, normally zero) and merge. Guard divergence (cross-device delete/uncomplete) with one `completedTaskCount(since: anchor)` aggregation - 1 billed read - and full-refill only on mismatch. This eliminates BOTH the per-activation 24h refills and the per-session 132-day scan, the top residual and the only growing one. `incomplete` can keep the current full re-fetch (small and genuinely mutable) or adopt the same trick later.
+- R4. Foreground cool-down: skip the whole pipeline if the app was backgrounded under ~60-120 seconds (drain still runs - it is local). Cheap insurance against app-switch bounces.
+- R5. Done tab rides R3: with completion coverage preserved across foregrounds, page one becomes a cache hit again and the count aggregation can be gated on actual cache divergence.
+- R6. Make the meter honest: pass `snapshot.documents.count` (or the aggregation's 1) into `FirestoreReadLog.record`/`NetworkCallMeter.count` so the daily number is billed documents and matches the console. Add a docs-per-category breakdown to the DevScheduler screen. Do this FIRST if landing incrementally - it turns every later item into a measured before/after.
+- R7. Structural option, still deferred: one snapshot listener on `tasks` would replace the delta logic in R3 and bill only changed docs after attach, but it interacts with the letter barrier's server-read discipline and the one-shot mental model; revisit only if R1-R5 do not get the daily number where it needs to be.
+
+Expected effect: R1+R2 remove roughly half of the per-foreground bill; R3 removes the history-scan term entirely (the largest single line and the one that grows with account age). A typical 6-activation, 8-completion day should land in the 60-120 billed-read range, dominated by the incomplete-tasks warm-up, and stop scaling with completion history.

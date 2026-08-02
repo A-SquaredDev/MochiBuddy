@@ -112,11 +112,11 @@ Integration method: two artifacts outside the app. First a one-shot Node Admin S
 
 Verify: dry-run mode printing the candidate list first; confirm your 3 real accounts and any active anon session are excluded by the provider and freshness filters.
 
-## Open questions for Aaron (collect answers at the end of the fix run)
+## Open questions: ANSWERED 2026-08-01 (all three resolved by Aaron)
 
-1. Cold-start deferred minting: should a true first launch also skip the splash mint and wait until the wizard starts, so browsing Landing creates nothing? (Post-sign-out entries already work this way after step 3.)
-2. Offline first-run UX: the splash Try again path is dead and an offline launch proceeds sessionless, so wizard choices silently do not save. Fix as a visible retry screen, or queue writes locally until a session exists?
-3. Backstop for default-pref users (behavior change shipped in step 5): mood dips default off, so before the fix most users had NO dormancy backstop; now everyone with at least one notification pref on gets the gentle 7-day-silence ping. Confirm this is the winback behavior you want, or choose a narrower gate (easy one-line revert).
+1. Cold-start deferred minting: YES, defer. BUILT same day: splash routes on the new non-minting currentSession() and mints nothing; no session lands on Landing with no RevenueCat identify and no profile ensure. The wizard owns the mint (warm-up fire-and-forget at navigateToMeetMochi, guaranteed at the naming beat). An install that only browses or signs in creates zero accounts anywhere.
+2. Offline first-run UX: visible retry. BUILT same day, at both layers: splash's failedToStart flag is finally live (an auth-layer failure shows Try again instead of proceeding sessionless), and the naming beat guards its save with ensureSession, surfacing a No connection alert and staying put instead of silently losing the adoption. Tests: freshInstallMintsNothing, authFailureShowsRetry, and the new MeetMochiViewModelTests suite.
+3. Backstop for default-pref users: KEEP as shipped in step 5. The 7-day dormancy ping is deliberate winback for everyone with any notification pref on.
 
 ## Phase 5: decisions, not yet scheduled
 

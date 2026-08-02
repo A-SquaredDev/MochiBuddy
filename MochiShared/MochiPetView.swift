@@ -286,168 +286,18 @@ struct MochiPetView: View {
         }
     }
 
+    /// The still render: each mood's scripted-idle rest frame, drawn from
+    /// the same shared geometry as the animated canvases (MochiStaticPose)
+    /// so the widget and list instances show the same character as the
+    /// Home hero, just holding still.
     private var canvasBody: some View {
         Canvas { ctx, canvasSize in
             let s = canvasSize.width / 180
             ctx.scaleBy(x: s, y: s)
-
-            // ground shadow
-            ctx.fill(
-                Path(ellipseIn: CGRect(x: 40, y: 141, width: 100, height: 18)),
-                with: .color(.black.opacity(0.08))
-            )
-
-            // body blob
-            var body = Path()
-            body.move(to: p(90, 24))
-            body.addCurve(to: p(28, 86), control1: p(52, 24), control2: p(28, 50))
-            body.addCurve(to: p(90, 138), control1: p(28, 116), control2: p(50, 138))
-            body.addCurve(to: p(152, 86), control1: p(130, 138), control2: p(152, 116))
-            body.addCurve(to: p(90, 24), control1: p(152, 50), control2: p(128, 24))
-            body.closeSubpath()
-            ctx.fill(body, with: .color(theme.pet))
-
-            // top highlight
-            var highlight = Path()
-            highlight.move(to: p(90, 24))
-            highlight.addCurve(to: p(28, 86), control1: p(52, 24), control2: p(28, 50))
-            highlight.addCurve(to: p(31, 102), control1: p(28, 92), control2: p(29, 97))
-            highlight.addCurve(to: p(90, 52), control1: p(37, 72), control2: p(61, 52))
-            highlight.addCurve(to: p(149, 102), control1: p(119, 52), control2: p(143, 72))
-            highlight.addCurve(to: p(152, 86), control1: p(151, 97), control2: p(152, 92))
-            highlight.addCurve(to: p(90, 24), control1: p(152, 50), control2: p(128, 24))
-            highlight.closeSubpath()
-            ctx.fill(highlight, with: .color(theme.pet2.opacity(0.55)))
-
-            // cheeks
-            ctx.fill(
-                Path(ellipseIn: CGRect(x: 45, y: 92, width: 22, height: 16)),
-                with: .color(theme.petCheek.opacity(0.55))
-            )
-            ctx.fill(
-                Path(ellipseIn: CGRect(x: 113, y: 92, width: 22, height: 16)),
-                with: .color(theme.petCheek.opacity(0.55))
-            )
-
-            drawFace(&ctx, mood: displayMood)
+            MochiStaticPose.draw(&ctx, mood: displayMood, theme: theme, faceInk: faceInk)
         }
     }
 
-    private func drawFace(_ ctx: inout GraphicsContext, mood: MochiMood) {
-        let stroke = StrokeStyle(lineWidth: 3.4, lineCap: .round)
-        let thinStroke = StrokeStyle(lineWidth: 3.2, lineCap: .round)
-        let ink = GraphicsContext.Shading.color(faceInk)
-
-        // The static faces for list/row instances; the alive hero draws
-        // through the scripted idle canvases instead.
-        var g = ctx
-        switch mood {
-        case .content:
-            g.fill(Path(ellipseIn: CGRect(x: 66, y: 82, width: 12, height: 12)), with: ink)
-            g.fill(Path(ellipseIn: CGRect(x: 102, y: 82, width: 12, height: 12)), with: ink)
-            g.fill(Path(ellipseIn: CGRect(x: 72, y: 84, width: 4, height: 4)), with: .color(.white))
-            g.fill(Path(ellipseIn: CGRect(x: 108, y: 84, width: 4, height: 4)), with: .color(.white))
-
-        case .thriving:
-            var leftEye = Path()
-            leftEye.move(to: p(64, 90))
-            leftEye.addCurve(to: p(78, 90), control1: p(67, 84), control2: p(75, 84))
-            g.stroke(leftEye, with: ink, style: stroke)
-            var rightEye = Path()
-            rightEye.move(to: p(102, 90))
-            rightEye.addCurve(to: p(116, 90), control1: p(105, 84), control2: p(113, 84))
-            g.stroke(rightEye, with: ink, style: stroke)
-
-        case .tired:
-            var leftEye = Path()
-            leftEye.move(to: p(66, 90))
-            leftEye.addLine(to: p(78, 90))
-            g.stroke(leftEye, with: ink, style: stroke)
-            var rightEye = Path()
-            rightEye.move(to: p(102, 90))
-            rightEye.addLine(to: p(114, 90))
-            g.stroke(rightEye, with: ink, style: stroke)
-
-        case .unwell:
-            var leftBrow = Path()
-            leftBrow.move(to: p(66, 86))
-            leftBrow.addCurve(to: p(79, 86), control1: p(69, 83), control2: p(77, 83))
-            g.stroke(leftBrow, with: ink, style: thinStroke)
-            var rightBrow = Path()
-            rightBrow.move(to: p(101, 86))
-            rightBrow.addCurve(to: p(114, 86), control1: p(104, 83), control2: p(112, 83))
-            g.stroke(rightBrow, with: ink, style: thinStroke)
-            g.fill(Path(ellipseIn: CGRect(x: 67.5, y: 87.5, width: 9, height: 9)), with: ink)
-            g.fill(Path(ellipseIn: CGRect(x: 103.5, y: 87.5, width: 9, height: 9)), with: ink)
-
-        case .sleeping:
-            var leftEye = Path()
-            leftEye.move(to: p(64, 88))
-            leftEye.addCurve(to: p(78, 88), control1: p(67, 94), control2: p(75, 94))
-            g.stroke(leftEye, with: ink, style: stroke)
-            var rightEye = Path()
-            rightEye.move(to: p(102, 88))
-            rightEye.addCurve(to: p(116, 88), control1: p(105, 94), control2: p(113, 94))
-            g.stroke(rightEye, with: ink, style: stroke)
-        }
-
-        // Mouth and mood extras.
-        switch mood {
-        case .content:
-            var smile = Path()
-            smile.move(to: p(80, 104))
-            smile.addCurve(to: p(100, 104), control1: p(84, 109), control2: p(96, 109))
-            ctx.stroke(smile, with: ink, style: stroke)
-
-        case .thriving:
-            var grin = Path()
-            grin.move(to: p(78, 102))
-            grin.addCurve(to: p(102, 102), control1: p(83, 110), control2: p(97, 110))
-            ctx.stroke(grin, with: ink, style: stroke)
-
-        case .tired:
-            var mouth = Path()
-            mouth.move(to: p(82, 106))
-            mouth.addCurve(to: p(96, 106), control1: p(85, 104), control2: p(93, 104))
-            ctx.stroke(mouth, with: ink, style: thinStroke)
-            ctx.fill(sweatDrop(at: CGPoint(x: 126, y: 78)), with: .color(Color(hex: 0x8FD3F4)))
-
-        case .sleeping:
-            var mouth = Path()
-            mouth.move(to: p(84, 106))
-            mouth.addCurve(to: p(96, 106), control1: p(87, 109), control2: p(93, 109))
-            ctx.stroke(mouth, with: ink, style: thinStroke)
-
-        case .unwell:
-            var frown = Path()
-            frown.move(to: p(80, 110))
-            frown.addCurve(to: p(100, 110), control1: p(85, 104), control2: p(95, 104))
-            ctx.stroke(frown, with: ink, style: thinStroke)
-            ctx.fill(sweatDrop(at: CGPoint(x: 128, y: 80)), with: .color(Color(hex: 0x8FD3F4)))
-        }
-    }
-
-    /// Teardrop: c4 6 4 11 0 11 s-4-5 0-11z from the SVG.
-    private func sweatDrop(at origin: CGPoint) -> Path {
-        var drop = Path()
-        drop.move(to: origin)
-        drop.addCurve(
-            to: CGPoint(x: origin.x, y: origin.y + 11),
-            control1: CGPoint(x: origin.x + 4, y: origin.y + 6),
-            control2: CGPoint(x: origin.x + 4, y: origin.y + 11)
-        )
-        drop.addCurve(
-            to: origin,
-            control1: CGPoint(x: origin.x - 4, y: origin.y + 11),
-            control2: CGPoint(x: origin.x - 4, y: origin.y + 6)
-        )
-        drop.closeSubpath()
-        return drop
-    }
-
-    private func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
-        CGPoint(x: x, y: y)
-    }
 }
 
 private struct SquishValue {

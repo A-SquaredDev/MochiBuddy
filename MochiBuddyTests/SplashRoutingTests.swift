@@ -144,15 +144,39 @@ struct SplashRoutingTests {
 
     // MARK: Failure paths - never trap anyone on splash
 
-    @Test("auth completely unavailable still lands on Meet Mochi")
-    func authFailureFallsBack() async {
+    @Test("no session mints NOTHING and lands on Landing - the wizard's first step owns the mint")
+    func freshInstallMintsNothing() async {
+        let auth = StubAuthRepository()
+        auth.currentAccount = nil
+        let (vm, _, profileRepo, membership) = makeSplashVM(auth: auth)
+        let recorder = EventRecorder(vm)
+        await vm.triggerAsync(.load)
+        await recorder.drain()
+        #expect(recorder.events == [.showLanding])
+        #expect(membership.identifiedUserIds.isEmpty,
+                "no RevenueCat identity for someone who only looked at Landing")
+        #expect(profileRepo.ensuredAccounts.isEmpty,
+                "no users/{uid} doc either - browsers and sign-ins leave nothing behind")
+    }
+
+    @Test("an auth-layer failure shows the retry beat instead of a sessionless flow")
+    func authFailureShowsRetry() async {
         let auth = StubAuthRepository()
         auth.ensureSessionError = TestError()
         let (vm, _, _, _) = makeSplashVM(auth: auth)
         let recorder = EventRecorder(vm)
         await vm.triggerAsync(.load)
         await recorder.drain()
-        #expect(recorder.events == [.showLanding])
+        #expect(recorder.events.isEmpty,
+                "proceeding here used to mean onboarding writes silently vanished")
+        #expect(vm.uiState.failedToStart, "the Try again button is finally reachable")
+
+        // Connectivity returns: the retry routes normally.
+        auth.ensureSessionError = nil
+        await vm.triggerAsync(.retryTapped)
+        await recorder.drain()
+        #expect(vm.uiState.failedToStart == false)
+        #expect(!recorder.events.isEmpty)
     }
 
     @Test("a profile fetch failure (offline) falls back to Meet Mochi instead of hanging")

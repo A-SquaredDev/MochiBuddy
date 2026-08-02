@@ -63,7 +63,7 @@ struct CachingTaskRepositoryTests {
         #expect(stub.incompleteFetches == 2, "one real fetch per uid, not per call")
     }
 
-    @Test("refresh drops everything and re-warms the incomplete set eagerly")
+    @Test("refresh re-warms the incomplete set eagerly")
     func refreshRewarms() async throws {
         let (cache, stub) = makeCache(incomplete: [makeTask(id: "a")])
         _ = try await cache.incompleteTasks(userId: "u")
@@ -76,6 +76,116 @@ struct CachingTaskRepositoryTests {
         #expect(tasks.map(\.id).contains("cross-device"),
                 "the foreground refresh is where cross-device edits land")
         #expect(stub.incompleteFetches == 2, "the post-refresh read is a cache hit")
+    }
+
+    // MARK: - Warm refresh reconcile
+
+    @Test("a warm refresh keeps the stats anchor - the horizon never re-scans")
+    func warmRefreshKeepsStatsAnchor() async throws {
+        let (cache, stub) = makeCache()
+        stub.completedStats = [
+            makeStat(taskId: "s1", localDate: "2026-07-01"),
+            makeStat(taskId: "s2", localDate: "2026-07-05"),
+        ]
+        stub.aggregationCount = 2
+        let horizon = Dates.days(-132)
+        _ = try await cache.completedTaskStats(since: horizon, userId: "u")
+        #expect(stub.statsFetches == 1)
+
+        await cache.refresh(userId: "u")
+        #expect(stub.statsFetches == 2,
+                "the reconcile delta is one bounded fetch above the newest cached row, not a horizon re-scan")
+
+        _ = try await cache.completedTaskStats(since: horizon, userId: "u")
+        #expect(stub.statsFetches == 2,
+                "post-refresh stats reads stay cache hits - the old drop re-billed the whole horizon here")
+    }
+
+    @Test("a cross-device completion lands via the warm-refresh delta and pokes onMutation")
+    func warmRefreshMergesDelta() async throws {
+        let (cache, stub) = makeCache(
+            completed: [makeTask(id: "c1", completed: true, completedAt: Dates.days(-1))]
+        )
+        stub.completedStats = [
+            makeStat(taskId: "c1", localDate: "2026-07-07", completedAt: Dates.days(-1)),
+        ]
+        var mutations = 0
+        cache.onMutation = { mutations += 1 }
+        _ = try await cache.completedTasks(since: Dates.days(-7), userId: "u")
+        _ = try await cache.completedTaskStats(since: Dates.days(-7), userId: "u")
+
+        // Another device completes c2 while this one is backgrounded.
+        stub.completed.append(makeTask(id: "c2", completed: true, completedAt: Dates.now))
+        stub.completedStats.append(
+            makeStat(taskId: "c2", localDate: "2026-07-08", completedAt: Dates.now)
+        )
+
+        await cache.refresh(userId: "u")
+
+        let merged = try await cache.completedTasks(since: Dates.days(-7), userId: "u")
+        #expect(merged.map(\.id) == ["c2", "c1"], "newest first, merged not refetched")
+        let stats = try await cache.completedTaskStats(since: Dates.days(-7), userId: "u")
+        #expect(Set(stats.map(\.taskId)) == ["c1", "c2"])
+        #expect(stub.completedSinceFetches == 2, "seed + delta, no refill")
+        #expect(stub.statsFetches == 2, "seed + delta, no refill")
+        #expect(mutations == 1, "the observation memo must hear about the new history")
+    }
+
+    @Test("a cross-device removal fails the audit and drops to the refill path")
+    func warmRefreshAuditCatchesRemoval() async throws {
+        let (cache, stub) = makeCache(
+            completed: [
+                makeTask(id: "c2", completed: true, completedAt: Dates.days(-1)),
+                makeTask(id: "c1", completed: true, completedAt: Dates.days(-2)),
+            ]
+        )
+        stub.completedStats = [
+            makeStat(taskId: "c1", localDate: "2026-07-06", completedAt: Dates.days(-2)),
+            makeStat(taskId: "c2", localDate: "2026-07-07", completedAt: Dates.days(-1)),
+        ]
+        var mutations = 0
+        cache.onMutation = { mutations += 1 }
+        _ = try await cache.completedTasks(since: Dates.days(-7), userId: "u")
+        _ = try await cache.completedTaskStats(since: Dates.days(-7), userId: "u")
+
+        // c2 deleted on another device: invisible to a forward delta, so
+        // only the count audit can notice.
+        stub.completed.removeAll { $0.id == "c2" }
+        stub.completedStats.removeAll { $0.taskId == "c2" }
+
+        await cache.refresh(userId: "u")
+        #expect(mutations == 1, "divergence must reach the observation memo")
+
+        let after = try await cache.completedTasks(since: Dates.days(-7), userId: "u")
+        #expect(after.map(\.id) == ["c1"])
+        #expect(stub.completedSinceFetches == 3, "seed + delta + the refill the audit forced")
+    }
+
+    @Test("a warm refresh with no completion caches costs only the incomplete query")
+    func warmRefreshSkipsUncachedCompletions() async throws {
+        let (cache, stub) = makeCache(incomplete: [makeTask(id: "a")])
+        _ = try await cache.incompleteTasks(userId: "u")
+
+        await cache.refresh(userId: "u")
+
+        #expect(stub.incompleteFetches == 2)
+        #expect(stub.completedSinceFetches == 0)
+        #expect(stub.statsFetches == 0)
+    }
+
+    @Test("a failed audit keeps serving the warm cache - offline fails soft")
+    func offlineAuditFailsSoft() async throws {
+        struct AuditOffline: Error {}
+        let (cache, stub) = makeCache()
+        stub.completedStats = [makeStat(taskId: "s1", localDate: "2026-07-05")]
+        _ = try await cache.completedTaskStats(since: Dates.days(-7), userId: "u")
+
+        stub.aggregationError = AuditOffline()
+        await cache.refresh(userId: "u")
+
+        _ = try await cache.completedTaskStats(since: Dates.days(-7), userId: "u")
+        #expect(stub.statsFetches == 2,
+                "seed + delta; an unreachable audit must not drop the cache")
     }
 
     // MARK: - Write-through

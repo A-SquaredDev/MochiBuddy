@@ -45,6 +45,8 @@ final class MeetMochiViewModel: ObservableStateViewModel<
             }
         case .nameDraftChanged(let draft):
             setUIState(uiState.updating(\.nameDraft, to: draft))
+        case .dismissSessionAlert:
+            setUIState(uiState.updating(\.sessionFailed, to: false))
         case .keepDefaultTapped:
             await completeNaming(rawName: "")
         }
@@ -53,7 +55,22 @@ final class MeetMochiViewModel: ObservableStateViewModel<
     private func completeNaming(rawName: String) async {
         guard !uiState.isSaving else { return }
         setUIState(uiState.updating(\.isSaving, to: true))
+        // The adoption is the wizard's first real write. Landing entries
+        // arrive sessionless (splash no longer mints), and an offline
+        // first run used to lose every choice silently - surface the
+        // retry instead and keep the user on the naming beat.
+        guard await onboardingStore.ensureSession() else {
+            setUIState(
+                uiState
+                    .updating(\.isSaving, to: false)
+                    .updating(\.sessionFailed, to: true)
+            )
+            return
+        }
         await onboardingStore.completeNamingBeat(rawName: rawName)
+        // The pushed screen keeps this view model alive; leaving isSaving
+        // set would strand the CTA in a permanent spinner after back-nav.
+        setUIState(uiState.updating(\.isSaving, to: false))
         setNavigationEvent(.showFirstTask)
     }
 

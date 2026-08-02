@@ -228,7 +228,6 @@ final class FirestoreTaskRepository: TaskRepository {
     }
 
     func completedTasks(limit: Int, userId: String) async throws -> [TaskItem] {
-        FirestoreReadLog.record(Self.self)
         // Range + order on the same field - no composite index needed
         // (completedAt only exists on completed tasks). Epoch, not
         // .distantPast - year 1 is outside Timestamp's valid range.
@@ -237,23 +236,23 @@ final class FirestoreTaskRepository: TaskRepository {
             .order(by: "completedAt", descending: true)
             .limit(to: limit)
             .getDocuments()
+        FirestoreReadLog.record(Self.self, docs: snapshot.documents.count)
         return snapshot.documents.map(Self.taskItem(from:))
     }
 
     func completedTasks(since: Date, userId: String) async throws -> [TaskItem] {
-        FirestoreReadLog.record(Self.self)
         // Range + order on the same field - no composite index needed.
         let snapshot = try await tasks(userId)
             .whereField("completedAt", isGreaterThanOrEqualTo: Timestamp(date: since))
             .order(by: "completedAt", descending: true)
             .getDocuments()
+        FirestoreReadLog.record(Self.self, docs: snapshot.documents.count)
         return snapshot.documents.map(Self.taskItem(from:))
     }
 
     func completedTasksPage(
         limit: Int, after cursor: CompletedPageCursor?, userId: String
     ) async throws -> CompletedTasksPage {
-        FirestoreReadLog.record(Self.self)
         // Range + first order stay on completedAt (the range-field-first
         // rule); the __name__ order is the implicit tiebreak made explicit
         // so the cursor can include it. Firestore serves field + __name__
@@ -267,6 +266,7 @@ final class FirestoreTaskRepository: TaskRepository {
             query = query.start(after: [Timestamp(date: cursor.completedAt), cursor.documentID])
         }
         let snapshot = try await query.getDocuments()
+        FirestoreReadLog.record(Self.self, docs: snapshot.documents.count)
         let items = snapshot.documents.map(Self.taskItem(from:))
         let nextCursor: CompletedPageCursor? = items.count < limit
             ? nil
@@ -277,16 +277,16 @@ final class FirestoreTaskRepository: TaskRepository {
     }
 
     func completedTaskCount(since: Date, userId: String) async throws -> Int {
-        FirestoreReadLog.record(Self.self)
         let query = tasks(userId)
             .whereField("completedAt", isGreaterThanOrEqualTo: Timestamp(date: since))
             .count
         let snapshot = try await query.getAggregation(source: .server)
+        // Aggregations bill 1 read per 1000 index entries, minimum 1.
+        FirestoreReadLog.record(Self.self)
         return snapshot.count.intValue
     }
 
     func completedTasks(listId: String, limit: Int, userId: String) async throws -> [TaskItem] {
-        FirestoreReadLog.record(Self.self)
         // The one query needing a composite index (tasks: listId ASC,
         // completedAt DESC) - created in the Firebase console. Callers
         // fall back to the global page on error, so shipping ahead of the
@@ -296,6 +296,7 @@ final class FirestoreTaskRepository: TaskRepository {
             .order(by: "completedAt", descending: true)
             .limit(to: limit)
             .getDocuments()
+        FirestoreReadLog.record(Self.self, docs: snapshot.documents.count)
         return snapshot.documents.map(Self.taskItem(from:))
     }
 
@@ -346,12 +347,12 @@ final class FirestoreTaskRepository: TaskRepository {
     }
 
     func incompleteTasks(userId: String) async throws -> [TaskItem] {
-        FirestoreReadLog.record(Self.self)
         // Single equality filter - no composite index needed; today/overdue
         // grouping happens client-side (task counts stay small).
         let snapshot = try await tasks(userId)
             .whereField("completed", isEqualTo: false)
             .getDocuments()
+        FirestoreReadLog.record(Self.self, docs: snapshot.documents.count)
         return snapshot.documents.map(Self.taskItem(from:))
     }
 
@@ -396,8 +397,9 @@ final class FirestoreTaskRepository: TaskRepository {
     }
 
     func task(id: String, userId: String) async throws -> TaskItem? {
-        FirestoreReadLog.record(Self.self)
         let snapshot = try await tasks(userId).document(id).getDocument()
+        // A doc get bills one read, found or not.
+        FirestoreReadLog.record(Self.self)
         guard snapshot.exists, let data = snapshot.data() else { return nil }
         return Self.taskItem(id: snapshot.documentID, data: data)
     }
@@ -426,15 +428,15 @@ final class FirestoreTaskRepository: TaskRepository {
     }
 
     func incompleteTaskCount(userId: String) async throws -> Int {
-        FirestoreReadLog.record(Self.self)
         let query = tasks(userId).whereField("completed", isEqualTo: false).count
         let snapshot = try await query.getAggregation(source: .server)
+        FirestoreReadLog.record(Self.self)
         return snapshot.count.intValue
     }
 
     func totalTaskCount(userId: String) async throws -> Int {
-        FirestoreReadLog.record(Self.self)
         let snapshot = try await tasks(userId).count.getAggregation(source: .server)
+        FirestoreReadLog.record(Self.self)
         return snapshot.count.intValue
     }
 
@@ -447,31 +449,31 @@ final class FirestoreTaskRepository: TaskRepository {
     }
 
     func completedTasksFromServer(since: Date, userId: String) async throws -> [TaskItem] {
-        FirestoreReadLog.record(Self.self)
         let snapshot = try await tasks(userId)
             .whereField("completedAt", isGreaterThanOrEqualTo: Timestamp(date: since))
             .order(by: "completedAt", descending: true)
             .getDocuments(source: .server)
+        FirestoreReadLog.record(Self.self, docs: snapshot.documents.count)
         return snapshot.documents.map(Self.taskItem(from:))
     }
 
     func incompleteTasksFromServer(userId: String) async throws -> [TaskItem] {
-        FirestoreReadLog.record(Self.self)
         let snapshot = try await tasks(userId)
             .whereField("completed", isEqualTo: false)
             .getDocuments(source: .server)
+        FirestoreReadLog.record(Self.self, docs: snapshot.documents.count)
         return snapshot.documents.map(Self.taskItem(from:))
     }
 
     private func completedTaskStats(
         since: Date, userId: String, source: FirestoreSource
     ) async throws -> [CompletedTaskStat] {
-        FirestoreReadLog.record(Self.self)
         // Range on completedAt alone (no composite index needed) - the field
         // only exists on completed tasks.
         let snapshot = try await tasks(userId)
             .whereField("completedAt", isGreaterThanOrEqualTo: Timestamp(date: since))
             .getDocuments(source: source)
+        FirestoreReadLog.record(Self.self, docs: snapshot.documents.count)
         return snapshot.documents.compactMap { document in
             let data = document.data()
             guard let completedAt = (data["completedAt"] as? Timestamp)?.dateValue() else {

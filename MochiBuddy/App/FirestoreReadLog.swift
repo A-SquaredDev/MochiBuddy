@@ -15,11 +15,17 @@ enum FirestoreReadLog {
 
     private static let logger = Logger(subsystem: "com.aaronmckain.MochiBuddy", category: "firestore-reads")
 
-    /// Call at every server-read site - `caller` captures the enclosing
-    /// method, so a call site is just `FirestoreReadLog.record(Self.self)`.
-    static func record(_ type: Any.Type, _ caller: String = #function) {
-        logger.info("read \(String(describing: type), privacy: .public).\(caller, privacy: .public)")
-        NetworkCallMeter.shared.count(.read)
+    /// Call at every server-read site, AFTER the snapshot returns, with
+    /// the number of documents it carried - Firestore bills per document
+    /// returned, not per query, so this is the number the console shows.
+    /// A zero-result query still bills one read (`max(1, docs)`), a doc
+    /// get or aggregation is the default 1. Failed reads never log here;
+    /// they are not billed. `caller` captures the enclosing method, so a
+    /// call site is just `FirestoreReadLog.record(Self.self, docs: n)`.
+    static func record(_ type: Any.Type, docs: Int = 1, _ caller: String = #function) {
+        let billed = max(1, docs)
+        logger.info("read \(String(describing: type), privacy: .public).\(caller, privacy: .public) docs=\(billed, privacy: .public)")
+        NetworkCallMeter.shared.count(.read, by: billed)
     }
 
     /// The write twin: call at every write site (a batch or transaction

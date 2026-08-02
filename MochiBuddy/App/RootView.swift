@@ -13,6 +13,17 @@ struct RootView: View {
     let container: AppContainer
 
     @Environment(\.scenePhase) private var scenePhase
+    /// When the foreground pipeline last ran in full. A quick bounce to
+    /// another app (share sheet, notification detour, app switcher) used
+    /// to re-run the whole pipeline - warm-up queries, letters, relay -
+    /// for a world that cannot meaningfully have changed in seconds.
+    @State private var lastForegroundPipelineAt: Date?
+    /// Under this, a re-activation skips the pipeline unless the drain
+    /// landed widget completions (those must become visible immediately).
+    /// 90s is well under a letter period, so the engagement marker's
+    /// per-period truthfulness is unaffected.
+    private static let foregroundCooldown: TimeInterval = 90
+
     @State private var navController = NavController()
     @State private var homeNavController = NavController()
     @State private var router: OnboardingRouter?
@@ -27,6 +38,10 @@ struct RootView: View {
     /// the schedule.
     private func enteredHome() {
         Task { @MainActor in
+            // Counts as a pipeline run: the scenePhase activation that
+            // lands right after a dev launch (or onboarding exit) would
+            // otherwise run the whole thing a second time.
+            lastForegroundPipelineAt = .now
             // Widget completions land first - ahead of the network round
             // trips below, so the drain the first Home refresh awaits
             // (coalesced in WidgetCompletionDrain) starts immediately.
@@ -102,7 +117,17 @@ struct RootView: View {
             // Widget completions land first so the lay sees them done.
             if phase == .active, container.session.phase == .home {
                 Task { @MainActor in
-                    await container.widgetCompletionDrain.drain()
+                    let drained = await container.widgetCompletionDrain.drain()
+                    // Cool-down: a re-activation moments after the last
+                    // full pipeline changes nothing worth 4 queries - the
+                    // caches are still warm and the schedule still laid.
+                    // A non-empty drain overrides it: those completions
+                    // must reach the relay and the tabs right now.
+                    if drained == 0, let last = lastForegroundPipelineAt,
+                       Date.now.timeIntervalSince(last) < Self.foregroundCooldown {
+                        return
+                    }
+                    lastForegroundPipelineAt = .now
                     // Entitlement can expire while backgrounded, and cold
                     // launch is the only other place that notices - without
                     // this a backgrounded app never meets the resubscribe

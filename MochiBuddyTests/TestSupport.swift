@@ -189,6 +189,11 @@ final class StubAuthRepository: AuthRepository {
     private(set) var deleteCurrentUserCount = 0
     private(set) var signOutCount = 0
 
+    func currentSession() async throws -> AuthAccount? {
+        if let ensureSessionError { throw ensureSessionError }
+        return currentAccount
+    }
+
     func ensureSession() async throws -> AuthAccount {
         if let ensureSessionError { throw ensureSessionError }
         guard let currentAccount else { throw AuthRepositoryError.noActiveSession }
@@ -600,8 +605,10 @@ final class StubLetterRepository: LetterRepository {
         callLog.append("marker:\(periodId)")
         markers.insert(periodId)
     }
+    private(set) var markerChecks = 0
     func hasActivityMarker(periodId: String, userId: String) async throws -> Bool {
-        markers.contains(periodId)
+        markerChecks += 1
+        return markers.contains(periodId)
     }
     func hasActivityMarkerFromServer(periodId: String, userId: String) async throws -> Bool {
         callLog.append("serverMarker:\(periodId)")
@@ -621,9 +628,11 @@ final class RecordingLetterTelemetry: LetterTelemetry {
 final class StubMomentRepository: MomentRepository {
     var stored: [Moment] = []
     private(set) var ensureLog: [String] = []
+    private(set) var fetchCount = 0
 
     func moments(userId: String) async throws -> [Moment] {
-        stored.sorted { $0.occurredOn > $1.occurredOn }
+        fetchCount += 1
+        return stored.sorted { $0.occurredOn > $1.occurredOn }
     }
     func ensureMoment(_ moment: Moment, userId: String) async {
         ensureLog.append(moment.id)
@@ -636,8 +645,29 @@ final class StubMomentRepository: MomentRepository {
 final class StubListRepository: ListRepository {
     var lists: [TaskList] = []
     private(set) var createdNames: [String] = []
+    private(set) var fetchCount = 0
+    /// When set, fetchLists suspends until `releaseFetch()` - lets tests
+    /// observe state mid-load (e.g. the editor's local-first rebuild).
+    /// Releasing stays sticky so a fetch arriving after the release (or a
+    /// release racing the suspension) can never hang the test.
+    var gateFetches = false
+    private var gateOpen = false
+    private var gateContinuations: [CheckedContinuation<Void, Never>] = []
 
-    func fetchLists(userId: String) async throws -> [TaskList] { lists }
+    func releaseFetch() {
+        gateOpen = true
+        let waiting = gateContinuations
+        gateContinuations = []
+        waiting.forEach { $0.resume() }
+    }
+
+    func fetchLists(userId: String) async throws -> [TaskList] {
+        fetchCount += 1
+        if gateFetches, !gateOpen {
+            await withCheckedContinuation { gateContinuations.append($0) }
+        }
+        return lists
+    }
     @discardableResult
     func createList(name: String, colorHex: String, icon: String, order: Int, userId: String) async throws -> TaskList {
         createdNames.append(name)

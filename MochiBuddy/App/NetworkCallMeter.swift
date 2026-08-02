@@ -52,12 +52,15 @@ final class NetworkCallMeter: @unchecked Sendable {
         self.today = today
     }
 
-    func count(_ kind: Kind) {
+    /// `by` is billed documents for reads (queries pass their result
+    /// count; a meter day is then directly comparable to the Firebase
+    /// console's read graph). Writes stay 1 per round trip.
+    func count(_ kind: Kind, by amount: Int = 1) {
         lock.lock()
         defer { lock.unlock() }
         rollOverIfNeeded()
         let key = kind == .read ? Key.reads : Key.writes
-        defaults.set(defaults.integer(forKey: key) + 1, forKey: key)
+        defaults.set(defaults.integer(forKey: key) + amount, forKey: key)
     }
 
     func snapshot() -> Snapshot {

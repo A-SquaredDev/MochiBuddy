@@ -74,11 +74,16 @@ enum MeetMochiBehavior {
         /// enforced by the field itself.
         var nameDraft = ""
         var isSaving = false
+        /// The naming beat could not mint the session (offline first
+        /// run) - drives the connection alert so the adoption is never
+        /// silently lost.
+        var sessionFailed = false
     }
 
     enum ViewAction {
         case continueTapped
         case backTapped
+        case dismissSessionAlert
         case nameDraftChanged(String)
         /// The quiet "Mochi is perfect" secondary - keeps the default.
         case keepDefaultTapped

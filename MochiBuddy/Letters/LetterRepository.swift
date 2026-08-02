@@ -60,10 +60,10 @@ final class FirestoreLetterRepository: LetterRepository {
     }
 
     private func letters(userId: String, source: FirestoreSource) async throws -> [Letter] {
-        FirestoreReadLog.record(Self.self)
         let snapshot = try await letters(userId)
             .order(by: "periodStart", descending: true)
             .getDocuments(source: source)
+        FirestoreReadLog.record(Self.self, docs: snapshot.documents.count)
         return snapshot.documents.compactMap { Self.letter(id: $0.documentID, data: $0.data()) }
     }
 
@@ -117,13 +117,15 @@ final class FirestoreLetterRepository: LetterRepository {
     }
 
     func hasActivityMarker(periodId: String, userId: String) async throws -> Bool {
+        let exists = try await activityWeeks(userId).document(periodId).getDocument().exists
         FirestoreReadLog.record(Self.self)
-        return try await activityWeeks(userId).document(periodId).getDocument().exists
+        return exists
     }
 
     func hasActivityMarkerFromServer(periodId: String, userId: String) async throws -> Bool {
+        let exists = try await activityWeeks(userId).document(periodId).getDocument(source: .server).exists
         FirestoreReadLog.record(Self.self)
-        return try await activityWeeks(userId).document(periodId).getDocument(source: .server).exists
+        return exists
     }
 
     func flushPendingWrites() async throws {

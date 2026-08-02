@@ -38,9 +38,9 @@ final class FirestoreAccountEraser: AccountEraser {
     }
 
     private func deleteAllDocuments(in collection: CollectionReference) async throws {
-        FirestoreReadLog.record(Self.self)
         // Firestore caps a batch at 500 writes.
         let snapshot = try await collection.getDocuments()
+        FirestoreReadLog.record(Self.self, docs: snapshot.documents.count)
         for chunk in snapshot.documents.chunked(into: 450) {
             FirestoreReadLog.recordWrite(Self.self)
             let batch = firestore.batch()

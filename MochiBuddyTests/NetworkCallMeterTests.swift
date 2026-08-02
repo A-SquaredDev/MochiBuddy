@@ -83,10 +83,23 @@ struct NetworkCallMeterTests {
         #expect(meter.snapshot().writes == 1, "counting resumes normally after a reset")
     }
 
+    @Test("reads tally billed documents, not round trips")
+    func readsCountBilledDocuments() {
+        let (meter, _) = makeMeter { "2026-07-08" }
+        meter.count(.read, by: 25)
+        meter.count(.read)
+
+        let snapshot = meter.snapshot()
+        #expect(snapshot.reads == 26,
+                "a query returning 25 docs bills 25 reads - the console's number, not the round-trip count")
+    }
+
     @Test("the log choke points feed the shared meter - a read and a write each land once")
     func chokePointsFeedTheMeter() {
         let before = NetworkCallMeter.shared.snapshot()
         FirestoreReadLog.record(NetworkCallMeterTests.self)
+        FirestoreReadLog.record(NetworkCallMeterTests.self, docs: 40)
+        FirestoreReadLog.record(NetworkCallMeterTests.self, docs: 0)
         FirestoreReadLog.recordWrite(NetworkCallMeterTests.self)
         FirestoreReadLog.recordCacheHit(NetworkCallMeterTests.self)
 
@@ -94,7 +107,8 @@ struct NetworkCallMeterTests {
         // Same-day guard: if this test happens to straddle midnight the
         // deltas can't be asserted; skip rather than flake once a year.
         if before.day == after.day {
-            #expect(after.reads == before.reads + 1)
+            #expect(after.reads == before.reads + 42,
+                    "1 default + 40 query docs + 1 for the zero-result query (still billed)")
             #expect(after.writes == before.writes + 1, "cache hits must NOT count")
         }
     }

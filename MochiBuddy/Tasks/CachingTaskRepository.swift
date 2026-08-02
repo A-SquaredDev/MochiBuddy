@@ -52,15 +52,121 @@ final class CachingTaskRepository: TaskRepository {
         self.now = now
     }
 
-    /// The foreground pipeline's one real refresh: drop everything, warm
-    /// the hottest query eagerly; completions and stats refill lazily on
+    /// The foreground pipeline's one real refresh.
+    ///
+    /// Cold (first foreground for this uid): drop everything, warm the
+    /// hottest query eagerly; completions and stats refill lazily on
     /// their next consumer (one fetch each, once, instead of per surface).
+    ///
+    /// Warm (every later foreground): re-fetch the small mutable
+    /// incomplete set, then RECONCILE the completion caches instead of
+    /// dropping them - a delta fetch above the newest cached completion
+    /// plus one count aggregation over the widest cached window. Keeping
+    /// the stats anchor alive is what stops the 132-day observation scan
+    /// from re-running every session: the old drop left `stats` nil, so
+    /// the first check-off (memo invalidation) re-billed the entire
+    /// horizon once per foreground.
     func refresh(userId: String) async {
+        guard cachedUserId == userId else {
+            await coldRefresh(userId: userId)
+            return
+        }
+        // The bump dropCache used to provide: a lazy fetch that was in
+        // flight when the app backgrounded must not install its pre-delta
+        // rows over what the reconcile below merges.
+        version += 1
+        let startVersion = version
+        if let fetched = try? await wrapped.incompleteTasks(userId: userId),
+           version == startVersion, cachedUserId == userId {
+            incomplete = fetched
+        }
+        await reconcileCompletions(userId: userId)
+    }
+
+    private func coldRefresh(userId: String) async {
         dropCache(userId: userId)
         let startVersion = version
         guard let fetched = try? await wrapped.incompleteTasks(userId: userId) else { return }
         if version == startVersion, cachedUserId == userId {
             incomplete = fetched
+        }
+    }
+
+    /// Cross-device convergence for the completion caches without paying
+    /// their windows again. New completions land via the delta (usually
+    /// zero rows; `>=` the newest cached instant re-reads at most the
+    /// boundary row). Removals (a delete or un-complete elsewhere) can't
+    /// be seen by a delta, so one count aggregation over the widest
+    /// cached window audits the caches; a mismatch drops them to the
+    /// lazy-refill path and invalidates the observation memo. Offline,
+    /// every step fails soft and the warm cache keeps serving.
+    private func reconcileCompletions(userId: String) async {
+        guard completed != nil || stats != nil else { return }
+        // The widest window any cached coverage promises; epoch when a
+        // limit cache is empty (its promise is "the entire history").
+        let guardSince = [
+            statsSince, completedCoverageSince, completed?.last?.completedAt,
+        ].compactMap { $0 }.min() ?? Date(timeIntervalSince1970: 0)
+        let newest = max(
+            completed?.first?.completedAt ?? guardSince,
+            stats?.map(\.completedAt).max() ?? guardSince
+        )
+        let startVersion = version
+
+        var deltaItems: [TaskItem]?
+        if completed != nil {
+            guard let fetched = try? await wrapped.completedTasks(since: newest, userId: userId)
+            else { return }
+            deltaItems = fetched
+        }
+        var deltaStats: [CompletedTaskStat]?
+        if stats != nil {
+            guard let fetched = try? await wrapped.completedTaskStats(since: newest, userId: userId)
+            else { return }
+            deltaStats = fetched
+        }
+        guard let serverCount = try? await wrapped.completedTaskCount(since: guardSince, userId: userId)
+        else { return }
+        // A local mutation raced the reconcile: its write-through already
+        // holds newer truth than these snapshots - discard them.
+        guard version == startVersion, cachedUserId == userId else { return }
+
+        var changed = false
+        if let deltaItems, var current = completed {
+            let deltaIds = Set(deltaItems.map(\.id))
+            current.removeAll { deltaIds.contains($0.id) }
+            let merged = (deltaItems + current).sorted {
+                ($0.completedAt ?? .distantPast, $0.id) > ($1.completedAt ?? .distantPast, $1.id)
+            }
+            changed = changed || merged != completed
+            completed = merged
+        }
+        if let deltaStats, var current = stats {
+            let deltaIds = Set(deltaStats.map(\.taskId))
+            current.removeAll { deltaIds.contains($0.taskId) }
+            let merged = current + deltaStats
+            changed = changed || Set(merged.map(\.taskId)) != Set(stats?.map(\.taskId) ?? [])
+            stats = merged
+        }
+
+        // The audit: within the guard window the cache with the widest
+        // coverage knows every row, so its size must equal the server's.
+        let expected: Int
+        if let stats, let statsSince, statsSince <= guardSince {
+            expected = stats.count
+        } else {
+            expected = completed?.count ?? 0
+        }
+        if serverCount != expected {
+            version += 1
+            invalidateCompletionCaches()
+        }
+        if changed || serverCount != expected {
+            // Cross-device history changed: the observation memo (and any
+            // other onMutation listener) must not keep serving the old
+            // world. Warm caches make the rebuild free; a divergence drop
+            // re-pays its window once, which is exactly right.
+            onMutation?()
         }
     }
 

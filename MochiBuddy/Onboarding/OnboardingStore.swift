@@ -42,6 +42,15 @@ final class OnboardingStore {
 
     private var userId: String? { authRepository.currentAccount?.uid }
 
+    /// The wizard's writes need a session, and Landing entries arrive
+    /// without one (splash no longer mints). Idempotent: true when a
+    /// session exists or was just created; false means offline with
+    /// nothing created - the caller surfaces the retry instead of letting
+    /// choices vanish into a sessionless flow.
+    func ensureSession() async -> Bool {
+        (try? await authRepository.ensureSession()) != nil
+    }
+
     /// The chosen pet name, live from the naming beat onward - the very
     /// next screen's copy uses it (instant proof the choice took).
     var petName: String { petIdentityStore.name }
@@ -53,10 +62,13 @@ final class OnboardingStore {
         await petIdentityStore.completeNamingBeat(rawName: rawName, userId: userId)
     }
 
-    func saveFirstTask(title: String) async {
+    func saveFirstTask(title: String, dueAt: Date? = nil, hasTime: Bool = false) async {
         firstTaskTitle = title
         guard let userId else { return }
-        _ = try? await taskRepository.addTask(TaskDraft(title: title), userId: userId)
+        var draft = TaskDraft(title: title)
+        draft.dueAt = dueAt
+        draft.hasTime = hasTime
+        _ = try? await taskRepository.addTask(draft, userId: userId)
     }
 
     func selectTheme(id: String) {

@@ -1106,3 +1106,211 @@ private enum Sleep {
     static let zScale: [(CGFloat, CGFloat)] = [(0, 0.4), (1, 1.5)]
     static let zRot: [(CGFloat, CGFloat)] = [(0, -14), (1, 12)]
 }
+
+// MARK: - Static rest frames
+
+/// Each scripted idle's rest frame, drawn without a timeline. The widget
+/// bitmap and the ~40 list/static instances render through this, so a
+/// static Mochi is the same character as the animated hero, just holding
+/// still - the previous static faces were an older design and the widget
+/// read as a different pet. Lives in this file deliberately: every path
+/// and pose constant is shared with the canvas it mirrors, so the two can
+/// never drift apart again.
+enum MochiStaticPose {
+
+    static func draw(
+        _ ctx: inout GraphicsContext, mood: MochiMood,
+        theme: MochiTheme, faceInk: Color
+    ) {
+        switch mood {
+        case .thriving: thriving(&ctx, theme: theme, faceInk: faceInk)
+        case .content: content(&ctx, theme: theme, faceInk: faceInk)
+        case .tired: tired(&ctx, theme: theme, faceInk: faceInk)
+        case .unwell: unwell(&ctx, theme: theme, faceInk: faceInk)
+        case .sleeping: sleeping(&ctx, theme: theme, faceInk: faceInk)
+        }
+    }
+
+    /// ThrivingIdleCanvas at rest: settled between hops, eyes forward,
+    /// blink open, the full grin with the tucked tongue.
+    private static func thriving(_ ctx: inout GraphicsContext, theme: MochiTheme, faceInk: Color) {
+        groundShadow(&ctx, opacity: 0.5)
+
+        var g = ctx
+        g.fill(mochiBodyPath, with: .color(theme.pet))
+        g.fill(mochiHighlightPath, with: .color(theme.pet2.opacity(0.55)))
+
+        cheek(&g, cx: 56, y: 94, size: CGSize(width: 22, height: 16), color: theme.petCheek, opacity: 0.55)
+        cheek(&g, cx: 124, y: 94, size: CGSize(width: 22, height: 16), color: theme.petCheek, opacity: 0.55)
+
+        let ink = GraphicsContext.Shading.color(faceInk)
+        g.fill(Path(ellipseIn: CGRect(x: 62.5, y: 79, width: 15, height: 18)), with: ink)
+        g.fill(Path(ellipseIn: CGRect(x: 102.5, y: 79, width: 15, height: 18)), with: ink)
+        g.fill(Path(ellipseIn: CGRect(x: 70, y: 82, width: 5.2, height: 5.2)), with: .color(.white))
+        g.fill(Path(ellipseIn: CGRect(x: 110, y: 82, width: 5.2, height: 5.2)), with: .color(.white))
+        g.fill(Path(ellipseIn: CGRect(x: 66.3, y: 90.1, width: 2.6, height: 2.6)), with: .color(.white.opacity(0.8)))
+        g.fill(Path(ellipseIn: CGRect(x: 106.3, y: 90.1, width: 2.6, height: 2.6)), with: .color(.white.opacity(0.8)))
+
+        g.fill(thrivingGrinPath, with: ink)
+        var tongue = g
+        tongue.clip(to: thrivingGrinPath)
+        tongue.fill(thrivingTonguePath, with: .color(theme.petCheek.opacity(0.9)))
+    }
+
+    /// ContentIdleCanvas at rest: round glinted pupils, lids parked out of
+    /// frame, the soft open smile.
+    private static func content(_ ctx: inout GraphicsContext, theme: MochiTheme, faceInk: Color) {
+        groundShadow(&ctx, opacity: 0.5)
+
+        var g = ctx
+        g.fill(mochiBodyPath, with: .color(theme.pet))
+
+        let ink = GraphicsContext.Shading.color(faceInk)
+        g.fill(Path(ellipseIn: CGRect(x: 65, y: 80.4, width: 14, height: 15.2)), with: ink)
+        g.fill(Path(ellipseIn: CGRect(x: 101, y: 80.4, width: 14, height: 15.2)), with: ink)
+        g.fill(Path(ellipseIn: CGRect(x: 72.2, y: 83.2, width: 4.4, height: 4.4)), with: .color(.white.opacity(0.92)))
+        g.fill(Path(ellipseIn: CGRect(x: 108.2, y: 83.2, width: 4.4, height: 4.4)), with: .color(.white.opacity(0.92)))
+        g.fill(Path(ellipseIn: CGRect(x: 68.5, y: 90.3, width: 2.2, height: 2.2)), with: .color(.white.opacity(0.55)))
+        g.fill(Path(ellipseIn: CGRect(x: 104.5, y: 90.3, width: 2.2, height: 2.2)), with: .color(.white.opacity(0.55)))
+
+        // Same layer order as the canvas: highlight over the (hidden) lids.
+        g.fill(mochiHighlightPath, with: .color(theme.pet2.opacity(0.55)))
+
+        cheek(&g, cx: 54, y: 94, size: CGSize(width: 24, height: 16), color: theme.petCheek, opacity: 0.5)
+        cheek(&g, cx: 126, y: 94, size: CGSize(width: 24, height: 16), color: theme.petCheek, opacity: 0.5)
+
+        g.stroke(contentLipPath, with: ink, style: contentLipStyle)
+    }
+
+    /// TiredIdleCanvas at rest: the -1.5 degree doze tilt, heavy lids
+    /// half over the pupils, the little sag mouth. Drips and z's are
+    /// mid-animation moments and stay out of the still.
+    private static func tired(_ ctx: inout GraphicsContext, theme: MochiTheme, faceInk: Color) {
+        groundShadow(&ctx, opacity: 0.5)
+
+        var body = ctx
+        origin(&body, 90, 140) {
+            $0.rotate(by: .degrees(-1.5))
+        }
+        body.fill(mochiBodyPath, with: .color(theme.pet))
+        body.fill(mochiHighlightPath, with: .color(theme.pet2.opacity(0.55)))
+        body.fill(Path(ellipseIn: CGRect(x: 42, y: 94, width: 24, height: 16)), with: .color(theme.petCheek.opacity(0.5)))
+        body.fill(Path(ellipseIn: CGRect(x: 114, y: 94, width: 24, height: 16)), with: .color(theme.petCheek.opacity(0.5)))
+
+        let ink = GraphicsContext.Shading.color(faceInk)
+        body.fill(Path(ellipseIn: CGRect(x: 65.5, y: 82.5, width: 13, height: 13)), with: ink)
+        body.fill(Path(ellipseIn: CGRect(x: 101.5, y: 82.5, width: 13, height: 13)), with: ink)
+        body.fill(Path(ellipseIn: CGRect(x: 72.2, y: 85.2, width: 3.6, height: 3.6)), with: .color(.white.opacity(0.9)))
+        body.fill(Path(ellipseIn: CGRect(x: 108.2, y: 85.2, width: 3.6, height: 3.6)), with: .color(.white.opacity(0.9)))
+
+        for x in [CGFloat(60), 98] {
+            var lid = body
+            lid.translateBy(x: x, y: 0)
+            lid.fill(tiredLidPath, with: .color(theme.pet))
+            lid.stroke(tiredLashPath, with: .color(faceInk), style: tiredLashStyle)
+        }
+
+        body.stroke(tiredLipPath, with: ink, style: tiredLipStyle)
+    }
+
+    /// UnwellIdleCanvas at rest: the lying-down squash held flat, knotted
+    /// brows, small pupils under sunken lids, the wavy grimace. The fever
+    /// fade is identity at rest, so no filter pass.
+    private static func unwell(_ ctx: inout GraphicsContext, theme: MochiTheme, faceInk: Color) {
+        var shadow = ctx
+        shadow.opacity = 0.5
+        shadow.fill(
+            Path(ellipseIn: CGRect(x: 40, y: 143, width: 100, height: 18)),
+            with: .color(.black.opacity(0.2))
+        )
+
+        var g = ctx
+        origin(&g, 90, 138) {
+            $0.translateBy(x: 0, y: 6)
+            $0.scaleBy(x: 1.13, y: 0.8)
+        }
+        g.fill(mochiBodyPath, with: .color(theme.pet))
+        g.fill(mochiHighlightPath, with: .color(theme.pet2.opacity(0.55)))
+
+        cheek(&g, cx: 54, y: 95.5, size: CGSize(width: 26, height: 17), color: theme.petCheek, opacity: 0.3)
+        cheek(&g, cx: 126, y: 95.5, size: CGSize(width: 26, height: 17), color: theme.petCheek, opacity: 0.3)
+
+        var brows = g
+        brows.opacity = 0.8
+        brows.stroke(unwellBrowLeftPath, with: .color(faceInk), style: unwellBrowStyle)
+        brows.stroke(unwellBrowRightPath, with: .color(faceInk), style: unwellBrowStyle)
+
+        let ink = GraphicsContext.Shading.color(faceInk)
+        g.fill(Path(ellipseIn: CGRect(x: 67, y: 87, width: 10, height: 10)), with: ink)
+        g.fill(Path(ellipseIn: CGRect(x: 103, y: 87, width: 10, height: 10)), with: ink)
+
+        for x in [CGFloat(64), 100] {
+            var lid = g
+            lid.translateBy(x: x, y: 0)
+            lid.fill(unwellLidPath, with: .color(theme.pet))
+            lid.stroke(unwellLashPath, with: .color(faceInk), style: unwellLashStyle)
+        }
+
+        g.stroke(unwellGrimacePath, with: ink, style: unwellGrimaceStyle)
+    }
+
+    /// SleepIdleCanvas at rest: flat out and settled, arched-shut lids,
+    /// soft brows, the snore mouth nearly closed between breaths.
+    private static func sleeping(_ ctx: inout GraphicsContext, theme: MochiTheme, faceInk: Color) {
+        var shadow = ctx
+        shadow.opacity = 0.5
+        shadow.fill(
+            Path(ellipseIn: CGRect(x: 38, y: 141, width: 104, height: 18)),
+            with: .color(.black.opacity(0.2))
+        )
+
+        var g = ctx
+        origin(&g, 90, 138) {
+            $0.translateBy(x: 0, y: 8)
+            $0.scaleBy(x: 1.08, y: 0.88)
+        }
+        g.fill(mochiBodyPath, with: .color(theme.pet))
+        g.fill(mochiHighlightPath, with: .color(theme.pet2.opacity(0.55)))
+        g.fill(Path(ellipseIn: CGRect(x: 42, y: 96.5, width: 24, height: 15)), with: .color(theme.petCheek.opacity(0.8)))
+        g.fill(Path(ellipseIn: CGRect(x: 114, y: 96.5, width: 24, height: 15)), with: .color(theme.petCheek.opacity(0.8)))
+
+        g.stroke(sleepLidLeftPath, with: .color(faceInk), style: sleepLidStyle)
+        g.stroke(sleepLidRightPath, with: .color(faceInk), style: sleepLidStyle)
+
+        var brows = g
+        brows.opacity = 0.45
+        brows.stroke(sleepBrowLeftPath, with: .color(faceInk), style: sleepBrowStyle)
+        brows.stroke(sleepBrowRightPath, with: .color(faceInk), style: sleepBrowStyle)
+
+        // The snore mouth at its exhale rest (scale 0.62 x 0.5).
+        var mouth = g
+        origin(&mouth, 90, 111.05) {
+            $0.scaleBy(x: 0.62, y: 0.5)
+        }
+        mouth.fill(Path(ellipseIn: CGRect(x: 80.5, y: 108.5, width: 19, height: 17)), with: .color(faceInk.opacity(0.82)))
+        mouth.fill(Path(ellipseIn: CGRect(x: 84.5, y: 117.5, width: 11, height: 7)), with: .color(theme.petCheek.opacity(0.5)))
+    }
+
+    // MARK: Shared bits
+
+    private static func groundShadow(_ ctx: inout GraphicsContext, opacity: Double) {
+        var shadow = ctx
+        shadow.opacity = opacity
+        shadow.fill(
+            Path(ellipseIn: CGRect(x: 40, y: 141, width: 100, height: 18)),
+            with: .color(.black.opacity(0.16))
+        )
+    }
+
+    private static func cheek(
+        _ ctx: inout GraphicsContext, cx: CGFloat, y: CGFloat,
+        size: CGSize, color: Color, opacity: Double
+    ) {
+        var g = ctx
+        g.opacity = opacity
+        g.fill(
+            Path(ellipseIn: CGRect(x: cx - size.width / 2, y: y, width: size.width, height: size.height)),
+            with: .color(color)
+        )
+    }
+}
