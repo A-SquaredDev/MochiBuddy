@@ -115,7 +115,7 @@ enum DevSchedulerBehavior {
         case suggestionTaskPicked(String)
         case composeLetterNow
         case scrubbed(Date?)
-        /// Local dev store only: restart the 7-day trial so the horizon
+        /// Local dev store only: restart the 14-day trial so the horizon
         /// uncaps without re-onboarding.
         case restartTrial
     }
@@ -674,7 +674,7 @@ struct DevSchedulerView: View {
                     .font(MochiFont.body(9.5, weight: .bold))
                     .foregroundStyle(theme.muted)
                 if viewModel.horizonCapped {
-                    Button("Restart local 7-day trial to uncap the horizon") {
+                    Button("Restart local 14-day trial to uncap the horizon") {
                         viewModel.trigger(.restartTrial)
                     }
                     .font(MochiFont.body(11, weight: .heavy))

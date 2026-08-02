@@ -3,7 +3,7 @@
 //  MochiBuddy
 //
 //  9 · Membership - subscription-only gate placed after the value moment.
-//  Hooks first, then plans with live store pricing; 7 days free, no
+//  Hooks first, then plans with live store pricing; 14 days free, no
 //  freemium tier.
 //
 
@@ -77,7 +77,7 @@ final class PaywallViewModel: ObservableStateViewModel<
         let plans = options.map { PlanCardModel.from($0, monthlyPrice: monthlyPrice) }
 
         let selected = options.first { $0.plan.rawValue == uiState.selectedPlanId } ?? options.first
-        let ctaTitle = selected?.hasIntroTrial == true ? "Start my 7 days free" : "Start my membership"
+        let ctaTitle = selected?.hasIntroTrial == true ? "Start my 14 days free" : "Start my membership"
         var ctaSubtitle = "Cancel anytime"
         if let selected {
             let per = selected.plan == .yearly ? "yr" : "mo"

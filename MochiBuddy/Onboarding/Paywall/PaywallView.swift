@@ -28,7 +28,7 @@ struct PaywallView: View {
                         OnbHeading(
                             eyebrow: "Membership",
                             title: "Unlock the full Mochi",
-                            bodyText: "Mochi is a membership app: one plan, everything included. Try it all free for a week."
+                            bodyText: "Mochi is a membership app: one plan, everything included. Try it all free for two weeks."
                         )
                     }
 

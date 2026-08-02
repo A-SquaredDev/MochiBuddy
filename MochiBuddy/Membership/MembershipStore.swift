@@ -3,7 +3,7 @@
 //  MochiBuddy
 //
 //  Subscription state for the membership gate. Mochi is subscription-only:
-//  7-day free trial, then yearly/monthly - no freemium tier.
+//  14-day free trial (yearly plan only), then yearly/monthly - no freemium tier.
 //
 //  NOTE: LocalMembershipStore is a device-local stand-in so the whole
 //  onboarding + returning-user flow works end to end today. The production
@@ -84,9 +84,11 @@ extension MembershipPlanOption {
         plan: .yearly, price: 29.99, localizedPrice: "$29.99",
         localizedPricePerMonth: "$2.50", hasIntroTrial: true
     )
+    // The store only attaches the free trial to the yearly plan - the
+    // fallback must not advertise one the monthly purchase won't honor.
     static let defaultMonthly = MembershipPlanOption(
         plan: .monthly, price: 3.99, localizedPrice: "$3.99",
-        localizedPricePerMonth: nil, hasIntroTrial: true
+        localizedPricePerMonth: nil, hasIntroTrial: false
     )
 }
 
@@ -144,7 +146,7 @@ final class LocalMembershipStore: MembershipStore {
     }
 
     func startTrial(plan: MembershipPlan) async throws {
-        let trialEnd = Calendar.current.date(byAdding: .day, value: 7, to: .now) ?? .now
+        let trialEnd = Calendar.current.date(byAdding: .day, value: 14, to: .now) ?? .now
         defaults.set(plan.rawValue, forKey: Key.plan)
         defaults.set(trialEnd, forKey: Key.expiresAt)
         defaults.set(true, forKey: Key.isTrial)

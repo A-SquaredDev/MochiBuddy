@@ -603,9 +603,11 @@ glanceable nudge to take care of your tasks (and, by proxy, yourself).
   comfort for Mochi* — not to be a paid currency.
 - **Delight-forward, guilt-light.** Mochi is a companion you help, not a warden
   who punishes you. The upside carries as much weight as the downside.
-- **7-day free trial, then subscription. No freemium tier.** The emotional hook
-  needs a few days to land (you have to fall behind once and feel Mochi react), so
-  the trial gives the full experience before the ask.
+- **14-day free trial (yearly plan only), then subscription. No freemium tier.**
+  The emotional hook needs a few days to land (you have to fall behind once and
+  feel Mochi react), so the trial gives the full experience before the ask.
+  (Extended from 7 to 14 days, Aug 2 2026; the monthly plan carries no intro
+  offer.)
 
 ## The feel
 
@@ -1353,7 +1355,7 @@ subscription access returns.
   Apple Account, so a new subscription would be associated with the original (deleted)
   App User ID and the customer would never gain access.
 - **Warn users:** Apple tracks **trial eligibility per Apple ID**. Deleting and
-  re-signing-up does **not** grant a fresh 7-day trial.
+  re-signing-up does **not** grant a fresh 14-day trial.
 
 ## Entitlement & subscription states
 
@@ -1366,7 +1368,7 @@ log back in for free. **RevenueCat is the single source of truth**; the Firestor
 
 | State | Source | Access |
 |---|---|---|
-| `trialing` | RC | Everything. 7 days. |
+| `trialing` | RC | Everything. 14 days (yearly plan only). |
 | `active` | RC | Everything. |
 | `billing_grace` | RC | **Everything** — see the trap below. |
 | `lapsed` | ours | "Finish what you started." Indefinite. Mochi asleep. |

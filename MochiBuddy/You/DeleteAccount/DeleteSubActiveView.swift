@@ -34,7 +34,7 @@ struct DeleteSubActiveView: View {
                 acknowledgeCard
 
                 MochiCard(padding: EdgeInsets(top: 12, leading: 14, bottom: 12, trailing: 14)) {
-                    Text("\(Text("Heads up:").font(MochiFont.body(11.5, weight: .heavy)).foregroundColor(theme.ink)) Apple tracks free-trial eligibility per Apple ID. Deleting your account and signing up again won't grant a fresh 7-day trial.")
+                    Text("\(Text("Heads up:").font(MochiFont.body(11.5, weight: .heavy)).foregroundColor(theme.ink)) Apple tracks free-trial eligibility per Apple ID. Deleting your account and signing up again won't grant a fresh 14-day trial.")
                         .font(MochiFont.body(11.5, weight: .bold))
                         .foregroundStyle(theme.muted)
                         .lineSpacing(3)

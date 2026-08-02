@@ -360,7 +360,7 @@ struct MembershipSessionChangeTests {
         #expect(fired == 1)
         session.status = .lapsed
         #expect(fired == 1)
-        session.status = .trial(endsAt: Dates.days(7), willRenew: true)
+        session.status = .trial(endsAt: Dates.days(14), willRenew: true)
         #expect(fired == 2)
     }
 }
