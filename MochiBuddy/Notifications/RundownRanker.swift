@@ -15,11 +15,27 @@ enum RundownRanker {
 
     static let limit = 3
 
+    struct Ranking: Equatable {
+        /// The capped top handful, in briefing order.
+        var top: [TaskItem]
+        /// The true overdue + due-today count before the cap - copy that
+        /// says "5 things today" reads this, never top.count.
+        var totalDue: Int
+    }
+
     static func topTasks(
         from tasks: [TaskItem],
         at fireAt: Date,
         calendar: Calendar = .current
     ) -> [TaskItem] {
+        ranking(from: tasks, at: fireAt, calendar: calendar).top
+    }
+
+    static func ranking(
+        from tasks: [TaskItem],
+        at fireAt: Date,
+        calendar: Calendar = .current
+    ) -> Ranking {
         let world = tasks
             .filter { !$0.completed }
             .map { RecurrenceRoller.restamp($0, now: fireAt, calendar: calendar)?.task ?? $0 }
@@ -40,7 +56,8 @@ enum RundownRanker {
             .filter { !$0.hasTime }
             .sorted { priorityRank($0.priority) > priorityRank($1.priority) }
 
-        return Array((overdue + timedToday + dateOnlyToday).prefix(limit))
+        let ranked = overdue + timedToday + dateOnlyToday
+        return Ranking(top: Array(ranked.prefix(limit)), totalDue: ranked.count)
     }
 
     private static func priorityRank(_ priority: TaskPriority) -> Int {

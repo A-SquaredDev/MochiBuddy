@@ -36,7 +36,8 @@ final class HomeRouter {
             letterService: container.letterCompositionService,
             memoriesService: container.memoriesService,
             journalCoordinator: container.tabCoordinator,
-            widgetDrain: container.widgetCompletionDrain
+            widgetDrain: container.widgetCompletionDrain,
+            nudgeCenter: container.nudgeCenter
         )
         return AnyView(HomeView(
             viewModel: viewModel,

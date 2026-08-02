@@ -258,19 +258,6 @@ struct HomeTodayScopeTests {
         #expect(vm.uiState.leftText == "1 left")
     }
 
-    @Test("the week preview groups days 1–6 out and skips further-out tasks")
-    func weekPreview() async {
-        let tomorrow = makeTask(id: "a", title: "Gym", dueAt: Date.now.addingTimeInterval(1 * 24 * 3600))
-        let plus3 = makeTask(id: "b", title: "Groceries", dueAt: Date.now.addingTimeInterval(3 * 24 * 3600))
-        let plus9 = makeTask(id: "c", dueAt: Date.now.addingTimeInterval(9 * 24 * 3600))
-        let (vm, _, _, _) = makeHomeVM(incomplete: [plus9, plus3, tomorrow])
-        await vm.triggerAsync(.refresh)
-        #expect(vm.uiState.weekPreview.map(\.id) == ["d1", "d3"])
-        #expect(vm.uiState.weekPreview[0].dayLabel == "Tomorrow")
-        #expect(vm.uiState.weekPreview[0].summary == "Gym")
-        #expect(vm.uiState.weekPreview[1].count == 1)
-    }
-
     @Test("rows carry their list's name and color; inbox rows carry none")
     func listIndicator() async {
         let groceries = TaskList(id: "l1", name: "Groceries", colorHex: "#8FD3F4", icon: "cart.fill", order: 0)
@@ -513,9 +500,8 @@ struct HomeActionTests {
         await vm.triggerAsync(.toggleTask("t1"))
         #expect(taskRepo.addedDrafts.count == 1, "the next daily occurrence must be created")
         // Tomorrow's occurrence is out of today's scope; the done row moved
-        // to the Done-today section and the spawn shows in the week preview.
+        // to the Done-today section.
         #expect(vm.uiState.todayItems.isEmpty)
         #expect(vm.uiState.doneTodayItems.map(\.id) == ["t1"])
-        #expect(vm.uiState.weekPreview.map(\.id) == ["d1"])
     }
 }

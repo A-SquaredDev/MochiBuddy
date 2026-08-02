@@ -24,6 +24,7 @@ private func makeInput(
     entitlementExpiry: Date? = nil,
     bedtime: BedtimeWindow = .standard,
     taskReminders: Bool = true,
+    defaultReminderMinutes: Int? = nil,
     morningRundown: Bool = false,
     moodDips: Bool = false,
     lapsed: Bool = false,
@@ -33,6 +34,7 @@ private func makeInput(
 ) -> NotificationPlanInput {
     var prefs = NotificationPrefs.standard
     prefs.taskReminders = taskReminders
+    prefs.defaultReminderMinutes = defaultReminderMinutes
     prefs.morningRundown = morningRundown
     prefs.moodDips = moodDips
     return NotificationPlanInput(
@@ -88,10 +90,39 @@ struct PlannerPromiseTests {
         #expect(promises.first?.taskId == "t1")
     }
 
-    @Test("date-only and already-due tasks get no promise - the rundown and past lays carry them")
+    @Test("a date-only task promises the default reminder slot on its due day")
+    func dateOnlyPromisesDefaultSlot() {
+        let plan = NotificationPlanner.plan(makeInput(tasks: [
+            makeTask(id: "dateOnly", dueAt: Dates.calendar.startOfDay(for: Dates.days(1))),
+        ]))
+        let promises = plan.filter { $0.kind == .promise }
+        #expect(promises.count == 1)
+        #expect(promises.first?.id == "due-dateOnly")
+        #expect(promises.first?.fireAt == Dates.calendar.date(
+            byAdding: .minute,
+            value: NotificationPrefs.standardDefaultReminderMinutes,
+            to: Dates.calendar.startOfDay(for: Dates.days(1))
+        ), "tomorrow at the standard 9:00 slot")
+    }
+
+    @Test("the default-reminder-time setting moves the date-only slot")
+    func dateOnlyHonorsCustomDefault() {
+        let plan = NotificationPlanner.plan(makeInput(
+            tasks: [makeTask(id: "dateOnly", dueAt: Dates.calendar.startOfDay(for: Dates.days(1)))],
+            defaultReminderMinutes: 18 * 60 + 30
+        ))
+        let promise = plan.first { $0.kind == .promise }
+        #expect(promise?.fireAt == Dates.calendar.date(
+            byAdding: .minute, value: 18 * 60 + 30,
+            to: Dates.calendar.startOfDay(for: Dates.days(1))
+        ), "tomorrow 18:30")
+    }
+
+    @Test("past-slot and undated tasks still get no promise")
     func noPromiseWithoutFutureInstant() {
         let plan = NotificationPlanner.plan(makeInput(tasks: [
-            makeTask(id: "dateOnly", dueAt: Dates.days(1)),
+            // Date-only due TODAY: the 9:00 slot already passed (now 10:00).
+            makeTask(id: "todayDateOnly", dueAt: Dates.calendar.startOfDay(for: Dates.now)),
             makeTask(id: "overdue", dueAt: Dates.hours(-1), hasTime: true),
             makeTask(id: "undated"),
         ]))

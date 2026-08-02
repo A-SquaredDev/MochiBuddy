@@ -93,17 +93,31 @@ enum NotificationPlanner {
 
     // MARK: - Promises
 
-    /// One exact reminder per future timed task. Date-only tasks have no
-    /// instant to promise; the morning rundown carries them. Vacation is
-    /// the ONE suppression allowed to silence a promise (truly silent).
+    /// One exact reminder per future dated task. Timed tasks promise their
+    /// own instant; date-only tasks promise the user's default reminder
+    /// slot (their midnight anchor carries no promisable instant itself).
+    /// Vacation is the ONE suppression allowed to silence a promise
+    /// (truly silent).
     private static func planPromises(
         _ input: NotificationPlanInput,
         calendar: Calendar
     ) -> [PlannedNotification] {
         guard input.prefs.taskReminders else { return [] }
         let capture = input.snapshot.capturedAt
+        let defaultMinutes = input.prefs.effectiveDefaultReminderMinutes
         return input.snapshot.tasks.compactMap { task in
-            guard !task.completed, task.hasTime, var fireAt = task.dueAt else { return nil }
+            guard !task.completed, let dueAt = task.dueAt else { return nil }
+            var fireAt: Date
+            if task.hasTime {
+                fireAt = dueAt
+            } else {
+                guard let slot = calendar.date(
+                    bySettingHour: defaultMinutes / 60,
+                    minute: defaultMinutes % 60,
+                    second: 0, of: dueAt
+                ) else { return nil }
+                fireAt = slot
+            }
             // An overdue-but-not-yet-rolled recurring occurrence still
             // promises its NEXT occurrence. Dropping it here would let the
             // diff cancel the pending trigger during the overdue window,

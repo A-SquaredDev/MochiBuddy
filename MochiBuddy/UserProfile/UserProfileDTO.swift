@@ -130,6 +130,7 @@ enum UserProfileMapper {
         prefs.bedtimeSilence = data["bedtimeSilence"] as? Bool ?? prefs.bedtimeSilence
         prefs.hideTaskNames = data["hideTaskNames"] as? Bool ?? prefs.hideTaskNames
         prefs.weeklyLetter = data["weeklyLetter"] as? Bool ?? prefs.weeklyLetter
+        prefs.defaultReminderMinutes = data["defaultReminderMinutes"] as? Int
         return prefs
     }
 }

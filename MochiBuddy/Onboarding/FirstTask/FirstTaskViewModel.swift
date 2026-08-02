@@ -34,11 +34,28 @@ final class FirstTaskViewModel: ObservableStateViewModel<
             draft.title = suggestion.trimmingCharacters(in: .whitespaces)
             rebuildState()
 
+        case .timeChoiceTapped(let choice):
+            state.timeChoice = choice
+
         case .addTapped:
             let title = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !title.isEmpty else { return }
             state.isSaving = true
-            await onboardingStore.saveFirstTask(title: title)
+            // Due today like every other capture path - a first task that
+            // lands in Someday and never notifies is a broken first
+            // impression. The slot chips add an actual reminder time.
+            let calendar = Calendar.current
+            let today = calendar.startOfDay(for: .now)
+            let dueAt = uiState.timeChoice.minuteOfDay.map { minute in
+                calendar.date(
+                    bySettingHour: minute / 60, minute: minute % 60, second: 0, of: today
+                ) ?? today
+            } ?? today
+            await onboardingStore.saveFirstTask(
+                title: title,
+                dueAt: dueAt,
+                hasTime: uiState.timeChoice.minuteOfDay != nil
+            )
             state.isSaving = false
             setNavigationEvent(.next)
 

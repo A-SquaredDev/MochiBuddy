@@ -114,6 +114,7 @@ struct NotificationCopyTests {
         let pools = rendered(
             NotificationCopy.uneasyPool + NotificationCopy.anxiousPool
                 + NotificationCopy.floorAcutePool + NotificationCopy.floorChronicPool
+                + NotificationCopy.rundownTitlePool + NotificationCopy.rundownCheerPool
         )
         for line in pools {
             #expect(!line.contains("—"), "em dash in: \(line)")
@@ -144,22 +145,93 @@ struct NotificationCopyTests {
         }
     }
 
-    @Test("the rundown flexes tone to load and keeps names off the lock screen when asked")
+    @Test("every rundown leads with Good morning and never dumps the bare task list")
     func rundownTone() {
-        let calm = NotificationCopy.rundown(taskTitles: [], hideTaskNames: false, petName: "Nori")
-        #expect(calm.title == "A calm day")
+        var deck = CopyDeck()
+        let calm = NotificationCopy.rundown(
+            tasks: [], totalDue: 0, hideTaskNames: false, petName: "Nori", deck: &deck
+        )
+        #expect(calm.title.hasPrefix("Good morning"))
         #expect(calm.body.contains("Nori"), "the empty-day body speaks as the pet")
 
         let full = NotificationCopy.rundown(
-            taskTitles: ["Pay rent", "Gym", "Groceries"], hideTaskNames: false, petName: "Mochi"
+            tasks: [
+                .init(title: "Pay rent", timeText: "9:00 AM"),
+                .init(title: "Gym", timeText: nil),
+                .init(title: "Groceries", timeText: nil),
+            ],
+            totalDue: 5, hideTaskNames: false, petName: "Mochi", deck: &deck
         )
-        #expect(full.body == "Pay rent · Gym · Groceries")
+        #expect(full.title.hasPrefix("Good morning"))
+        #expect(full.body.contains("5 things today, starting with Pay rent at 9:00 AM."))
+        #expect(!full.body.contains("Pay rent · Gym"), "never the bare joined list")
+        #expect(full.body.split(separator: "\n").count == 2, "one warm line plus one summary")
+
+        let one = NotificationCopy.rundown(
+            tasks: [.init(title: "Gym", timeText: nil)],
+            totalDue: 1, hideTaskNames: false, petName: "Mochi", deck: &deck
+        )
+        #expect(one.title.hasPrefix("Good morning"))
+        #expect(one.body.contains("Just one today: Gym."))
 
         let hidden = NotificationCopy.rundown(
-            taskTitles: ["Pay rent", "Gym"], hideTaskNames: true, petName: "Mochi"
+            tasks: [
+                .init(title: "Pay rent", timeText: "9:00 AM"),
+                .init(title: "Gym", timeText: nil),
+            ],
+            totalDue: 2, hideTaskNames: true, petName: "Mochi", deck: &deck
         )
+        #expect(hidden.title.hasPrefix("Good morning"))
         #expect(!hidden.body.contains("rent"))
-        #expect(hidden.body.contains("2"))
+        #expect(hidden.body.contains("2 things on deck"))
+    }
+
+    @Test("the crushed beat keeps the greeting first; the opener replaces the warm line")
+    func rundownBeats() {
+        var deck = CopyDeck()
+        let crushed = NotificationCopy.rundown(
+            tasks: [.init(title: "Gym", timeText: nil)],
+            totalDue: 1, hideTaskNames: false, petName: "Mochi",
+            crushedYesterday: true, deck: &deck
+        )
+        #expect(crushed.title == "Good morning. You crushed yesterday")
+
+        let opened = NotificationCopy.rundown(
+            tasks: [.init(title: "Gym", timeText: nil)],
+            totalDue: 1, hideTaskNames: false, petName: "Mochi",
+            openerLine: "Six months of us today.", deck: &deck
+        )
+        #expect(opened.body.hasPrefix("Six months of us today.\n"),
+                "the opener replaces the warm line so the body stays two lines")
+        #expect(opened.body.split(separator: "\n").count == 2)
+        #expect(!opened.body.contains("rooting"),
+                "no stacked cheer line when the Personal Layer speaks")
+    }
+
+    @Test("rundown titles rotate through the deck without repeats until the pool cycles")
+    func rundownTitleRotation() {
+        var deck = CopyDeck()
+        var titles: Set<String> = []
+        for _ in NotificationCopy.rundownTitlePool {
+            titles.insert(NotificationCopy.rundown(
+                tasks: [], totalDue: 0, hideTaskNames: false, petName: "Mochi", deck: &deck
+            ).title)
+        }
+        #expect(titles.count == NotificationCopy.rundownTitlePool.count)
+    }
+
+    @Test("passive requests stay silent; everything else knocks audibly")
+    func soundFollowsUrgency() {
+        let plan = PlannedNotification(id: "due-t1", kind: .promise, fireAt: Dates.hours(1))
+        let content = NotificationCopy.Content(title: "t", body: "b")
+        func request(_ urgency: NotificationUrgency) -> ScheduledNotificationRequest {
+            ScheduledNotificationRequest(
+                plan: plan, content: content, urgency: urgency, categoryId: nil, threadId: nil
+            )
+        }
+        #expect(request(.timeSensitive).playsSound)
+        #expect(request(.active).playsSound)
+        #expect(!request(.passive).playsSound)
     }
 }
 
@@ -185,9 +257,11 @@ struct RundownRankerTests {
             makeTask(id: "chore", title: "Chore", dueAt: Dates.days(1)),
             makeTask(id: "done", title: "Done", dueAt: Dates.days(-3), hasTime: true, completed: true),
         ]
-        let top = RundownRanker.topTasks(from: tasks, at: fireAt)
-        #expect(top.map(\.id) == ["oldest", "younger", "noon"],
+        let ranking = RundownRanker.ranking(from: tasks, at: fireAt)
+        #expect(ranking.top.map(\.id) == ["oldest", "younger", "noon"],
                 "lateness descending, then today's timed; the cap squeezed out the date-only chore")
+        #expect(ranking.totalDue == 4,
+                "the true count survives the cap - copy says 4 things, not 3")
     }
 
     @Test("date-only tasks rank by priority when there's room")
@@ -420,14 +494,14 @@ struct NotificationRequestBuilderTests {
             completionTimes: (0..<5).map { WeightedCompletion(date: Dates.hours(Double(-$0))) },
             floorPhase: .acute, hideTaskNames: false, deck: &deck
         )
-        #expect(productive.content.title == "You crushed yesterday")
+        #expect(productive.content.title == "Good morning. You crushed yesterday")
 
         let ordinary = NotificationRequestBuilder.request(
             for: plan, tasksById: [:], allTasks: [],
             completionTimes: [WeightedCompletion(date: Dates.hours(-1))],
             floorPhase: .acute, hideTaskNames: false, deck: &deck
         )
-        #expect(ordinary.content.title != "You crushed yesterday")
+        #expect(!ordinary.content.title.contains("crushed"))
 
         // Effort D10 regression: crushed is a COUNT of things done. Two
         // Large completions carry a big momentum weight but must never
@@ -439,7 +513,7 @@ struct NotificationRequestBuilderTests {
             },
             floorPhase: .acute, hideTaskNames: false, deck: &deck
         )
-        #expect(twoLarge.content.title != "You crushed yesterday")
+        #expect(!twoLarge.content.title.contains("crushed"))
     }
 
     @Test("a resolved Personal-Layer slot governs the rundown (Feature 2)")
@@ -466,11 +540,12 @@ struct NotificationRequestBuilderTests {
         )
         #expect(opener.content.body.hasPrefix("One week with Nori today.\n"))
         #expect(opener.content.body.contains("Pay rent"))
-        #expect(opener.content.title != "You crushed yesterday",
+        #expect(!opener.content.title.contains("crushed"),
                 "the anniversary outranked crushed yesterday upstream; the title must not sneak it back")
 
         // A planner-decided empty slot suppresses the legacy fallback
-        // (e.g. a streak-claimed date renders nothing).
+        // (e.g. a streak-claimed date renders nothing) - the body falls
+        // back to the standard cheer + summary pair.
         let none = NotificationRequestBuilder.request(
             for: plan, tasksById: byId, allTasks: tasks,
             completionTimes: crushedWorthy,
@@ -478,8 +553,9 @@ struct NotificationRequestBuilderTests {
             personal: PersonalLayerSlot.none,
             deck: &deck
         )
-        #expect(none.content.title != "You crushed yesterday")
-        #expect(!none.content.body.contains("\n"))
+        #expect(!none.content.title.contains("crushed"))
+        #expect(none.content.body.split(separator: "\n").count == 2)
+        #expect(!none.content.body.hasPrefix("One week"))
 
         // No planner at all: the legacy crushed computation still runs.
         let unavailable = NotificationRequestBuilder.request(
@@ -489,7 +565,7 @@ struct NotificationRequestBuilderTests {
             personal: .unavailable,
             deck: &deck
         )
-        #expect(unavailable.content.title == "You crushed yesterday")
+        #expect(unavailable.content.title == "Good morning. You crushed yesterday")
 
         // A crushed-yesterday assignment keeps its title-override form.
         let crushed = NotificationRequestBuilder.request(
@@ -499,7 +575,7 @@ struct NotificationRequestBuilderTests {
             personal: .line(PersonalLayerContent(line: .crushedYesterday, opener: nil)),
             deck: &deck
         )
-        #expect(crushed.content.title == "You crushed yesterday")
+        #expect(crushed.content.title == "Good morning. You crushed yesterday")
     }
 
     @Test("the backstop reads as pure presence - safe at any staleness")

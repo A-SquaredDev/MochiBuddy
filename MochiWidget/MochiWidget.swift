@@ -137,6 +137,12 @@ struct MochiWidgetEntryView: View {
         entry.state?.nextTasks.first
     }
 
+    /// The medium family has room for the whole ranked handful (the
+    /// mirror already ships up to 3); the other families show one.
+    private var upcomingTasks: [MochiWidgetState.NextTask] {
+        Array((entry.state?.nextTasks ?? []).prefix(3))
+    }
+
     /// Pet-referential chrome uses the chosen name; the gallery
     /// displayName/description above stay "Mochi" (brand, not pet).
     private var petName: String {
@@ -232,21 +238,22 @@ struct MochiWidgetEntryView: View {
                         .foregroundStyle(theme.muted)
                         .textCase(.uppercase)
                 }
-                if let task = nextTask {
-                    HStack(spacing: 8) {
-                        if task.completable, entry.state?.displayState.allowsComplete == true {
-                            Button(intent: CompleteTaskIntent(taskId: task.id)) {
-                                Image(systemName: "circle")
-                                    .font(.system(size: 17, weight: .semibold))
-                                    .foregroundStyle(theme.primaryText)
+                if !upcomingTasks.isEmpty {
+                    ForEach(upcomingTasks, id: \.id) { task in
+                        HStack(spacing: 8) {
+                            if task.completable, entry.state?.displayState.allowsComplete == true {
+                                Button(intent: CompleteTaskIntent(taskId: task.id)) {
+                                    Image(systemName: "circle")
+                                        .font(.system(size: 15, weight: .semibold))
+                                        .foregroundStyle(theme.primaryText)
+                                }
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
-                        }
-                        VStack(alignment: .leading, spacing: 1) {
                             Text(taskTitle(task))
-                                .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                                .font(.system(size: 12, weight: .bold, design: .rounded))
                                 .foregroundStyle(theme.ink)
                                 .lineLimit(1)
+                            Spacer(minLength: 4)
                             Text(dueText(task))
                                 .font(.system(size: 10.5, weight: .bold, design: .rounded))
                                 .foregroundStyle(theme.muted)

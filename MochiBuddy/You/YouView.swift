@@ -12,6 +12,9 @@ struct YouView: View {
         YouBehavior.NavigationEvent
     >
     let router: any YouRouting
+    /// Set by the tab shell - lets a Home nudge hand off into a You
+    /// sub-screen (same survive-until-mounted pattern as the letter route).
+    var coordinator: TabCoordinator? = nil
 
     @Environment(\.mochiTheme) private var theme
     @Environment(\.openURL) private var openURL
@@ -54,7 +57,13 @@ struct YouView: View {
             .padding(EdgeInsets(top: 8, leading: 18, bottom: 24, trailing: 18))
         }
         .background(theme.bg)
-        .onAppear { viewModel.trigger(.refresh) }
+        .onAppear {
+            viewModel.trigger(.refresh)
+            consumePendingRoute()
+        }
+        .onChange(of: coordinator?.pendingYouRoute) {
+            consumePendingRoute()
+        }
         .alert(
             "Restore purchases",
             isPresented: viewModel.collectBinding(for: \.restoreMessage.isNotNil, action: .dismissRestoreMessage),
@@ -104,6 +113,15 @@ struct YouView: View {
             case .showDevScheduler: router.navigateToDevScheduler()
             #endif
             }
+        }
+    }
+
+    /// A Home nudge queued a You sub-screen - route there once mounted.
+    private func consumePendingRoute() {
+        guard let route = coordinator?.consumePendingYouRoute() else { return }
+        switch route {
+        case .notifications: router.navigateToNotifications()
+        case .appleReminders: router.navigateToAppleReminders()
         }
     }
 

@@ -82,6 +82,9 @@ final class UNNotificationScheduler: NotificationScheduling {
         if let threadId = request.threadId {
             content.threadIdentifier = threadId
         }
+        if request.playsSound {
+            content.sound = .default
+        }
 
         let trigger: UNNotificationTrigger
         switch Self.triggerSpec(for: request) {
@@ -174,9 +177,13 @@ final class MochiNotificationDelegate: NSObject, UNUserNotificationCenterDelegat
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
         // With the app open, Mochi's mood is live on screen - ambient
-        // pings stay silent; promises still banner (they're exact).
-        notification.request.identifier.hasPrefix(NotificationID.duePrefix)
-            ? [.banner, .sound]
-            : []
+        // pings stay silent; promises still banner (they're exact), and
+        // the rundown/letter at least land in Notification Center instead
+        // of being swallowed by an early morning app launch.
+        let id = notification.request.identifier
+        if id.hasPrefix(NotificationID.duePrefix) { return [.banner, .sound, .list] }
+        if id.hasPrefix(NotificationID.rundownPrefix) { return [.banner, .list] }
+        if id.hasPrefix(NotificationID.letterPrefix) { return [.list] }
+        return []
     }
 }

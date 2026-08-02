@@ -70,4 +70,25 @@ final class TabCoordinator {
         defer { pendingLetterRoute = nil }
         return pendingLetterRoute
     }
+
+    // MARK: - You handoff (setup nudges)
+
+    enum YouRoute: Equatable {
+        case notifications
+        case appleReminders
+    }
+
+    /// Same survive-until-mounted pattern as the letter route: set before
+    /// the tab switch, consumed by YouView once it's on screen.
+    private(set) var pendingYouRoute: YouRoute?
+
+    func openInYou(_ route: YouRoute) {
+        pendingYouRoute = route
+        selected = .you
+    }
+
+    func consumePendingYouRoute() -> YouRoute? {
+        defer { pendingYouRoute = nil }
+        return pendingYouRoute
+    }
 }

@@ -76,22 +76,22 @@ final class FirestoreUserProfileRepository: UserProfileRepository {
     }
 
     func fetchProfile(userId: String) async throws -> UserProfile? {
-        FirestoreReadLog.record(Self.self)
         let snapshot = try await document(userId).getDocument()
+        FirestoreReadLog.record(Self.self)
         guard snapshot.exists, let data = snapshot.data() else { return nil }
         return UserProfileMapper.map(UserProfileDTO(id: userId, data: data))
     }
 
     func fetchProfileFromServer(userId: String) async throws -> UserProfile? {
-        FirestoreReadLog.record(Self.self)
         let snapshot = try await document(userId).getDocument(source: .server)
+        FirestoreReadLog.record(Self.self)
         guard snapshot.exists, let data = snapshot.data() else { return nil }
         return UserProfileMapper.map(UserProfileDTO(id: userId, data: data))
     }
 
     func ensureProfile(for account: AuthAccount) async throws {
-        FirestoreReadLog.record(Self.self)
         let snapshot = try await document(account.uid).getDocument()
+        FirestoreReadLog.record(Self.self)
         guard !snapshot.exists else { return }
         FirestoreReadLog.recordWrite(Self.self)
         // Not awaited: with offline persistence on, server acks can be
@@ -135,6 +135,7 @@ final class FirestoreUserProfileRepository: UserProfileRepository {
                 "bedtimeSilence": prefs.bedtimeSilence,
                 "hideTaskNames": prefs.hideTaskNames,
                 "weeklyLetter": prefs.weeklyLetter,
+                "defaultReminderMinutes": prefs.defaultReminderMinutes.map { $0 as Any } ?? NSNull(),
             ],
         ], userId: userId)
     }

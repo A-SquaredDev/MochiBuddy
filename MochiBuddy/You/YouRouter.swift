@@ -57,7 +57,11 @@ final class YouRouter: YouRouting {
             relay: container.notificationOrchestrator,
             petIdentityStore: container.petIdentityStore
         )
-        return AnyView(YouView(viewModel: viewModel, router: self))
+        return AnyView(YouView(
+            viewModel: viewModel,
+            router: self,
+            coordinator: container.tabCoordinator
+        ))
     }
 
     func wakeMochi() {
@@ -204,6 +208,7 @@ final class YouRouter: YouRouting {
             observationLedger: container.observationLedger,
             callbackLedger: container.callbackLedger,
             suggestionLedger: container.suggestionLedger,
+            nudgeLedger: container.nudgeLedger,
             relay: container.notificationOrchestrator,
             membershipStore: container.membershipStore
         )

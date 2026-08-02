@@ -635,3 +635,65 @@ struct TaskEditorRecurringScopeTests {
         #expect(repo.deletedIds == ["r1"])
     }
 }
+
+@Suite("TaskEditor · local-first load")
+@MainActor
+struct TaskEditorLoadTests {
+
+    private func makeGatedVM() -> (TaskEditorViewModel, StubListRepository) {
+        let listRepo = StubListRepository()
+        listRepo.lists = [
+            TaskList(id: "l1", name: "Errands", colorHex: "#8FD3F4", icon: "cart.fill", order: 0),
+        ]
+        listRepo.gateFetches = true
+        let vm = TaskEditorViewModel(
+            editingTask: nil,
+            authRepository: StubAuthRepository(),
+            taskRepository: StubTaskRepository(),
+            listRepository: listRepo
+        )
+        return (vm, listRepo)
+    }
+
+    @Test("local chips render before the list fetch returns; lists merge when it lands")
+    func localChipsFirst() async {
+        let (vm, listRepo) = makeGatedVM()
+
+        let load = Task { await vm.triggerAsync(.load) }
+        // Wait until the load has both rebuilt locally AND parked on the
+        // gated fetch (fetchCount increments right before the suspension).
+        for _ in 0..<500 where vm.uiState.dateOptions.isEmpty || listRepo.fetchCount == 0 {
+            await Task.yield()
+        }
+
+        #expect(!vm.uiState.dateOptions.isEmpty, "date chips derive locally, before any fetch")
+        #expect(!vm.uiState.priorityOptions.isEmpty)
+        #expect(!vm.uiState.repeatOptions.isEmpty)
+        #expect(!vm.uiState.effortOptions.isEmpty)
+        #expect(vm.uiState.isLoadingLists == true)
+        #expect(!vm.uiState.listOptions.contains { $0.id == "l1" },
+                "the fetched list can't be there yet")
+
+        listRepo.releaseFetch()
+        await load.value
+        #expect(vm.uiState.isLoadingLists == false)
+        #expect(vm.uiState.listOptions.contains { $0.id == "l1" })
+    }
+
+    @Test("a picker opened while lists are still fetching stays open")
+    func openPickerSurvivesLateRebuild() async {
+        let (vm, listRepo) = makeGatedVM()
+
+        let load = Task { await vm.triggerAsync(.load) }
+        for _ in 0..<500 where vm.uiState.dateOptions.isEmpty || listRepo.fetchCount == 0 {
+            await Task.yield()
+        }
+        await vm.triggerAsync(.timeTapped)
+        #expect(vm.uiState.activePicker == .time)
+
+        listRepo.releaseFetch()
+        await load.value
+        #expect(vm.uiState.activePicker == .time,
+                "the late rebuild must not slam the user's picker shut")
+    }
+}

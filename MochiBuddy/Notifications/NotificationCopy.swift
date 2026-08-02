@@ -139,63 +139,96 @@ enum NotificationCopy {
     /// lock-screen privacy toggle swaps in the nameless variant.
     /// Promise copy never embeds the pet name (locked rule): a promise is
     /// never re-laid, so a rename must never need to touch one.
-    static func reminder(taskTitle: String?, hideTaskNames: Bool) -> Content {
+    static func reminder(taskTitle: String?, hideTaskNames: Bool, untimed: Bool = false) -> Content {
+        // Date-only tasks fire at the default reminder slot, not a chosen
+        // instant - "today", never a false "now".
+        let when = untimed ? "today" : "now"
         guard let taskTitle, !hideTaskNames else {
             return Content(
                 title: "Reminder",
-                body: "Something on your list is due now."
+                body: "Something on your list is due \(when)."
             )
         }
-        return Content(title: taskTitle, body: "Due now. Rooting for you.")
+        return Content(title: taskTitle, body: "Due \(when). Rooting for you.")
     }
 
     /// Yesterday needs at least this many completions to earn the
     /// "crushed it" beat. Remote-tunable, set once at launch.
     static var crushedYesterdayThreshold = 5
 
-    /// The morning briefing: tone flexes to the load, length never does.
-    /// A notably productive yesterday takes over the title - the no-cost
-    /// celebration beat folded in, never a separate ping. The one
-    /// Personal-Layer opener line (anniversary / callback / observation,
-    /// Feature 2's canonical priority already applied upstream) leads
-    /// the day's priorities in the body.
+    /// One line of the briefing's task summary. The builder pre-formats
+    /// the time so locale handling stays out of the copy layer.
+    struct RundownTaskLine: Equatable {
+        var title: String
+        /// "9:00 AM" for timed tasks, nil for date-only.
+        var timeText: String?
+    }
+
+    /// The greeting is the brand: every briefing leads with it so the
+    /// rundown is recognizable at a glance on a crowded lock screen.
+    static let rundownTitlePool = [
+        "Good morning",
+        "Good morning from {name}",
+    ]
+
+    static let rundownCheerPool = [
+        "{name} is up early and rooting for you.",
+        "One thing at a time. {name} will be right here.",
+        "{name} stretched, yawned, and believes in today.",
+        "Slow start is fine. {name} says so.",
+    ]
+
+    /// The morning briefing: always greeting-first, then one warm line
+    /// plus one compact summary - never a bare list of task titles, and
+    /// length never flexes with the load. A notably productive yesterday
+    /// joins the title - the no-cost celebration beat folded in, never a
+    /// separate ping. The one Personal-Layer opener line (anniversary /
+    /// callback / observation, Feature 2's canonical priority already
+    /// applied upstream) replaces the warm line so the body stays two
+    /// lines flat.
     static func rundown(
-        taskTitles: [String],
+        tasks: [RundownTaskLine],
+        totalDue: Int,
         hideTaskNames: Bool,
         petName: String,
         crushedYesterday: Bool = false,
-        openerLine: String? = nil
+        openerLine: String? = nil,
+        deck: inout CopyDeck
     ) -> Content {
-        guard !taskTitles.isEmpty else {
+        let title = if crushedYesterday {
+            "Good morning. You crushed yesterday"
+        } else {
+            PetCopyTemplate.render(
+                deck.next(from: rundownTitlePool, key: "rundown-title"), petName: petName
+            )
+        }
+        guard let first = tasks.first else {
             let restBody = PetCopyTemplate.render(
                 "Nothing due today. {name} is taking it easy with you.",
                 petName: petName
             )
             return Content(
-                title: crushedYesterday ? "You crushed yesterday" : "A calm day",
+                title: title,
                 body: openerLine.map { "\($0)\n\(restBody)" } ?? restBody
             )
         }
-        let title = if crushedYesterday {
-            "You crushed yesterday"
-        } else {
-            switch taskTitles.count {
-            case 1: "One thing today"
-            case 2: "A light day today"
-            default: "Big one today. We've got this"
-            }
-        }
-        let taskBody: String
+        let count = max(totalDue, tasks.count)
+        let summary: String
         if hideTaskNames {
-            let count = taskTitles.count
-            taskBody = "Your top \(count) \(count == 1 ? "task is" : "tasks are") ready when you are."
+            summary = "\(count) \(count == 1 ? "thing" : "things") on deck when you're ready."
+        } else if count == 1 {
+            summary = first.timeText
+                .map { "Just one today: \(first.title) at \($0)." }
+                ?? "Just one today: \(first.title)."
         } else {
-            taskBody = taskTitles.joined(separator: " · ")
+            summary = first.timeText
+                .map { "\(count) things today, starting with \(first.title) at \($0)." }
+                ?? "\(count) things today, starting with \(first.title)."
         }
-        return Content(
-            title: title,
-            body: openerLine.map { "\($0)\n\(taskBody)" } ?? taskBody
+        let lead = openerLine ?? PetCopyTemplate.render(
+            deck.next(from: rundownCheerPool, key: "rundown-cheer"), petName: petName
         )
+        return Content(title: title, body: "\(lead)\n\(summary)")
     }
 
     static func letterInvitation(petName: String, deck: inout CopyDeck) -> Content {

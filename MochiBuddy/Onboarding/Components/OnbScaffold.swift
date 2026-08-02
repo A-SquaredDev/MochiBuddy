@@ -80,6 +80,9 @@ struct OnbScaffold<Content: View, Footer: View>: View {
             }
             .padding(.horizontal, 4)
             .padding(.bottom, 2)
+            // Without an explicit alignment the row centers whenever the
+            // width-greedy progress bar is absent (back-only screens).
+            .frame(maxWidth: .infinity, alignment: .leading)
             .frame(height: 34)
         }
     }

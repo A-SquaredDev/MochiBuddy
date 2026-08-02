@@ -37,14 +37,6 @@ enum HomeBehavior {
         var id: String { task?.id ?? "new" }
     }
 
-    /// One compact row in the "This week" preview.
-    struct WeekPreviewItem: Equatable, Identifiable {
-        let id: String        // "d1"…"d6"
-        let dayLabel: String  // "Tomorrow" / "Fri"
-        let summary: String   // "Gym · Groceries +1 more"
-        let count: Int
-    }
-
     /// One "came due while you were away" row in the re-entry triage sheet.
     struct TriageItem: Equatable, Identifiable {
         let id: String
@@ -101,7 +93,6 @@ enum HomeBehavior {
         var todayItems: [TodoUIItem] = []
         /// Tasks completed today - their own section under Today.
         var doneTodayItems: [TodoUIItem] = []
-        var weekPreview: [WeekPreviewItem] = []
         /// "boost fades in ~12m" - nil when no boost is active.
         var boostFadeText: String?
         var leftText = "0 left"
@@ -111,6 +102,11 @@ enum HomeBehavior {
         var bufferLabel = "+0 / 30"
         var petActionMeta = "+8 · lasts ~15 min"
         var editingTask: EditingTask?
+        /// The one setup nudge for this foreground (notifications, widget,
+        /// Reminders import) - nil hides the banner.
+        var nudge: NudgeBanner?
+        /// The widget walkthrough sheet (nudge CTA).
+        var showWidgetHelp = false
     }
 
     enum ViewAction {
@@ -142,5 +138,9 @@ enum HomeBehavior {
         case triageRescheduleAll
         case triageDismissAll
         case triageLater
+        // Setup nudges.
+        case nudgeCtaTapped
+        case nudgeDismissed
+        case dismissWidgetHelp
     }
 }

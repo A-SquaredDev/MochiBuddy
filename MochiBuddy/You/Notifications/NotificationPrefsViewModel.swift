@@ -46,10 +46,23 @@ final class NotificationPrefsViewModel: StateViewModel<
                 petName = profile.mochiName
             }
             let status = await permissionService.authorizationStatus()
-            rebuildState(systemDenied: status == .denied)
+            rebuildState(permissionIssue: Self.issue(for: status))
+
+        case .enableFullNotifications:
+            // Only reachable from the provisional banner: provisional has
+            // not consumed the one-shot system dialog, so this shows the
+            // real prompt. (From .denied the View opens Settings instead.)
+            _ = await permissionService.requestAuthorization()
+            let status = await permissionService.authorizationStatus()
+            rebuildState(permissionIssue: Self.issue(for: status))
+            relay.requestRelay(.prefsChange)
 
         case .setTaskReminders(let isOn):
             prefs.taskReminders = isOn
+            await applyChange()
+
+        case .setDefaultReminderTime(let date):
+            prefs.defaultReminderMinutes = Self.minutes(from: date)
             await applyChange()
 
         case .setMorningRundown(let isOn):
@@ -77,29 +90,54 @@ final class NotificationPrefsViewModel: StateViewModel<
     private var userId: String? { authRepository.currentAccount?.uid }
 
     private func applyChange() async {
-        rebuildState(systemDenied: uiState.systemDenied)
+        rebuildState(permissionIssue: uiState.permissionIssue)
         guard let userId else { return }
         try? await profileRepository.saveNotificationPrefs(prefs, userId: userId)
         relay.requestRelay(.prefsChange)
     }
 
-    private func rebuildState(systemDenied: Bool) {
+    private static func issue(
+        for status: UNAuthorizationStatus
+    ) -> NotificationPrefsBehavior.PermissionIssue? {
+        switch status {
+        case .denied: .denied
+        case .provisional: .provisional
+        default: nil
+        }
+    }
+
+    private func rebuildState(permissionIssue: NotificationPrefsBehavior.PermissionIssue?) {
         setUIState(
             uiState
                 .updating(\.petName, to: petName)
                 .updating(\.taskReminders, to: prefs.taskReminders)
+                .updating(
+                    \.defaultReminderTime,
+                    to: Self.date(fromMinutes: prefs.effectiveDefaultReminderMinutes)
+                )
                 .updating(\.morningRundown, to: prefs.morningRundown)
                 .updating(\.moodDips, to: prefs.moodDips)
                 .updating(\.bedtimeSilence, to: prefs.bedtimeSilence)
                 .updating(\.bedtimeSilenceSub, to: "No pings \(Self.window(bedtime))")
                 .updating(\.hideTaskNames, to: prefs.hideTaskNames)
                 .updating(\.weeklyLetter, to: prefs.weeklyLetter)
-                .updating(\.systemDenied, to: systemDenied)
+                .updating(\.permissionIssue, to: permissionIssue)
         )
     }
 
     private static func window(_ bedtime: BedtimeWindow) -> String {
         "\(time(bedtime.startMinutes)) – \(time(bedtime.endMinutes))"
+    }
+
+    private static func date(fromMinutes minutes: Int) -> Date {
+        Calendar.current.date(
+            from: DateComponents(hour: minutes / 60, minute: minutes % 60)
+        ) ?? .now
+    }
+
+    private static func minutes(from date: Date) -> Int {
+        let parts = Calendar.current.dateComponents([.hour, .minute], from: date)
+        return (parts.hour ?? 9) * 60 + (parts.minute ?? 0)
     }
 
     private static func time(_ minutes: Int) -> String {

@@ -90,11 +90,30 @@ final class TaskEditorViewModel: ObservableStateViewModel<
     override func triggerAsync(_ action: TaskEditorBehavior.ViewAction) async {
         switch action {
         case .load:
-            if let userId {
-                lists = (try? await listRepository.fetchLists(userId: userId)) ?? []
-            }
-            suggestionSession = await suggestionService?.beginSession(editingTask: editingTask)
+            // Everything except the list chips derives locally from the
+            // draft - build it all immediately so the editor never pops in
+            // late, then let the two fetches patch state as each lands.
+            // The structured group keeps `.load` awaitable to completion.
+            state.isLoadingLists = userId != nil
             rebuild(picker: .none)
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask { @MainActor [weak self] in
+                    guard let self else { return }
+                    if let userId = self.userId {
+                        self.lists = (try? await self.listRepository.fetchLists(userId: userId)) ?? []
+                    }
+                    self.state.isLoadingLists = false
+                    // Rebuild with whatever picker the user has open - a
+                    // late fetch must never slam their picker shut.
+                    self.rebuild(picker: self.uiState.activePicker)
+                }
+                group.addTask { @MainActor [weak self] in
+                    guard let self else { return }
+                    self.suggestionSession = await self.suggestionService?
+                        .beginSession(editingTask: self.editingTask)
+                    self.rebuild(picker: self.uiState.activePicker)
+                }
+            }
 
         case .titleChanged(let title):
             draft.title = title

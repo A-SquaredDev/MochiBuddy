@@ -56,13 +56,15 @@ struct HomeView: View {
                     if viewModel.showVacationCheckIn {
                         vacationCheckIn
                     }
+                    if let nudge = viewModel.nudge {
+                        nudgeBanner(nudge)
+                    }
                     petStage
                     if !viewModel.isLapsed {
                         quickAdd
                     }
                     todaySection
                     doneTodaySection
-                    weekSection
                 }
             }
             .padding(EdgeInsets(top: 8, leading: 18, bottom: 24, trailing: 18))
@@ -92,6 +94,15 @@ struct HomeView: View {
         }
         .sheet(isPresented: viewModel.collectBinding(for: \.showTriage, action: .triageLater)) {
             triageSheet
+        }
+        .sheet(
+            isPresented: viewModel.collectBinding(for: \.showWidgetHelp, action: .dismissWidgetHelp)
+        ) {
+            WidgetHelpSheet {
+                viewModel.trigger(.dismissWidgetHelp)
+            }
+            .presentationDetents([.medium])
+            .environment(\.mochiTheme, theme)
         }
     }
 
@@ -276,6 +287,48 @@ struct HomeView: View {
         .padding(EdgeInsets(top: 10, leading: 12, bottom: 10, trailing: 12))
         .background(theme.surface, in: RoundedRectangle(cornerRadius: MochiRadius.md))
         .overlay(RoundedRectangle(cornerRadius: MochiRadius.md).stroke(theme.line, lineWidth: 1.5))
+    }
+
+    // MARK: - Setup nudge
+
+    /// Occasional setup reminder (notifications / widget / Reminders
+    /// import) - in-app only, never a push, generously spaced upstream.
+    private func nudgeBanner(_ nudge: NudgeBanner) -> some View {
+        HStack(spacing: 9) {
+            Image(systemName: nudgeIcon(nudge.topic))
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(theme.primaryText)
+            Text(nudge.text)
+                .font(MochiFont.body(12, weight: .heavy))
+                .foregroundStyle(theme.ink)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Button(nudge.ctaTitle) {
+                viewModel.trigger(.nudgeCtaTapped)
+                if nudge.action == .openSystemSettings {
+                    openURL(MochiLinks.systemSettings)
+                }
+            }
+            .font(MochiFont.body(11.5, weight: .heavy))
+            .foregroundStyle(theme.primaryText)
+            Button {
+                viewModel.trigger(.nudgeDismissed)
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 11, weight: .heavy))
+                    .foregroundStyle(theme.muted)
+            }
+        }
+        .padding(EdgeInsets(top: 10, leading: 12, bottom: 10, trailing: 12))
+        .background(theme.surface, in: RoundedRectangle(cornerRadius: MochiRadius.md))
+        .overlay(RoundedRectangle(cornerRadius: MochiRadius.md).stroke(theme.line, lineWidth: 1.5))
+    }
+
+    private func nudgeIcon(_ topic: NudgeTopic) -> String {
+        switch topic {
+        case .notifications: "bell.badge"
+        case .widget: "square.grid.2x2"
+        case .remindersImport: "checklist"
+        }
     }
 
     /// Open-ended, two weeks in: never a push, purely opportunistic here.
@@ -548,40 +601,6 @@ struct HomeView: View {
                     .padding(.horizontal, 2)
                     MochiTimeline(items: viewModel.doneTodayItems, dotColor: timelineDot) { item in
                         todoRow(item)
-                    }
-                }
-                .padding(.top, 4)
-            }
-        }
-    }
-
-    // MARK: - This week
-
-    private var weekSection: some View {
-        Group {
-            if !viewModel.weekPreview.isEmpty {
-                MochiCard(padding: EdgeInsets(top: 12, leading: 15, bottom: 12, trailing: 15)) {
-                    VStack(spacing: 8) {
-                        MochiEyebrow(text: "This week")
-                        ForEach(viewModel.weekPreview) { day in
-                            HStack(spacing: 8) {
-                                Text(day.dayLabel)
-                                    .font(MochiFont.body(11, weight: .heavy))
-                                    .foregroundStyle(theme.ink)
-                                    .frame(width: 74, alignment: .leading)
-                                Text(day.summary)
-                                    .font(MochiFont.body(11, weight: .bold))
-                                    .foregroundStyle(theme.muted)
-                                    .lineLimit(1)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                Text("\(day.count)")
-                                    .font(MochiFont.body(10, weight: .heavy))
-                                    .foregroundStyle(theme.muted)
-                                    .padding(EdgeInsets(top: 1, leading: 7, bottom: 1, trailing: 7))
-                                    .background(theme.surface2, in: Capsule())
-                                    .overlay(Capsule().stroke(theme.line, lineWidth: 1))
-                            }
-                        }
                     }
                 }
                 .padding(.top, 4)

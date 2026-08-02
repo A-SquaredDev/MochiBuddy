@@ -38,6 +38,10 @@ struct ScheduledNotificationRequest: Equatable {
     /// Repeating calendar pattern for recurring promises; nil schedules
     /// the single next fire.
     var repeatingComponents: DateComponents? = nil
+
+    /// Passive stays silent by design (gentle nudges, never nags);
+    /// everything else knocks audibly.
+    var playsSound: Bool { urgency != .passive }
 }
 
 /// A pending request as the system reports it - the dev inspector's raw
@@ -87,7 +91,11 @@ enum NotificationRequestBuilder {
             plan.repeats = repeating != nil
             return ScheduledNotificationRequest(
                 plan: plan,
-                content: NotificationCopy.reminder(taskTitle: task?.title, hideTaskNames: hideTaskNames),
+                content: NotificationCopy.reminder(
+                    taskTitle: task?.title,
+                    hideTaskNames: hideTaskNames,
+                    untimed: task?.hasTime == false
+                ),
                 urgency: .timeSensitive,
                 categoryId: NotificationCategoryID.reminder,
                 threadId: nil,
@@ -107,7 +115,8 @@ enum NotificationRequestBuilder {
             )
 
         case .rundown:
-            let top = RundownRanker.topTasks(from: allTasks, at: plan.fireAt, calendar: calendar)
+            let ranking = RundownRanker.ranking(from: allTasks, at: plan.fireAt, calendar: calendar)
+            let top = ranking.top
             // The one Personal-Layer line per rundown (Feature 2's
             // canonical priority: streak milestone > anniversary >
             // crushed yesterday > callback > observation) arrives
@@ -140,11 +149,20 @@ enum NotificationRequestBuilder {
             return ScheduledNotificationRequest(
                 plan: plan,
                 content: NotificationCopy.rundown(
-                    taskTitles: top.map(\.title),
+                    tasks: top.map { task in
+                        NotificationCopy.RundownTaskLine(
+                            title: task.title,
+                            timeText: task.hasTime
+                                ? task.dueAt?.formatted(date: .omitted, time: .shortened)
+                                : nil
+                        )
+                    },
+                    totalDue: ranking.totalDue,
                     hideTaskNames: hideTaskNames,
                     petName: petName,
                     crushedYesterday: crushed,
-                    openerLine: opener
+                    openerLine: opener,
+                    deck: &deck
                 ),
                 urgency: .active,
                 categoryId: nil,

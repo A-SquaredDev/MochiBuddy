@@ -52,6 +52,33 @@ struct TodoItemRow: View {
                 rowContent
             }
             .buttonStyle(.plain)
+            .contextMenu {
+                Button {
+                    onToggle()
+                } label: {
+                    Label(
+                        isDone ? "Mark incomplete" : "Complete",
+                        systemImage: isDone ? "arrow.uturn.backward" : "checkmark"
+                    )
+                }
+                Button {
+                    onTap()
+                } label: {
+                    Label("Open", systemImage: "square.and.pencil")
+                }
+            } preview: {
+                TodoItemPreview(
+                    title: title,
+                    meta: meta,
+                    state: state,
+                    chip: chip,
+                    listName: listName,
+                    listColor: listColor,
+                    sourceBadge: sourceBadge,
+                    isRecurring: isRecurring
+                )
+                .environment(\.mochiTheme, theme)
+            }
         } else {
             rowContent
         }
@@ -161,15 +188,6 @@ struct TodoItemRow: View {
             RoundedRectangle(cornerRadius: MochiRadius.md)
                 .stroke(state == .overdue ? .clear : theme.line, lineWidth: 1.5)
         )
-        .overlay(alignment: .leading) {
-            // "Due soon" gets an unmistakable accent, not just a bold date.
-            if state == .due {
-                Capsule()
-                    .fill(theme.warn)
-                    .frame(width: 3)
-                    .padding(EdgeInsets(top: 6, leading: 4, bottom: 6, trailing: 0))
-            }
-        }
         .opacity(isDone ? 0.6 : 1)
         .animation(MochiMotion.soft, value: state)
     }
@@ -191,5 +209,100 @@ struct TodoItemRow: View {
         case .due: (theme.warnSoft, theme.warn)
         case .normal, .done: (theme.primarySoft, theme.primaryText)
         }
+    }
+}
+
+/// Long-press preview card: the row's full metadata with no truncation.
+private struct TodoItemPreview: View {
+    let title: String
+    var meta: String?
+    var state: TodoRowState
+    var chip: String?
+    var listName: String?
+    var listColor: Color?
+    var sourceBadge: String?
+    var isRecurring: Bool
+
+    @Environment(\.mochiTheme) private var theme
+
+    private var metaColor: Color {
+        switch state {
+        case .overdue: theme.danger
+        case .due: theme.warn
+        case .normal, .done: theme.muted
+        }
+    }
+
+    private var chipColors: (fill: Color, text: Color) {
+        switch state {
+        case .overdue: (theme.dangerSoft, theme.danger)
+        case .due: (theme.warnSoft, theme.warn)
+        case .normal, .done: (theme.primarySoft, theme.primaryText)
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(MochiFont.body(14, weight: .heavy))
+                .foregroundStyle(theme.ink)
+                .strikethrough(state == .done, color: theme.muted)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let meta {
+                HStack(spacing: 5) {
+                    if state == .due {
+                        Image(systemName: "clock.fill")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(theme.warn)
+                    }
+                    Text(meta)
+                        .font(MochiFont.body(11.5, weight: .bold))
+                        .foregroundStyle(metaColor)
+                }
+            }
+
+            if listName != nil || chip != nil || sourceBadge != nil || isRecurring {
+                HStack(spacing: 8) {
+                    if let listName {
+                        HStack(spacing: 5) {
+                            Circle()
+                                .fill(listColor ?? theme.muted)
+                                .frame(width: 8, height: 8)
+                            Text(listName)
+                                .font(MochiFont.body(11, weight: .bold))
+                                .foregroundStyle(theme.muted)
+                        }
+                    }
+                    if let chip {
+                        Text(chip)
+                            .font(MochiFont.body(10.5, weight: .heavy))
+                            .foregroundStyle(chipColors.text)
+                            .padding(EdgeInsets(top: 2.5, leading: 8, bottom: 2.5, trailing: 8))
+                            .background(chipColors.fill, in: Capsule())
+                    }
+                    if let sourceBadge {
+                        Text(sourceBadge)
+                            .font(MochiFont.body(10, weight: .heavy))
+                            .foregroundStyle(theme.muted)
+                            .padding(EdgeInsets(top: 2, leading: 6, bottom: 2, trailing: 6))
+                            .background(theme.surface, in: Capsule())
+                            .overlay(Capsule().stroke(theme.line, lineWidth: 1))
+                    }
+                    if isRecurring {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                                .font(.system(size: 10, weight: .bold))
+                            Text("Repeats")
+                                .font(MochiFont.body(11, weight: .bold))
+                        }
+                        .foregroundStyle(theme.muted)
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .frame(minWidth: 260, maxWidth: 340, alignment: .leading)
+        .background(theme.surface2)
     }
 }

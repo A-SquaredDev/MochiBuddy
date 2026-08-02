@@ -147,8 +147,22 @@ struct TaskEditorView: View {
                         .fixedSize(horizontal: true, vertical: false)
                     }
                     fieldBlock("List") {
-                        choiceRow(viewModel.listOptions, selected: viewModel.selectedListId) {
-                            viewModel.trigger(.selectList($0))
+                        if viewModel.isLoadingLists {
+                            // Inbox is local and could render now, but the
+                            // whole row appearing at once beats a lone chip
+                            // gaining neighbors a beat later.
+                            HStack(spacing: 7) {
+                                ForEach(0..<3, id: \.self) { index in
+                                    SkeletonBone(
+                                        width: [64, 88, 72][index], height: 30, radius: 15
+                                    )
+                                }
+                            }
+                            .mochiShimmer()
+                        } else {
+                            choiceRow(viewModel.listOptions, selected: viewModel.selectedListId) {
+                                viewModel.trigger(.selectList($0))
+                            }
                         }
                     }
                     fieldBlock("Repeat") {

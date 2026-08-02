@@ -183,6 +183,9 @@ final class DevSchedulerViewModel: StateViewModel<
             state.scrubDate = nil
             state.scrubValue = nil
             state.scrubText = ""
+            // Resample so short windows get genuinely finer curve steps,
+            // not a zoomed-in view of the 30-minute samples.
+            await rebuild()
 
         case .rowTapped(let id):
             state.expandedRowId = uiState.expandedRowId == id ? nil : id
@@ -224,7 +227,17 @@ final class DevSchedulerViewModel: StateViewModel<
         let horizonDays = NotificationOrchestrator.Constants.horizonDays
         let requestedEnd = Calendar.current.date(byAdding: .day, value: horizonDays, to: now) ?? now
         let end = MoodForecast.horizonEnd(requested: requestedEnd, snapshot: snapshot)
-        let samples = MoodForecast.curve(until: requestedEnd, snapshot: snapshot, resolution: 30 * 60)
+        // The chart clips to the visible window, so only sample that far;
+        // the resolution follows the range to keep the point count sane.
+        let visibleEnd = min(
+            requestedEnd,
+            now.addingTimeInterval(TimeInterval(uiState.rangeHours) * 3600)
+        )
+        let samples = MoodForecast.curve(
+            until: visibleEnd,
+            snapshot: snapshot,
+            resolution: Self.curveResolution(rangeHours: uiState.rangeHours)
+        )
         let pending = await scheduler.pendingRequests()
 
         var next = uiState
@@ -251,6 +264,12 @@ final class DevSchedulerViewModel: StateViewModel<
             ? "\(Self.dateText(end, now: now)) · capped by entitlement expiry (full \(horizonDays)d)"
             : "\(Self.dateText(end, now: now)) · full \(horizonDays)d"
         next.entitlementText = Self.entitlementText(for: membershipSession.status, now: now)
+        if membershipSession.isLapsed {
+            // The planner's lapsed gate (which counts notSubscribed) drops
+            // these entirely - make that visible so a dev build without a
+            // sandbox purchase never reads as "notifications are broken".
+            next.entitlementText += " · PLANNER DROPS rundown/mood/letter while lapsed"
+        }
 
         next.curve = samples.map { .init(date: $0.date, value: $0.value) }
         next.ghostCurve = Self.ghostCurve(
@@ -408,6 +427,16 @@ final class DevSchedulerViewModel: StateViewModel<
         state.scrubText = text
     }
 
+    /// Granularity follows the window: 12h reads at 5-minute steps while
+    /// 7d stays coarse enough to keep the chart light.
+    private static func curveResolution(rangeHours: Int) -> TimeInterval {
+        switch rangeHours {
+        case ...12: 5 * 60
+        case ...24: 10 * 60
+        default: 30 * 60
+        }
+    }
+
     /// Forecast preview past the entitlement cap. Anchored at the cap so
     /// the dashed line continues exactly where the solid one ends.
     private static func ghostCurve(
@@ -547,10 +576,10 @@ private struct DevNetworkMeterSection: View {
                     Text("Firestore calls today")
                         .font(MochiFont.body(11, weight: .heavy))
                         .foregroundStyle(theme.muted)
-                    Text("\(snapshot.total) total · \(snapshot.reads) reads · \(snapshot.writes) writes")
+                    Text("\(snapshot.total) total · \(snapshot.reads) read docs · \(snapshot.writes) writes")
                         .font(MochiFont.display(15, weight: .semibold))
                         .foregroundStyle(theme.ink)
-                    Text("Resets at midnight · batches count once · SDK traffic not counted")
+                    Text("Reads are billed documents (matches the console) · resets at midnight · batches count once · SDK traffic not counted")
                         .font(MochiFont.body(9.5, weight: .bold))
                         .foregroundStyle(theme.muted)
                 }
@@ -768,6 +797,7 @@ struct DevSchedulerView: View {
                 Picker("range", selection: viewModel.collectBinding(
                     for: \.rangeHours, action: { .rangeChanged($0) }
                 )) {
+                    Text("12h").tag(12)
                     Text("24h").tag(24)
                     Text("3d").tag(72)
                     Text("7d").tag(168)

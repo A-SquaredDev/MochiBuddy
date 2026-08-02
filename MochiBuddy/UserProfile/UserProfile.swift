@@ -82,6 +82,16 @@ struct NotificationPrefs: Equatable {
     /// The Sunday letter invitation (Feature 3). Reading never depends on
     /// it - the letter always arrives in-app.
     var weeklyLetter = true
+    /// Minutes since local midnight when a dated-but-untimed task's
+    /// reminder fires. Nil means the standard morning slot.
+    var defaultReminderMinutes: Int?
+
+    static let standardDefaultReminderMinutes = 9 * 60
+
+    /// The effective wall-clock minute for date-only reminders.
+    var effectiveDefaultReminderMinutes: Int {
+        defaultReminderMinutes ?? Self.standardDefaultReminderMinutes
+    }
 
     static let standard = NotificationPrefs()
 }

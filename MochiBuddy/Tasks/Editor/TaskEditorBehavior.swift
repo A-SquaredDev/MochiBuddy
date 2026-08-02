@@ -76,6 +76,9 @@ enum TaskEditorBehavior {
         var selectedPriorityId = TaskPriority.med.rawValue
         var listOptions: [ChoiceChip] = []
         var selectedListId = "inbox"
+        /// True while the user's lists are still fetching - the list row
+        /// shows skeleton pills so nothing pops in late.
+        var isLoadingLists = false
         var repeatOptions: [ChoiceChip] = []
         var selectedRepeatId = "none"
         /// Non-empty only while the custom repeat cadence is selected.

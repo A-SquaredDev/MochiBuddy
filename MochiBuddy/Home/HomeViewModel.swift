@@ -31,6 +31,7 @@ final class HomeViewModel: StateViewModel<
     private let memoriesService: MemoriesService?
     private let journalCoordinator: TabCoordinator?
     private let widgetDrain: WidgetCompletionDrain?
+    private let nudgeCenter: NudgeCenter?
 
     // Domain source of truth - UIState is derived from these.
     /// Incomplete tasks only; completions move to `completedToday`.
@@ -72,7 +73,8 @@ final class HomeViewModel: StateViewModel<
         letterService: LetterCompositionService? = nil,
         memoriesService: MemoriesService? = nil,
         journalCoordinator: TabCoordinator? = nil,
-        widgetDrain: WidgetCompletionDrain? = nil
+        widgetDrain: WidgetCompletionDrain? = nil,
+        nudgeCenter: NudgeCenter? = nil
     ) {
         self.authRepository = authRepository
         self.profileRepository = profileRepository
@@ -90,6 +92,7 @@ final class HomeViewModel: StateViewModel<
         self.memoriesService = memoriesService
         self.journalCoordinator = journalCoordinator
         self.widgetDrain = widgetDrain
+        self.nudgeCenter = nudgeCenter
         super.init(initialState: HomeBehavior.UIState())
     }
 
@@ -204,6 +207,35 @@ final class HomeViewModel: StateViewModel<
             triageTaskIds = []
             state.showTriage = false
             rebuildDerivedState()
+
+        case .nudgeCtaTapped:
+            guard let banner = uiState.nudge else { return }
+            if let userId {
+                nudgeCenter?.acted(banner.topic, userId: userId)
+            }
+            state.nudge = nil
+            switch banner.action {
+            case .showWidgetHelp:
+                state.showWidgetHelp = true
+            case .openNotificationSettings:
+                journalCoordinator?.openInYou(.notifications)
+            case .openAppleReminders:
+                journalCoordinator?.openInYou(.appleReminders)
+            case .openSystemSettings:
+                // The View opens the Settings URL - environment openURL
+                // lives there. Recording acted + clearing is ours.
+                break
+            }
+
+        case .nudgeDismissed:
+            guard let banner = uiState.nudge else { return }
+            if let userId {
+                nudgeCenter?.dismissed(banner.topic, userId: userId)
+            }
+            state.nudge = nil
+
+        case .dismissWidgetHelp:
+            state.showWidgetHelp = false
         }
     }
 
@@ -358,7 +390,24 @@ final class HomeViewModel: StateViewModel<
         // milestone owns a collided date; silent on vacation and lapse).
         await memoriesService?.checkAnniversaryBanner(now: .now)
 
+        await evaluateNudgeIfNeeded(userId: userId)
+
         rebuildDerivedState()
+    }
+
+    /// One evaluation (and at most one recordShown) per foreground pulse -
+    /// tab switches re-trigger .refresh but must not inflate shown counts.
+    private var nudgeEvaluatedPulse = -1
+
+    private func evaluateNudgeIfNeeded(userId: String) async {
+        guard let nudgeCenter, let profile = lastProfile else { return }
+        let pulse = journalCoordinator?.foregroundPulse ?? 0
+        guard nudgeEvaluatedPulse != pulse else { return }
+        nudgeEvaluatedPulse = pulse
+        if let banner = await nudgeCenter.evaluate(userId: userId, profile: profile) {
+            state.nudge = banner
+            nudgeCenter.recordShown(banner.topic, userId: userId)
+        }
     }
 
     // MARK: - Actions
@@ -522,7 +571,6 @@ final class HomeViewModel: StateViewModel<
         next.todayDateText = now.formatted(.dateTime.weekday(.wide).day().month(.wide))
         next.todayItems = scoped.map { item(for: $0, now: now) }
         next.doneTodayItems = completedToday.map { item(for: $0, now: now) }
-        next.weekPreview = weekPreview(now: now)
         next.boostFadeText = lapsed ? nil : boostFadeText(buffer: buffer, now: now)
         next.leftText = "\(scoped.count) left"
         next.showEmptyToday = scoped.isEmpty
@@ -561,35 +609,6 @@ final class HomeViewModel: StateViewModel<
                 return l < r
             }
             .map(\.0)
-    }
-
-    /// Days 1…6 out, one compact row per day that has tasks.
-    private func weekPreview(now: Date) -> [HomeBehavior.WeekPreviewItem] {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: now)
-        var byOffset: [Int: [TaskItem]] = [:]
-        for task in tasks {
-            guard let dueAt = task.dueAt else { continue }
-            let offset = calendar.dateComponents(
-                [.day], from: today, to: calendar.startOfDay(for: dueAt)
-            ).day ?? 0
-            guard (1...6).contains(offset) else { continue }
-            byOffset[offset, default: []].append(task)
-        }
-        return byOffset.keys.sorted().map { offset in
-            let day = calendar.date(byAdding: .day, value: offset, to: today) ?? today
-            let dayTasks = byOffset[offset]!.sorted {
-                ($0.dueAt ?? .distantFuture) < ($1.dueAt ?? .distantFuture)
-            }
-            let titles = dayTasks.prefix(2).map(\.title).joined(separator: " · ")
-            let extra = dayTasks.count - min(dayTasks.count, 2)
-            return HomeBehavior.WeekPreviewItem(
-                id: "d\(offset)",
-                dayLabel: offset == 1 ? "Tomorrow" : day.formatted(.dateTime.weekday(.abbreviated)),
-                summary: extra > 0 ? "\(titles) +\(extra) more" : titles,
-                count: dayTasks.count
-            )
-        }
     }
 
     private func boostFadeText(buffer: Double, now: Date) -> String? {

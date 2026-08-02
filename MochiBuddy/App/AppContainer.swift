@@ -73,6 +73,8 @@ final class AppContainer {
     let memoriesService: MemoriesService
     let suggestionLedger = SuggestionLedger()
     let suggestionService: SuggestionService
+    let nudgeLedger = NudgeLedger()
+    let nudgeCenter: NudgeCenter
     /// Tab selection + the letter handoff into the Journal (Feature 6).
     let tabCoordinator = TabCoordinator(telemetry: OSLogJournalTelemetry())
     let letterRepository: LetterRepository
@@ -101,7 +103,12 @@ final class AppContainer {
         )
         cachingTaskRepository = taskCache
         taskRepository = taskCache
-        listRepository = FirestoreListRepository(firestore: firestore)
+        // Lists are read from a dozen surfaces and written from two; the
+        // write-through cache turns all of those reads into memory hits
+        // with a TTL background refresh for cross-device edits.
+        listRepository = CachingListRepository(
+            wrapping: FirestoreListRepository(firestore: firestore)
+        )
         // -mochiLocalMembership keeps membership device-local for UI work
         // without touching StoreKit/sandbox.
         membershipStore = ProcessInfo.processInfo.arguments.contains("-mochiLocalMembership")
@@ -127,7 +134,9 @@ final class AppContainer {
         )
         // Feature 6: the Journal's synced moment records and their one
         // producer funnel (payload derivation stays in the pure factory).
-        momentRepository = FirestoreMomentRepository(firestore: firestore)
+        momentRepository = CachingMomentRepository(
+            wrapping: FirestoreMomentRepository(firestore: firestore)
+        )
         momentWriter = MomentWriter(
             authRepository: authRepository,
             momentRepository: momentRepository,
@@ -185,6 +194,14 @@ final class AppContainer {
             telemetry: OSLogSuggestionTelemetry(),
             calendar: .autoupdatingCurrent
         )
+        // Setup nudges: occasional Home banners for skipped onboarding
+        // steps (notifications / widget / Reminders import).
+        nudgeCenter = NudgeCenter(
+            ledger: nudgeLedger,
+            permissionService: notificationPermissionService,
+            widgetDetector: WidgetCenterInstallDetector(),
+            membershipSession: membershipSession
+        )
         memoriesService = MemoriesService(
             authRepository: authRepository,
             profileRepository: profileRepository,
@@ -209,7 +226,12 @@ final class AppContainer {
                 now: request.now
             ) ?? [:]
         }
-        letterRepository = FirestoreLetterRepository(firestore: firestore)
+        // The archive query used to run on every foreground (refreshUnread)
+        // and every Journal visit; the barrier reads inside composition
+        // still hit the server through the decorator's FromServer paths.
+        letterRepository = CachingLetterRepository(
+            wrapping: FirestoreLetterRepository(firestore: firestore)
+        )
         letterCompositionService = LetterCompositionService(
             authRepository: authRepository,
             profileRepository: profileRepository,

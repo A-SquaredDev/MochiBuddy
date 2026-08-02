@@ -85,26 +85,3 @@ struct FinishView: View {
         .accessibilityHidden(true)
     }
 }
-
-/// The Mochi widget ships with the widget-extension milestone; until then,
-/// walk the user through where widgets are added.
-private struct WidgetHelpSheet: View {
-    let onDone: () -> Void
-
-    @Environment(\.mochiTheme) private var theme
-
-    var body: some View {
-        ZStack {
-            theme.bg.ignoresSafeArea()
-            VStack(spacing: 16) {
-                MochiPetView(vitality: 90, size: 90)
-                OnbHeading(
-                    title: "Adding the widget",
-                    bodyText: "Touch and hold your home screen, tap Edit, then Add Widget, and search for Mochi. The Mochi widget arrives with the next update. We'll nudge you when it's live."
-                )
-                MochiButton(title: "Got it") { onDone() }
-            }
-            .padding(24)
-        }
-    }
-}

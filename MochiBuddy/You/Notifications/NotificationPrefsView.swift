@@ -24,8 +24,10 @@ struct NotificationPrefsView: View {
                     onBack: { router.navigateBack() }
                 )
 
-                if viewModel.systemDenied {
-                    deniedBanner
+                switch viewModel.permissionIssue {
+                case .denied: deniedBanner
+                case .provisional: provisionalBanner
+                case nil: EmptyView()
                 }
 
                 MochiCard(padding: EdgeInsets(top: 0, leading: 15, bottom: 0, trailing: 15)) {
@@ -36,6 +38,32 @@ struct NotificationPrefsView: View {
                             isOn: viewModel.collectBinding(for: \.taskReminders, action: { .setTaskReminders($0) })
                         )
                         .padding(.vertical, 13)
+                        MochiDashedDivider()
+                        HStack(spacing: 11) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Default reminder time")
+                                    .font(MochiFont.body(13, weight: .heavy))
+                                    .foregroundStyle(theme.ink)
+                                Text("For tasks with a date but no time")
+                                    .font(MochiFont.body(11, weight: .bold))
+                                    .foregroundStyle(theme.muted)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            DatePicker(
+                                "",
+                                selection: viewModel.collectBinding(
+                                    for: \.defaultReminderTime,
+                                    action: { .setDefaultReminderTime($0) }
+                                ),
+                                displayedComponents: .hourAndMinute
+                            )
+                            .datePickerStyle(.compact)
+                            .labelsHidden()
+                            .colorScheme(theme.isDark ? .dark : .light)
+                        }
+                        .padding(.vertical, 13)
+                        .opacity(viewModel.taskReminders ? 1 : 0.4)
+                        .disabled(!viewModel.taskReminders)
                         MochiDashedDivider()
                         MochiToggleRow(
                             title: "Morning rundown",
@@ -89,6 +117,28 @@ struct NotificationPrefsView: View {
         }
         .background(theme.bg)
         .onLoad { viewModel.trigger(.load) }
+    }
+
+    private var provisionalBanner: some View {
+        MochiCard(padding: EdgeInsets(top: 13, leading: 15, bottom: 13, trailing: 15)) {
+            HStack(spacing: 11) {
+                Image(systemName: "bell.badge")
+                    .font(.system(size: 18))
+                    .foregroundStyle(theme.primaryText)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Notifications arrive quietly")
+                        .font(MochiFont.body(13, weight: .heavy))
+                        .foregroundStyle(theme.ink)
+                    Text("Right now they land silently in Notification Center. Turn on banners and sounds so mornings reach you.")
+                        .font(MochiFont.body(11, weight: .bold))
+                        .foregroundStyle(theme.muted)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                MochiButton(title: "Turn on", variant: .ghost, size: .sm, block: false) {
+                    viewModel.trigger(.enableFullNotifications)
+                }
+            }
+        }
     }
 
     private var deniedBanner: some View {

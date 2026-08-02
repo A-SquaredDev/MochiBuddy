@@ -37,6 +37,8 @@ struct FirstTaskView: View {
                     viewModel.trigger(.suggestionTapped(suggestion))
                 }
 
+                timeChips
+
                 VStack(spacing: 4) {
                     MochiPetView(vitality: 90, size: 110, petName: viewModel.petName)
                     Text("Ooh, a fresh start")
@@ -65,6 +67,39 @@ struct FirstTaskView: View {
             switch event {
             case .next:
                 router.navigateToFlavorPicker()
+            }
+        }
+    }
+
+    /// The rough reminder slot - due today either way; a slot means the
+    /// first task can actually knock.
+    private var timeChips: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text("Remind me")
+                .font(MochiFont.body(10.5, weight: .heavy))
+                .kerning(0.7)
+                .textCase(.uppercase)
+                .foregroundStyle(theme.muted)
+            HStack(spacing: 7) {
+                ForEach(FirstTaskBehavior.TimeChoice.allCases, id: \.self) { choice in
+                    let isSelected = viewModel.timeChoice == choice
+                    Button {
+                        Haptics.impact(.light)
+                        viewModel.trigger(.timeChoiceTapped(choice))
+                    } label: {
+                        Text(choice.label)
+                            .font(MochiFont.display(12, weight: .medium))
+                            .foregroundStyle(isSelected ? theme.primaryText : theme.ink)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .background(isSelected ? theme.primarySoft : theme.surface2, in: Capsule())
+                            .overlay(
+                                Capsule().stroke(isSelected ? theme.primary : theme.line, lineWidth: 1.5)
+                            )
+                    }
+                    .buttonStyle(SquishButtonStyle())
+                }
+                Spacer(minLength: 0)
             }
         }
     }
