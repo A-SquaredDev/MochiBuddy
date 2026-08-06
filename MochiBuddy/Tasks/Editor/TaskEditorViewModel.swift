@@ -23,12 +23,17 @@ final class TaskEditorViewModel: ObservableStateViewModel<
     private let authRepository: AuthRepository
     private let taskRepository: TaskRepository
     private let listRepository: ListRepository
+    private let profileRepository: UserProfileRepository?
     private let suggestionService: SuggestionService?
     private let editingTask: TaskItem?
 
     // Domain source of truth.
     private var draft: TaskDraft
     private var lists: [TaskList] = []
+    /// Minutes since midnight a dated-but-untimed task reminds at. Nil
+    /// until the profile fetch lands, which is why the note it feeds is
+    /// optional rather than defaulting to 9:00 AM for everyone.
+    private var defaultReminderMinutes: Int?
 
     // Suggested times (Personal Layer, Feature 5). One editor open = one
     // session: a trigger presents at most once, and a presented proposal
@@ -50,12 +55,14 @@ final class TaskEditorViewModel: ObservableStateViewModel<
         authRepository: AuthRepository,
         taskRepository: TaskRepository,
         listRepository: ListRepository,
+        profileRepository: UserProfileRepository? = nil,
         suggestionService: SuggestionService? = nil
     ) {
         self.editingTask = editingTask
         self.authRepository = authRepository
         self.taskRepository = taskRepository
         self.listRepository = listRepository
+        self.profileRepository = profileRepository
         self.suggestionService = suggestionService
         if let task = editingTask {
             draft = TaskDraft(
@@ -111,6 +118,14 @@ final class TaskEditorViewModel: ObservableStateViewModel<
                     guard let self else { return }
                     self.suggestionSession = await self.suggestionService?
                         .beginSession(editingTask: self.editingTask)
+                    self.rebuild(picker: self.uiState.activePicker)
+                }
+                group.addTask { @MainActor [weak self] in
+                    guard let self, let userId = self.userId,
+                          let profileRepository = self.profileRepository else { return }
+                    let profile = try? await profileRepository.fetchProfile(userId: userId)
+                    self.defaultReminderMinutes = profile?
+                        .notificationPrefs.effectiveDefaultReminderMinutes
                     self.rebuild(picker: self.uiState.activePicker)
                 }
             }
@@ -191,13 +206,24 @@ final class TaskEditorViewModel: ObservableStateViewModel<
             await snooze()
 
         case .deleteTapped:
-            guard let task = editingTask, let userId else { return }
+            guard let task = editingTask else { return }
             // A recurring task gets a choice: skip just this occurrence, or
-            // end the series. (Skipping needs a date to roll forward from.)
+            // end the series. (Skipping needs a date to roll forward from;
+            // a dateless recurring task has no occurrence to skip, so it
+            // falls through to the plain confirm below rather than
+            // deleting unconfirmed the way it used to.)
             if task.repeatRule != nil, task.dueAt != nil {
                 state.showDeleteOptions = true
-                return
+            } else {
+                state.showDeleteConfirm = true
             }
+
+        case .cancelDelete:
+            state.showDeleteConfirm = false
+
+        case .confirmDelete:
+            guard let task = editingTask, let userId else { return }
+            state.showDeleteConfirm = false
             state.isWorking = true
             try? await taskRepository.deleteTask(id: task.id, userId: userId)
             setNavigationEvent(.done)
@@ -642,6 +668,10 @@ final class TaskEditorViewModel: ObservableStateViewModel<
             next.overdueBanner = "Overdue by \(Self.overdueText(hours: hours))"
         }
 
+        next.deleteConfirmMessage = editingTask?.repeatRule != nil
+            ? "This task repeats. Deleting it stops it for good. This can't be undone."
+            : "This can't be undone."
+
         next.hasDate = draft.dueAt != nil
         next.date = draft.dueAt ?? .now
 
@@ -674,6 +704,9 @@ final class TaskEditorViewModel: ObservableStateViewModel<
         next.timeText = draft.hasTime
             ? (draft.dueAt ?? .now).formatted(date: .omitted, time: .shortened)
             : "Add time"
+        next.untimedReminderNote = (next.hasDate && !next.hasTime)
+            ? defaultReminderMinutes.map { "Reminds at \(Self.clockText(minutes: $0))" }
+            : nil
         next.suggestionChip = suggestionChipState()
 
         next.priorityOptions = [
@@ -736,6 +769,13 @@ final class TaskEditorViewModel: ObservableStateViewModel<
     private static func nextRoundHour(calendar: Calendar = .current) -> Date {
         let next = calendar.date(byAdding: .hour, value: 1, to: .now) ?? .now
         return calendar.date(bySetting: .minute, value: 0, of: next) ?? next
+    }
+
+    /// Minutes since local midnight rendered as a wall clock ("9:00 AM").
+    private static func clockText(minutes: Int) -> String {
+        let components = DateComponents(hour: minutes / 60, minute: minutes % 60)
+        let date = Calendar.current.date(from: components) ?? .now
+        return date.formatted(date: .omitted, time: .shortened)
     }
 
     private static func overdueText(hours: Double) -> String {

@@ -214,6 +214,7 @@ final class YouRouter: YouRouting {
             callbackLedger: container.callbackLedger,
             suggestionLedger: container.suggestionLedger,
             nudgeLedger: container.nudgeLedger,
+            displayNamePromptGate: container.displayNamePromptGate,
             relay: container.notificationOrchestrator,
             membershipStore: container.membershipStore
         )

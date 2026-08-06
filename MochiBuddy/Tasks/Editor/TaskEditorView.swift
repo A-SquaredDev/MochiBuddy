@@ -86,6 +86,20 @@ struct TaskEditorView: View {
                 Text("Skipping moves it to its next date. Deleting the series stops it for good.")
             }
         )
+        // Everything the repeat dialog does not cover. Deleting used to
+        // happen on the first tap, with no undo anywhere behind it.
+        .confirmationDialog(
+            "Delete this task?",
+            isPresented: viewModel.collectBinding(for: \.showDeleteConfirm, action: .cancelDelete),
+            titleVisibility: .visible,
+            actions: {
+                Button("Delete", role: .destructive) { viewModel.trigger(.confirmDelete) }
+                Button("Cancel", role: .cancel) { viewModel.trigger(.cancelDelete) }
+            },
+            message: {
+                Text(viewModel.deleteConfirmMessage)
+            }
+        )
         .animation(MochiMotion.soft, value: viewModel.activePicker)
         .animation(MochiMotion.soft, value: viewModel.selectedRepeatId)
         .onLoad {
@@ -281,6 +295,14 @@ struct TaskEditorView: View {
                                 .buttonStyle(SquishButtonStyle())
                                 .accessibilityLabel("Remove time")
                             }
+                        }
+                        // Dated but untimed tasks still remind, at the
+                        // user's default reminder time. Say so rather than
+                        // let the blank pill imply silence.
+                        if let note = viewModel.untimedReminderNote {
+                            Text(note)
+                                .font(MochiFont.body(11, weight: .bold))
+                                .foregroundStyle(theme.muted)
                         }
                         if viewModel.activePicker == .time {
                             DatePicker(

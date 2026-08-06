@@ -24,6 +24,17 @@ struct RootView: View {
     /// per-period truthfulness is unaffected.
     private static let foregroundCooldown: TimeInterval = 90
 
+    /// Set when entering Home finds an account with no display name -
+    /// Apple hands one over on the first authorization only, so a fresh
+    /// profile behind a re-signed-in Apple account has nothing to greet.
+    @State private var namePrompt: NamePromptRequest?
+
+    private struct NamePromptRequest: Identifiable {
+        /// The signed-in uid, which is also what makes the sheet identity.
+        let id: String
+        let petName: String
+    }
+
     @State private var navController = NavController()
     @State private var homeNavController = NavController()
     @State private var router: OnboardingRouter?
@@ -51,9 +62,19 @@ struct RootView: View {
             // Pet identity loads (and one-time migrates legacy profiles,
             // incl. the interrupted-onboarding adoptedOn backstop) before
             // the lay so copy and action labels dress with the right name.
-            if let userId = container.authRepository.currentAccount?.uid,
-               let profile = try? await container.profileRepository.fetchProfile(userId: userId) {
-                await container.petIdentityStore.load(profile: profile)
+            if let userId = container.authRepository.currentAccount?.uid {
+                let profile = try? await container.profileRepository.fetchProfile(userId: userId)
+                if let profile {
+                    await container.petIdentityStore.load(profile: profile)
+                }
+                // After the pet identity loads, so the ask can use the
+                // pet's real name.
+                if container.displayNamePromptGate.shouldPrompt(profile: profile, userId: userId) {
+                    namePrompt = NamePromptRequest(
+                        id: userId,
+                        petName: container.petIdentityStore.name
+                    )
+                }
             }
             // Observation interval log backstop: stamp the log start once
             // and realign open vacation/lapse intervals with transitions
@@ -95,6 +116,20 @@ struct RootView: View {
                     container.themeStore.current.bg.ignoresSafeArea()
                 }
             }
+        }
+        .sheet(item: $namePrompt) { request in
+            DisplayNamePromptView(
+                viewModel: DisplayNamePromptViewModel(
+                    userId: request.id,
+                    petName: request.petName,
+                    profileRepository: container.profileRepository,
+                    gate: container.displayNamePromptGate
+                ),
+                onDismiss: { namePrompt = nil }
+            )
+            .environment(\.mochiTheme, container.themeStore.current)
+            .presentationDetents([.height(300)])
+            .presentationDragIndicator(.visible)
         }
         .environment(\.mochiTheme, container.themeStore.current)
         .preferredColorScheme(container.themeStore.current.isDark ? .dark : .light)

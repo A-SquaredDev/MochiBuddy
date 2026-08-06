@@ -52,7 +52,9 @@ final class YouViewModel: ObservableStateViewModel<
         }
         initial.selectedFlavorId = themeStore.current.id
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
-        initial.appVersion = "Mochi \(version ?? "1.0") · Rated 4+ · Made with care"
+        // Version only. The age rating lived here as a hardcoded "Rated 4+"
+        // that could never track App Store Connect, so it is gone.
+        initial.appVersion = "Mochi \(version ?? "1.0") · Made with care"
         super.init(initialState: initial)
     }
 
@@ -69,21 +71,6 @@ final class YouViewModel: ObservableStateViewModel<
             state.selectedFlavorId = id
             if let userId {
                 try? await profileRepository.saveThemeId(id, userId: userId)
-            }
-
-        case .setMorningRundown(let isOn):
-            profile?.notificationPrefs.morningRundown = isOn
-            state.morningRundown = isOn
-            if let userId, let prefs = profile?.notificationPrefs {
-                try? await profileRepository.saveNotificationPrefs(prefs, userId: userId)
-                relay.requestRelay(.prefsChange)
-            }
-
-        case .setSoundEnabled(let isOn):
-            profile?.soundEnabled = isOn
-            state.soundEnabled = isOn
-            if let userId {
-                try? await profileRepository.saveSoundEnabled(isOn, userId: userId)
             }
 
         case .restoreTapped:
@@ -212,8 +199,6 @@ final class YouViewModel: ObservableStateViewModel<
             }
             next.coins = fetched.coins
             next.bedtimeText = Self.bedtimeText(fetched.bedtime)
-            next.morningRundown = fetched.notificationPrefs.morningRundown
-            next.soundEnabled = fetched.soundEnabled
             next.notificationsSub = Self.notificationsSubtitle(fetched.notificationPrefs)
             next.remindersSub = fetched.importedReminderListIds.isEmpty
                 ? "Bring your Reminders in"

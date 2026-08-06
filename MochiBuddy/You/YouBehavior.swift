@@ -28,8 +28,6 @@ enum YouBehavior {
         var flavors: [FlavorSwatch] = []
         var selectedFlavorId = ""
         var bedtimeText = ""
-        var morningRundown = true
-        var soundEnabled = false
         var notificationsSub = ""
         var remindersSub = ""
         var vacationSub = ""
@@ -56,8 +54,6 @@ enum YouBehavior {
     enum ViewAction {
         case refresh
         case selectFlavor(String)
-        case setMorningRundown(Bool)
-        case setSoundEnabled(Bool)
         case restoreTapped
         case dismissRestoreMessage
         case signOutTapped

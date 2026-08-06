@@ -204,48 +204,37 @@ struct YouView: View {
         }
     }
 
+    /// Bedtime only. The morning rundown toggle used to live here too, but
+    /// it wrote the same profile field as the one in Notification settings
+    /// with a different subtitle, so it now lives only there (the
+    /// Notifications row's own subtitle already names it). The Sound toggle
+    /// was inert - nothing in the app plays audio - and is gone for v1.
     private var careCard: some View {
         MochiCard(padding: EdgeInsets(top: 0, leading: 15, bottom: 0, trailing: 15)) {
-            VStack(spacing: 0) {
-                Button {
-                    Haptics.impact(.light)
-                    viewModel.trigger(.bedtimeTapped)
-                } label: {
-                    HStack(spacing: 12) {
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text("Bedtime")
-                                .font(MochiFont.body(13, weight: .heavy))
-                                .foregroundStyle(theme.ink)
-                            Text("\(viewModel.mochiName) sleeps · nudges pause")
-                                .font(MochiFont.body(11, weight: .bold))
-                                .foregroundStyle(theme.muted)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        Text(viewModel.bedtimeText)
-                            .font(MochiFont.display(13, weight: .medium))
-                            .foregroundStyle(theme.primaryText)
-                            .padding(EdgeInsets(top: 6, leading: 11, bottom: 6, trailing: 11))
-                            .background(theme.primarySoft, in: Capsule())
+            Button {
+                Haptics.impact(.light)
+                viewModel.trigger(.bedtimeTapped)
+            } label: {
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Bedtime")
+                            .font(MochiFont.body(13, weight: .heavy))
+                            .foregroundStyle(theme.ink)
+                        Text("\(viewModel.mochiName) sleeps · nudges pause")
+                            .font(MochiFont.body(11, weight: .bold))
+                            .foregroundStyle(theme.muted)
                     }
-                    .padding(.vertical, 12)
-                    .contentShape(Rectangle())
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    Text(viewModel.bedtimeText)
+                        .font(MochiFont.display(13, weight: .medium))
+                        .foregroundStyle(theme.primaryText)
+                        .padding(EdgeInsets(top: 6, leading: 11, bottom: 6, trailing: 11))
+                        .background(theme.primarySoft, in: Capsule())
                 }
-                .buttonStyle(.plain)
-                MochiDashedDivider()
-                MochiToggleRow(
-                    title: "Morning rundown",
-                    subtitle: "A little hello each morning",
-                    isOn: viewModel.collectBinding(for: \.morningRundown, action: { .setMorningRundown($0) })
-                )
-                .padding(.vertical, 13)
-                MochiDashedDivider()
-                MochiToggleRow(
-                    title: "Sound",
-                    subtitle: viewModel.soundEnabled ? "Cute noises on" : "Off for now",
-                    isOn: viewModel.collectBinding(for: \.soundEnabled, action: { .setSoundEnabled($0) })
-                )
-                .padding(.vertical, 13)
+                .padding(.vertical, 14)
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
         }
     }
 

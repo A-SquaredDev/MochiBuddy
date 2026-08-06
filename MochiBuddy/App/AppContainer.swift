@@ -75,6 +75,9 @@ final class AppContainer {
     let suggestionService: SuggestionService
     let nudgeLedger = NudgeLedger()
     let nudgeCenter: NudgeCenter
+    /// Gates the one-time "What should Mochi call you?" sheet for accounts
+    /// Apple never gave us a name for.
+    let displayNamePromptGate = DisplayNamePromptGate()
     /// Tab selection + the letter handoff into the Journal (Feature 6).
     let tabCoordinator = TabCoordinator(telemetry: OSLogJournalTelemetry())
     let letterRepository: LetterRepository
