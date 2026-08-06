@@ -29,10 +29,11 @@ final class DisplayNamePromptGate {
     }
 
     /// True when the profile has no usable name and this UID has not
-    /// already waved the ask away.
-    func shouldPrompt(profile: UserProfile?, userId: String) -> Bool {
-        let name = profile?.displayName?.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard name?.isEmpty ?? true else { return false }
+    /// already waved the ask away. Takes a real profile on purpose: a
+    /// failed fetch must not read as "nameless" and greet a named user.
+    func shouldPrompt(profile: UserProfile, userId: String) -> Bool {
+        let name = profile.displayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard name.isEmpty else { return false }
         return !defaults.bool(forKey: Self.key(for: userId))
     }
 

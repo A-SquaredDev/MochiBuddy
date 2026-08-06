@@ -62,13 +62,13 @@ struct RootView: View {
             // Pet identity loads (and one-time migrates legacy profiles,
             // incl. the interrupted-onboarding adoptedOn backstop) before
             // the lay so copy and action labels dress with the right name.
-            if let userId = container.authRepository.currentAccount?.uid {
-                let profile = try? await container.profileRepository.fetchProfile(userId: userId)
-                if let profile {
-                    await container.petIdentityStore.load(profile: profile)
-                }
+            if let userId = container.authRepository.currentAccount?.uid,
+               let profile = try? await container.profileRepository.fetchProfile(userId: userId) {
+                await container.petIdentityStore.load(profile: profile)
                 // After the pet identity loads, so the ask can use the
-                // pet's real name.
+                // pet's real name. Only a fetched profile can qualify: a
+                // failed or missing fetch says nothing about the name, and
+                // the next entry into Home retries anyway.
                 if container.displayNamePromptGate.shouldPrompt(profile: profile, userId: userId) {
                     namePrompt = NamePromptRequest(
                         id: userId,
