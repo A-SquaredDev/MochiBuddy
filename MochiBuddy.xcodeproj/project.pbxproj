@@ -578,7 +578,7 @@
 				DEVELOPMENT_TEAM = 8LPRNJ8H69;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MochiWidget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Mochi;
+				INFOPLIST_KEY_CFBundleDisplayName = MochiBuddy;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -604,7 +604,7 @@
 				DEVELOPMENT_TEAM = 8LPRNJ8H69;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MochiWidget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Mochi;
+				INFOPLIST_KEY_CFBundleDisplayName = MochiBuddy;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

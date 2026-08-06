@@ -98,6 +98,8 @@ enum DevSchedulerBehavior {
         var suggestionTaskId: String? = nil
         /// Feature 3 force-compose result line, DEBUG pipeline check.
         var letterComposeText = ""
+        /// Fixture seeder result line (release-checklist QA pass).
+        var fixtureText = ""
 
         /// Right edge of the visible chart window.
         var displayEnd: Date {
@@ -118,6 +120,10 @@ enum DevSchedulerBehavior {
         /// Local dev store only: restart the 14-day trial so the horizon
         /// uncaps without re-onboarding.
         case restartTrial
+        case seedNewTimeFixture
+        case seedReTimeFixture
+        case seedDoneHistoryFixture
+        case deleteFixtures
     }
 }
 
@@ -135,6 +141,7 @@ final class DevSchedulerViewModel: StateViewModel<
     private let letterService: LetterCompositionService?
     private let memoriesService: MemoriesService?
     private let suggestionLedger: SuggestionLedger?
+    private let fixtureSeeder: DevFixtureSeeder?
 
     private var context: NotificationOrchestrator.RelayContext?
     /// Cached once per rebuild; the engine is pure, so time travel just
@@ -151,7 +158,8 @@ final class DevSchedulerViewModel: StateViewModel<
         observationLedger: ObservationLedger? = nil,
         letterService: LetterCompositionService? = nil,
         memoriesService: MemoriesService? = nil,
-        suggestionLedger: SuggestionLedger? = nil
+        suggestionLedger: SuggestionLedger? = nil,
+        fixtureSeeder: DevFixtureSeeder? = nil
     ) {
         self.orchestrator = orchestrator
         self.scheduler = scheduler
@@ -162,6 +170,7 @@ final class DevSchedulerViewModel: StateViewModel<
         self.letterService = letterService
         self.memoriesService = memoriesService
         self.suggestionLedger = suggestionLedger
+        self.fixtureSeeder = fixtureSeeder
         super.init(initialState: DevSchedulerBehavior.UIState())
     }
 
@@ -210,6 +219,30 @@ final class DevSchedulerViewModel: StateViewModel<
             try? await membershipStore.startTrial(plan: .yearly)
             membershipSession.status = await membershipStore.currentStatus()
             await orchestrator.relayNow(.entitlementChange)
+            await rebuild()
+
+        case .seedNewTimeFixture:
+            guard let fixtureSeeder else { return }
+            state.fixtureText = "seeding..."
+            state.fixtureText = await fixtureSeeder.seedNewTime()
+            await rebuild()
+
+        case .seedReTimeFixture:
+            guard let fixtureSeeder else { return }
+            state.fixtureText = "seeding..."
+            state.fixtureText = await fixtureSeeder.seedReTime()
+            await rebuild()
+
+        case .seedDoneHistoryFixture:
+            guard let fixtureSeeder else { return }
+            state.fixtureText = "seeding..."
+            state.fixtureText = await fixtureSeeder.seedDoneHistory()
+            await rebuild()
+
+        case .deleteFixtures:
+            guard let fixtureSeeder else { return }
+            state.fixtureText = "deleting..."
+            state.fixtureText = await fixtureSeeder.deleteFixtures()
             await rebuild()
         }
     }
@@ -644,6 +677,13 @@ struct DevSchedulerView: View {
                     DevSuggestionsSection(
                         model: viewModel.suggestions,
                         onPickTask: { viewModel.trigger(.suggestionTaskPicked($0)) }
+                    )
+                    DevFixturesSection(
+                        statusText: viewModel.fixtureText,
+                        onSeedNewTime: { viewModel.trigger(.seedNewTimeFixture) },
+                        onSeedReTime: { viewModel.trigger(.seedReTimeFixture) },
+                        onSeedDoneHistory: { viewModel.trigger(.seedDoneHistoryFixture) },
+                        onDelete: { viewModel.trigger(.deleteFixtures) }
                     )
                     pendingList
                 }

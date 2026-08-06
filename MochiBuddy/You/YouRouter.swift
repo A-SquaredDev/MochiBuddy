@@ -80,7 +80,12 @@ final class YouRouter: YouRouting {
             observationLedger: container.observationLedger,
             letterService: container.letterCompositionService,
             memoriesService: container.memoriesService,
-            suggestionLedger: container.suggestionLedger
+            suggestionLedger: container.suggestionLedger,
+            fixtureSeeder: DevFixtureSeeder(
+                taskRepository: container.taskRepository,
+                listRepository: container.listRepository,
+                authRepository: container.authRepository
+            )
         )
         navController.navigate(
             route: AdHocRoute(key: "you.devScheduler"),

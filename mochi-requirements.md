@@ -3514,7 +3514,7 @@ non-measurement.
 
 - **Named "Journal," statically.** "Diary" reads childhood-secret and localizes
   worse. The **tab label is the static word "Journal"** with an SF Symbol book
-  glyph (`PlaceholderArtIcon` convention until commissioned art lands, roadmap #6)
+  glyph (SF Symbol stand-in until commissioned art lands, roadmap #6)
   — tab bars never carry user content (a 16-grapheme pet name in a tab label is
   the exact compact-surface failure Feature 1 cataloged). The *screen* header is
   possessive and alive — "Nori's Journal" — as a **full localized format string**

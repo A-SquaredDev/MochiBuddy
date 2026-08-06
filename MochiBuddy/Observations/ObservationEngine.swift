@@ -407,7 +407,12 @@ enum ObservationEngine {
         case .weekday: weekdayCandidate(at: snapshot, prepared: prepared)
         case .timeOfDay: timeOfDayCandidate(at: snapshot, prepared: prepared)
         case .comeback: comebackCandidate(at: snapshot, prepared: prepared)
-        default: fatalError("not a trait type")
+        // Event kinds (.momentum, .listReturn) have no single-snapshot
+        // trait candidate; an empty candidate keeps a mistaken caller
+        // from crashing the app.
+        default: ObservationCandidate(
+            kind: kind, conclusion: nil, gates: [], evidenceCount: 0, topShare: nil
+        )
         }
     }
 

@@ -28,7 +28,7 @@ struct MochiWidget: Widget {
                     MochiTheme.theme(id: entry.state?.themeId ?? MochiTheme.sesame.id).bg
                 }
         }
-        .configurationDisplayName("Mochi")
+        .configurationDisplayName("MochiBuddy")
         .description("Mochi's mood and your next task, at a glance.")
         .supportedFamilies([
             .systemSmall, .systemMedium,

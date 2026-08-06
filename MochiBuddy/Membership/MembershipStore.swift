@@ -5,10 +5,10 @@
 //  Subscription state for the membership gate. Mochi is subscription-only:
 //  14-day free trial (yearly plan only), then yearly/monthly - no freemium tier.
 //
-//  NOTE: LocalMembershipStore is a device-local stand-in so the whole
-//  onboarding + returning-user flow works end to end today. The production
-//  implementation is StoreKit via RevenueCat (see mochi-design-doc.md);
-//  swap it in behind this same protocol.
+//  RevenueCatMembershipStore (Membership/RevenueCatMembershipStore.swift) is
+//  the shipping implementation. LocalMembershipStore below is a DEBUG-only
+//  device-local stand-in, selected by the -mochiLocalMembership launch arg,
+//  for UI work without StoreKit/sandbox.
 //
 
 import Foundation
@@ -92,6 +92,9 @@ extension MembershipPlanOption {
     )
 }
 
+// DEBUG only: grants membership from UserDefaults, so it must never be
+// reachable in a Release binary (it would be a paywall bypass).
+#if DEBUG
 final class LocalMembershipStore: MembershipStore {
 
     private enum Key {
@@ -168,3 +171,4 @@ final class LocalMembershipStore: MembershipStore {
         defaults.set(true, forKey: Key.everSubscribed)
     }
 }
+#endif

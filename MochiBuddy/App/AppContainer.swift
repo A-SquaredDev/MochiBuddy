@@ -110,10 +110,16 @@ final class AppContainer {
             wrapping: FirestoreListRepository(firestore: firestore)
         )
         // -mochiLocalMembership keeps membership device-local for UI work
-        // without touching StoreKit/sandbox.
+        // without touching StoreKit/sandbox. DEBUG only: LocalMembershipStore
+        // grants membership from UserDefaults, so Release must never
+        // compile the branch that could select it.
+        #if DEBUG
         membershipStore = ProcessInfo.processInfo.arguments.contains("-mochiLocalMembership")
             ? LocalMembershipStore()
             : RevenueCatMembershipStore()
+        #else
+        membershipStore = RevenueCatMembershipStore()
+        #endif
         notificationPermissionService = UNNotificationPermissionService()
         remindersGateway = EventKitRemindersGateway()
         // The buffer lives in the App Group so the widget reads (and pets)
@@ -362,6 +368,7 @@ final class AppContainer {
             }
         }
 
+        #if DEBUG
         // -mochiStartAtHome skips the flow for UI work on the tab surfaces
         // (pair with "-mochiStartTab you|tasks" to land on a specific tab).
         if ProcessInfo.processInfo.arguments.contains("-mochiStartAtHome") {
@@ -371,5 +378,6 @@ final class AppContainer {
         if ProcessInfo.processInfo.arguments.contains("-mochiStartLapsed") {
             membershipSession.status = .lapsed
         }
+        #endif
     }
 }

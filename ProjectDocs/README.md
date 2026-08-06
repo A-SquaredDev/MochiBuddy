@@ -50,6 +50,7 @@ picked up.
 | File | Subject |
 |---|---|
 | `calendar-decision-record.md` | EventKit calendar access: proposed, examined, **tabled** July 25 2026. Not cancelled. Summarized in *The discovery batch → Calendar access*; the full four-use analysis, the cost breakdown, and the revival playbook are here. |
+| `analytics-decision-record.md` | Analytics intent, decided August 2 2026: v1.0 ships zero analytics collection (`FIREBASE_ANALYTICS_COLLECTION_ENABLED` = NO); PostHog is the recorded preference for roadmap #7, Firebase Analytics the fallback. Nutrition-label implications spelled out. |
 
 ## design/
 
