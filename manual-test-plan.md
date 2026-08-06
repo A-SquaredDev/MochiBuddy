@@ -58,19 +58,20 @@ the item here is still fine for small observations.
   (not left behind).
 - [ ] Delete the app, reinstall, sign in: everything returns from the
   server (tasks, name, streak, letters).
-- [ ] **Nameless Apple account gets asked, once.** Apple hands over a
-  display name on the first-ever authorization only, so an account whose
-  profile has none must be asked rather than left as "Mochi friend".
+- [ ] **Nameless Apple account gets asked, and must answer.** Apple hands
+  over a display name on the first-ever authorization only, so an account
+  whose profile has none must be asked rather than left as "Mochi friend".
+  (Revised 8/5: the sheet is now required - the original "Not now" exit
+  was cut.)
   - Setup: delete the account from inside the app (You → Delete account),
     then sign in again with the same Apple ID. Apple will not resend the
     name.
   - On reaching Home, a sheet asks "What should {PetName} call you?" with a
-    one-line explanation, a name field, Save, and "Not now".
+    one-line explanation, a name field, and Save.
+  - The sheet cannot be dismissed: no skip link, and dragging it down does
+    not close it. Save stays disabled until the field has a non-blank name.
   - Save: the name appears immediately in the You identity row and the Home
     greeting, and the sheet never returns.
-  - "Not now": the sheet closes, "Mochi friend" remains, and it does **not**
-    come back on the next launch or the next foreground. The You tab pencil
-    still works as the way in later.
   - It must never appear for an account that already has a name (including
     Google sign-in, which does send one).
 

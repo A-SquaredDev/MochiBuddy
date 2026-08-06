@@ -19,7 +19,7 @@
 - [x] Sign out lands on the Landing screen (not the splash spinner), and no new anonymous user appears in the Firebase Auth console. Same after deleting an account. "Let's get started" from there still walks the wizard and saves choices normally.
 - [x] Sign in with an already-used Apple/Google account from a fresh install: you land in your existing account, and the throwaway anonymous user that splash created is deleted from the Firebase Auth console (not left behind).
 - [x] Delete the app, reinstall, sign in: everything returns from the server (tasks, name, streak, letters).
-- [ ] **RETEST** **Nameless Apple account gets asked, once** (new 8/5, closes BUG-006). Delete the account in-app, sign in again with the same Apple ID, and expect the one-time "What should Mochi call you?" sheet on reaching Home. Check that "Not now" really does not come back.
+- [ ] **RETEST** **Nameless Apple account gets asked, and must answer** (new 8/5, closes BUG-006; revised same day: the sheet is now required, "Not now" was cut). Delete the account in-app, sign in again with the same Apple ID, and expect the "What should Mochi call you?" sheet on reaching Home. Check that it cannot be swiped away, that Save needs a non-blank name, and that the saved name lands in the Home greeting and the You identity row.
 
 ## 1b. Done tab pagination
 
