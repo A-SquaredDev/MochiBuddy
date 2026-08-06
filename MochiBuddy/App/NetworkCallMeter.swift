@@ -9,8 +9,11 @@
 //  are deliberately NOT counted - the meter measures the network, and the
 //  gap between it and the log's cache-hit lines IS the caching win.
 //
-//  The reset is lazy: counts are keyed to the local civil day, so the
-//  first call after midnight starts from zero with no timer to leak.
+//  The reset is lazy: counts are keyed to the local civil day AND the
+//  signed-in uid, so the first call after midnight - or after an account
+//  switch, sign-out, or deletion - starts from zero with no timer or
+//  auth listener to leak. The tally therefore always describes the
+//  account on screen, never a mix of everyone who used the device today.
 //  Batches and transactions count as one call each (round trips, not
 //  billed documents). SDK-internal traffic (Auth token refreshes,
 //  RevenueCat, Remote Config) is out of reach and out of scope.
@@ -36,6 +39,7 @@ final class NetworkCallMeter: @unchecked Sendable {
 
     private enum Key {
         static let day = "mochi.netmeter.day"
+        static let uid = "mochi.netmeter.uid"
         static let reads = "mochi.netmeter.reads"
         static let writes = "mochi.netmeter.writes"
     }
@@ -44,12 +48,20 @@ final class NetworkCallMeter: @unchecked Sendable {
     private let today: () -> String
     private let lock = NSLock()
 
+    /// Who the tally belongs to. AppContainer points this at the auth
+    /// session at build time; it is consulted on every count and snapshot,
+    /// so a change of account zeroes the meter the same lazy way midnight
+    /// does. Signed out counts as its own identity (the empty string).
+    var currentUid: () -> String?
+
     init(
         defaults: UserDefaults = .standard,
-        today: @escaping () -> String = { CivilDay(of: .now, in: .current).dateString }
+        today: @escaping () -> String = { CivilDay(of: .now, in: .current).dateString },
+        uid: @escaping () -> String? = { nil }
     ) {
         self.defaults = defaults
         self.today = today
+        self.currentUid = uid
     }
 
     /// `by` is billed documents for reads (queries pass their result
@@ -78,16 +90,21 @@ final class NetworkCallMeter: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         defaults.set(today(), forKey: Key.day)
+        defaults.set(currentUid() ?? "", forKey: Key.uid)
         defaults.set(0, forKey: Key.reads)
         defaults.set(0, forKey: Key.writes)
     }
 
-    /// Must be called under the lock: a stored day other than today zeroes
-    /// the counters - the midnight reset, paid lazily on the next call.
+    /// Must be called under the lock: a stored day other than today, or a
+    /// stored uid other than the signed-in one, zeroes the counters - the
+    /// midnight and account-switch resets, paid lazily on the next call.
     private func rollOverIfNeeded() {
         let day = today()
-        guard defaults.string(forKey: Key.day) != day else { return }
+        let uid = currentUid() ?? ""
+        guard defaults.string(forKey: Key.day) != day
+                || defaults.string(forKey: Key.uid) != uid else { return }
         defaults.set(day, forKey: Key.day)
+        defaults.set(uid, forKey: Key.uid)
         defaults.set(0, forKey: Key.reads)
         defaults.set(0, forKey: Key.writes)
     }

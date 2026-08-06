@@ -598,8 +598,9 @@ final class DevSchedulerViewModel: StateViewModel<
 }
 
 /// Today's Firestore call tally (NetworkCallMeter): the what-does-a-day-
-/// cost number the caching layer is judged against. Day-keyed, so the
-/// midnight reset is structural.
+/// cost number the caching layer is judged against. Keyed by day and by
+/// signed-in uid, so both the midnight reset and the account-switch reset
+/// are structural - the numbers describe this account only.
 private struct DevNetworkMeterSection: View {
     @Environment(\.mochiTheme) private var theme
     @State private var snapshot = NetworkCallMeter.shared.snapshot()
@@ -614,7 +615,7 @@ private struct DevNetworkMeterSection: View {
                     Text("\(snapshot.total) total · \(snapshot.reads) read docs · \(snapshot.writes) writes")
                         .font(MochiFont.display(15, weight: .semibold))
                         .foregroundStyle(theme.ink)
-                    Text("Reads are billed documents (matches the console) · resets at midnight · batches count once · SDK traffic not counted")
+                    Text("Reads are billed documents (matches the console) · this account only · resets at midnight and on account switch · batches count once · SDK traffic not counted")
                         .font(MochiFont.body(9.5, weight: .bold))
                         .foregroundStyle(theme.muted)
                 }

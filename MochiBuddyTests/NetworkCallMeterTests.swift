@@ -2,9 +2,10 @@
 //  NetworkCallMeterTests.swift
 //  MochiBuddyTests
 //
-//  The day-scoped Firestore call tally: reads and writes count separately,
-//  the midnight reset is structural (day-keyed, no timer), counts persist
-//  across instances sharing a defaults store, and Zero starts today over.
+//  The day-and-account-scoped Firestore call tally: reads and writes count
+//  separately, the midnight and account-switch resets are structural
+//  (day+uid keyed, no timer or auth listener), counts persist across
+//  instances sharing a defaults store, and Zero starts today over.
 //
 
 import Foundation
@@ -59,6 +60,27 @@ struct NetworkCallMeterTests {
         let snapshot = meter.snapshot()
         #expect(snapshot.total == 0)
         #expect(snapshot.day == "2026-07-09")
+    }
+
+    @Test("an account switch starts the tally over - the numbers describe the signed-in account only")
+    func accountSwitchRollsOver() {
+        var uid: String? = "user-a"
+        let defaults = UserDefaults(suiteName: "netmeter-\(UUID())")!
+        let meter = NetworkCallMeter(defaults: defaults, today: { "2026-07-08" }, uid: { uid })
+        meter.count(.read)
+        meter.count(.write)
+        #expect(meter.snapshot().total == 2)
+
+        uid = "user-b"
+        meter.count(.read)
+        let snapshot = meter.snapshot()
+        #expect(snapshot.reads == 1)
+        #expect(snapshot.writes == 0, "user-a's traffic never bleeds into user-b's tally")
+
+        // Signing out is its own identity: the tally must not keep
+        // charging user-b for calls made after the session ended.
+        uid = nil
+        #expect(meter.snapshot().total == 0)
     }
 
     @Test("counts persist across meter instances sharing a store")
