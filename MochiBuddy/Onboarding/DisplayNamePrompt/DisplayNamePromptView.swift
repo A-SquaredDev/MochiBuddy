@@ -3,8 +3,9 @@
 //  MochiBuddy
 //
 //  A sheet, not a screen: this is a gap being filled, not a step being
-//  taken, and the app behind it is already usable. Skip is a real exit -
-//  "Mochi friend" remains a perfectly good name for someone.
+//  taken, and the app behind it is already usable. Saving is the only
+//  exit - the greeting name carries too much of the app's voice to leave
+//  blank, so the sheet cannot be waved away.
 //
 
 import SwiftUI
@@ -60,10 +61,6 @@ struct DisplayNamePromptView: View {
                 viewModel.trigger(.saveTapped)
             }
             .disabled(!viewModel.canSave || viewModel.isSaving)
-            MochiTextLink(title: "Not now") {
-                viewModel.trigger(.skipTapped)
-            }
-            .frame(maxWidth: .infinity)
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 18)

@@ -75,9 +75,6 @@ final class AppContainer {
     let suggestionService: SuggestionService
     let nudgeLedger = NudgeLedger()
     let nudgeCenter: NudgeCenter
-    /// Gates the one-time "What should Mochi call you?" sheet for accounts
-    /// Apple never gave us a name for.
-    let displayNamePromptGate = DisplayNamePromptGate()
     /// Tab selection + the letter handoff into the Journal (Feature 6).
     let tabCoordinator = TabCoordinator(telemetry: OSLogJournalTelemetry())
     let letterRepository: LetterRepository
@@ -95,6 +92,11 @@ final class AppContainer {
         // The eraser rides into auth so a credential collision can destroy
         // the orphaned anonymous placeholder before the session switches.
         authRepository = FirebaseAuthRepository(orphanEraser: accountEraser)
+        // The dev meter's tally follows the signed-in account: an account
+        // switch, sign-out, or deletion zeroes it lazily, so the numbers
+        // always describe the session on screen, not the whole device day.
+        let meterAuth = authRepository
+        NetworkCallMeter.shared.currentUid = { meterAuth.currentAccount?.uid }
         profileRepository = CachingUserProfileRepository(
             wrapping: FirestoreUserProfileRepository(firestore: firestore)
         )

@@ -2,10 +2,10 @@
 //  DisplayNamePromptViewModel.swift
 //  MochiBuddy
 //
-//  The one-time "What should Mochi call you?" ask. Saving writes the
-//  profile display name; skipping records the gate flag so the sheet never
-//  comes back for this UID. Both exits dismiss - there is no wrong answer
-//  and no validation state, same posture as the pet naming beat.
+//  The "What should Mochi call you?" ask. Saving writes the profile
+//  display name, which closes the ask for good: the prompt only fires on
+//  an empty name, so a saved name is its own done-flag. There is no skip -
+//  the greeting name is required, so the sheet asks until it has one.
 //
 
 import Foundation
@@ -18,17 +18,14 @@ final class DisplayNamePromptViewModel: ObservableStateViewModel<
 
     private let userId: String
     private let profileRepository: UserProfileRepository
-    private let gate: DisplayNamePromptGate
 
     init(
         userId: String,
         petName: String,
-        profileRepository: UserProfileRepository,
-        gate: DisplayNamePromptGate
+        profileRepository: UserProfileRepository
     ) {
         self.userId = userId
         self.profileRepository = profileRepository
-        self.gate = gate
         var initial = DisplayNamePromptBehavior.UIState()
         initial.mochiName = petName
         super.init(initialState: initial)
@@ -52,12 +49,6 @@ final class DisplayNamePromptViewModel: ObservableStateViewModel<
             setUIState(uiState.updating(\.isSaving, to: true))
             try? await profileRepository.saveDisplayName(name, userId: userId)
             setUIState(uiState.updating(\.isSaving, to: false))
-            setNavigationEvent(.dismiss)
-
-        case .skipTapped:
-            // Recorded, not just dismissed: without the flag the sheet
-            // would greet this account on every single launch.
-            gate.recordSkipped(userId: userId)
             setNavigationEvent(.dismiss)
         }
     }

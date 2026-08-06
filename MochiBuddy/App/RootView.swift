@@ -27,6 +27,8 @@ struct RootView: View {
     /// Set when entering Home finds an account with no display name -
     /// Apple hands one over on the first authorization only, so a fresh
     /// profile behind a re-signed-in Apple account has nothing to greet.
+    /// The sheet is required: saving a name is the only way out, so the
+    /// greeting name is never blank past this point.
     @State private var namePrompt: NamePromptRequest?
 
     private struct NamePromptRequest: Identifiable {
@@ -69,7 +71,9 @@ struct RootView: View {
                 // pet's real name. Only a fetched profile can qualify: a
                 // failed or missing fetch says nothing about the name, and
                 // the next entry into Home retries anyway.
-                if container.displayNamePromptGate.shouldPrompt(profile: profile, userId: userId) {
+                let displayName = profile.displayName?
+                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                if displayName.isEmpty {
                     namePrompt = NamePromptRequest(
                         id: userId,
                         petName: container.petIdentityStore.name
@@ -122,14 +126,13 @@ struct RootView: View {
                 viewModel: DisplayNamePromptViewModel(
                     userId: request.id,
                     petName: request.petName,
-                    profileRepository: container.profileRepository,
-                    gate: container.displayNamePromptGate
+                    profileRepository: container.profileRepository
                 ),
                 onDismiss: { namePrompt = nil }
             )
             .environment(\.mochiTheme, container.themeStore.current)
             .presentationDetents([.height(300)])
-            .presentationDragIndicator(.visible)
+            .interactiveDismissDisabled()
         }
         .environment(\.mochiTheme, container.themeStore.current)
         .preferredColorScheme(container.themeStore.current.isDark ? .dark : .light)
@@ -201,6 +204,11 @@ struct RootView: View {
             switch phase {
             case .flow: navController.popToRoot(animated: false)
             case .home:
+                // A fresh session must not inherit the last one's view:
+                // account deletion happens deep in the You stack, and the
+                // next sign-in used to land right back on it. Every entry
+                // through the flow starts on Home.
+                container.tabCoordinator.selected = .home
                 homeNavController.popToRoot(animated: false)
                 enteredHome()
             }

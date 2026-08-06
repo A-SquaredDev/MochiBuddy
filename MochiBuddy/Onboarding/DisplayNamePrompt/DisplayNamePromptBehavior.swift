@@ -19,12 +19,11 @@ enum DisplayNamePromptBehavior {
     enum ViewAction {
         case draftChanged(String)
         case saveTapped
-        case skipTapped
     }
 
     enum NavigationEvent {
-        /// Saved or skipped - either way the prompt is done and never
-        /// returns for this device.
+        /// Saved - the only exit. The name is no longer empty, so the ask
+        /// is closed structurally and never returns for this account.
         case dismiss
     }
 }
