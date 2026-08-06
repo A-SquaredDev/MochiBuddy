@@ -392,13 +392,26 @@ struct TaskEditorEditTests {
         #expect(repo.snoozeCalls.first?.newDueAt == expected)
     }
 
-    @Test("delete removes exactly this task")
+    @Test("deleting a one-off asks first, then removes exactly this task")
     func delete() async {
         let (vm, repo) = makeEditorVM(editing: overdueTask)
         await vm.triggerAsync(.load)
         await vm.triggerAsync(.deleteTapped)
+        #expect(vm.uiState.showDeleteConfirm == true)
+        #expect(repo.deletedIds.isEmpty, "the first tap only asks")
+        await vm.triggerAsync(.confirmDelete)
         #expect(repo.deletedIds == ["t1"])
         #expect(repo.updatedTasks.isEmpty)
+    }
+
+    @Test("cancelling the delete confirm leaves the task alone")
+    func cancelDelete() async {
+        let (vm, repo) = makeEditorVM(editing: overdueTask)
+        await vm.triggerAsync(.load)
+        await vm.triggerAsync(.deleteTapped)
+        await vm.triggerAsync(.cancelDelete)
+        #expect(vm.uiState.showDeleteConfirm == false)
+        #expect(repo.deletedIds.isEmpty)
     }
 
     @Test("delete and snooze are impossible for a brand-new task")
@@ -624,6 +637,21 @@ struct TaskEditorRecurringScopeTests {
         #expect(skipped.dueAt == TaskRepeat.daily.nextOccurrence(after: task.dueAt!))
         #expect(skipped.repeatRule == .daily)
         #expect(repo.deletedIds.isEmpty)
+    }
+
+    @Test("a recurring task with no due date still gets confirmed")
+    func datelessRecurringDeleteConfirms() async {
+        // No date means no occurrence to skip, so the skip-vs-series
+        // dialog cannot apply. It used to delete on the first tap.
+        let task = makeTask(id: "r2", title: "Someday chore", dueAt: nil, repeatRule: .daily)
+        let (vm, repo) = makeEditorVM(editing: task)
+        await vm.triggerAsync(.load)
+        await vm.triggerAsync(.deleteTapped)
+        #expect(vm.uiState.showDeleteOptions == false)
+        #expect(vm.uiState.showDeleteConfirm == true)
+        #expect(repo.deletedIds.isEmpty)
+        await vm.triggerAsync(.confirmDelete)
+        #expect(repo.deletedIds == ["r2"])
     }
 
     @Test("delete the series removes the document")

@@ -27,7 +27,7 @@ enum PaywallBehavior {
         var hooks: [Hook] = PaywallBehavior.hooks
         var plans: [PlanCardModel] = [.yearly, .monthly]
         var selectedPlanId = PlanCardModel.yearly.id
-        var ctaTitle = "Start my 7 days free"
+        var ctaTitle = "Start my 14 days free"
         var ctaSubtitle = "Then $29.99/yr · cancel anytime, keep the free days"
         var isPurchasing = false
         var isRestoring = false

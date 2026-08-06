@@ -70,6 +70,11 @@ enum TaskEditorBehavior {
         var hasTime = false
         var timeText = "Add time"
         var time = Date()
+        /// Dated but untimed: names the wall-clock minute the reminder will
+        /// actually fire at, read from the user's own default rather than
+        /// inventing a due time the task does not have. Nil once a time is
+        /// set, and until the profile fetch lands.
+        var untimedReminderNote: String?
         var suggestionChip: SuggestionChip?
         var activePicker: PickerTarget = .none
         var priorityOptions: [ChoiceChip] = []
@@ -95,6 +100,13 @@ enum TaskEditorBehavior {
         var isWorking = false
         /// Recurring task: "skip this occurrence vs delete series" dialog.
         var showDeleteOptions = false
+        /// Everything else: a plain destructive confirm. Deleting a task is
+        /// the one irreversible thing this editor does, and it used to
+        /// happen on the first tap with no undo.
+        var showDeleteConfirm = false
+        /// Body copy for that confirm. A dateless recurring task lands here
+        /// too and says so, since "delete" ends its whole series.
+        var deleteConfirmMessage = ""
         /// Recurring task: "save this occurrence vs whole series" dialog.
         var showSaveScopeOptions = false
     }
@@ -125,6 +137,8 @@ enum TaskEditorBehavior {
         case confirmSkipOccurrence
         case confirmDeleteSeries
         case cancelDeleteOptions
+        case confirmDelete
+        case cancelDelete
     }
 
     enum NavigationEvent {

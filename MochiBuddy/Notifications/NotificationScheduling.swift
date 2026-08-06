@@ -54,6 +54,10 @@ struct PendingNotificationSummary: Equatable {
 protocol NotificationScheduling: AnyObject {
     func pendingIds() async -> [String]
     func pendingRequests() async -> [PendingNotificationSummary]
+    /// Fired notifications still sitting in Notification Center - the
+    /// billing-notice audit trail's best-effort delivery evidence (a
+    /// cleared notification vanishes from here; absence proves nothing).
+    func deliveredIds() async -> [String]
     func removePending(ids: [String])
     func schedule(_ request: ScheduledNotificationRequest) async
 }
@@ -93,8 +97,7 @@ enum NotificationRequestBuilder {
                 plan: plan,
                 content: NotificationCopy.reminder(
                     taskTitle: task?.title,
-                    hideTaskNames: hideTaskNames,
-                    untimed: task?.hasTime == false
+                    hideTaskNames: hideTaskNames
                 ),
                 urgency: .timeSensitive,
                 categoryId: NotificationCategoryID.reminder,
@@ -115,8 +118,9 @@ enum NotificationRequestBuilder {
             )
 
         case .rundown:
+            // Ranked only for the due count now - the briefing speaks in
+            // counts and never lists a title.
             let ranking = RundownRanker.ranking(from: allTasks, at: plan.fireAt, calendar: calendar)
-            let top = ranking.top
             // The one Personal-Layer line per rundown (Feature 2's
             // canonical priority: streak milestone > anniversary >
             // crushed yesterday > callback > observation) arrives
@@ -149,16 +153,7 @@ enum NotificationRequestBuilder {
             return ScheduledNotificationRequest(
                 plan: plan,
                 content: NotificationCopy.rundown(
-                    tasks: top.map { task in
-                        NotificationCopy.RundownTaskLine(
-                            title: task.title,
-                            timeText: task.hasTime
-                                ? task.dueAt?.formatted(date: .omitted, time: .shortened)
-                                : nil
-                        )
-                    },
-                    totalDue: ranking.totalDue,
-                    hideTaskNames: hideTaskNames,
+                    dueCount: ranking.totalDue,
                     petName: petName,
                     crushedYesterday: crushed,
                     openerLine: opener,
@@ -189,6 +184,20 @@ enum NotificationRequestBuilder {
                 plan: plan,
                 content: NotificationCopy.letterInvitation(petName: petName, deck: &deck),
                 urgency: .active,
+                categoryId: nil,
+                threadId: nil
+            )
+
+        case .trialEnding:
+            // Time-sensitive on purpose: a billing notice anchored to the
+            // charge instant is exactly what the interruption level is
+            // for, and Focus must not swallow the last chance to cancel.
+            return ScheduledNotificationRequest(
+                plan: plan,
+                content: NotificationCopy.trialEnding(
+                    stage: NotificationID.parseTrialStage(plan.id) ?? .dayBefore
+                ),
+                urgency: .timeSensitive,
                 categoryId: nil,
                 threadId: nil
             )

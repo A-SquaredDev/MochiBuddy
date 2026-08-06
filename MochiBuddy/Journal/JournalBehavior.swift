@@ -34,7 +34,7 @@ enum JournalBehavior {
         let momentId: String
         let text: String
         let dateLabel: String
-        /// SF Symbol for the tile (content-team art pending, roadmap #6).
+        /// SF Symbol for the tile.
         let icon: String
         /// The adoption row earns the origin treatment (filled rail dot).
         let isOrigin: Bool

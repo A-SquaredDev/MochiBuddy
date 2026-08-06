@@ -36,6 +36,7 @@ with mood(now) by construction.
 | Morning rundown | `rundown-YYYY-MM-DD` | Every morning in horizon | Wake time (end of bedtime window) | One per day | Fires at wake by definition | Vacation, lapsed | `morningRundown` |
 | Backstop | `backstop` | Always laid (dormant-user safety net) | 7 days after last relay, repeating | One pending slot, weekly | Not checked | Vacation plus grace, lapsed | any pref on |
 | Weekly letter invitation | `letter-{periodStart}` | Current letter period is non-dormant | Period cutoff (Sunday 19:00 by tuning) | One per period | Not checked | Vacation, lapsed, adoption-age gate, slot budget (dropped first) | `weeklyLetter` |
+| Trial-ending notice | `trial-{stage}-{chargeEpoch}` | Membership is `.trial(willRenew: true)` | 24 h and 3 h before the charge instant | Two per trial, ever | Deliberately ignored | Nothing (transactional; auto-renew off plans none) | None (no pref may silence a billing notice) |
 
 Celebrations are deliberately NOT a notification genre: `celebrationPool`
 exists in NotificationCopy.swift:108-114 and a `celebration()` renderer at
@@ -65,10 +66,12 @@ the same task pipeline on foreground.
   Complete plus a three-option snooze menu (1 hour, tonight 19:00, tomorrow
   09:00; SnoozeOption.swift:13-46). Actions run without opening the app and
   end in a re-lay (NotificationActionHandler.swift:48-101).
-- Copy: names the task ("Due now. Rooting for you."); the `hideTaskNames`
-  privacy pref swaps a nameless variant (NotificationCopy.swift:142-150).
+- Copy (revised in the 2026-08-02 string review): generic knock title
+  "You have something due!" with the task title as the body; the
+  `hideTaskNames` privacy pref swaps the body for "One new task is due.
+  Check the app to view!" (NotificationCopy.swift:150-159).
   Promise copy never embeds the pet name, the locked rule that lets renames
-  leave promises untouched (verified by test, NotificationDeliveryTests.swift:498-524).
+  leave promises untouched (verified by test).
 - Suppression: vacation is the ONE suppression allowed to silence a promise
   (NotificationPlanner.swift:117). Shh, bedtime, and lapsed never touch it.
   Lapsed users keep promises indefinitely and lose everything else
@@ -170,21 +173,25 @@ because mood only rises on action and every action re-lays
   morning inside the (entitlement-capped) horizon, firing at wake, which is
   defined as the END of the bedtime window (`bedtime.endMinutes` added to
   start of day, line 266). Default wake 07:00.
-- Content (NotificationRequestBuilder, NotificationScheduling.swift:109-152):
-  top 1-3 tasks ranked at the rundown's own fire time with recurrence rolled
-  forward: overdue by lateness descending, then due-today timed by time, then
-  due-today date-only by priority (RundownRanker.swift:14-44).
-- Title flexes to load: "One thing today" / "A light day today" / "Big one
-  today. We've got this" / "A calm day"; a notably productive yesterday
-  (5 or more completions, a COUNT never an effort-weighted sum) takes over the
-  title as "You crushed yesterday" (NotificationCopy.swift:154-199).
+- Content (NotificationRequestBuilder, NotificationScheduling.swift):
+  since the 2026-08-02 string review the body never lists a task title, it
+  carries the due COUNT ("N tasks are due today."); RundownRanker still runs
+  at the rundown's own fire time with recurrence rolled forward, but only
+  its totalDue feeds the copy (RundownRanker.swift:14-44).
+- Title rotates through the greeting pool ("Good morning" / "Good morning
+  from {name}"); a notably productive yesterday (5 or more completions, a
+  COUNT never an effort-weighted sum) overrides it as "Good morning. You
+  crushed yesterday" (NotificationCopy.swift:169-204). Body is always one
+  warm line (or the Personal-Layer opener) plus one compact summary, two
+  lines flat.
 - Personal Layer: one line per rundown morning (streak milestone, anniversary,
   crushed yesterday, memory callback, or observation, in that canonical
   priority) is assigned for the whole horizon in one deterministic pass by
   MemoriesService and leads the body as an opener
   (NotificationOrchestrator.swift:229-238, AppContainer.swift:183-191,
   MemoriesService.swift:81-149).
-- `hideTaskNames` swaps in "Your top N tasks are ready when you are".
+- `hideTaskNames` no longer alters the rundown: with the count-only summary
+  there is no task title left to hide. The pref still gates reminder bodies.
 - Active interruption level, no category (no actions). Suppressed on vacation
   and while lapsed; outside the mood-ping cap; third claim on slot budget.
 
@@ -229,6 +236,38 @@ because mood only rises on action and every action re-lays
   in-app backstop (NotificationPlanner.swift:320-341). Never counts against
   the mood-ping cap. Gated by the `weeklyLetter` pref.
 
+## Genre 6: Trial-ending billing notices
+
+- Planner: `planTrialEnding`. Two fixed stages per trial, `dayBefore` (24 h
+  before the charge instant) and `dayOf` (3 h before), anchored to the exact
+  `trialEndsAt` RevenueCat reports, never to a calendar morning: an 11 pm
+  charge gets an 8 pm day-of notice, not a 9 am one with a 14-hour gap.
+- Input boundary: the orchestrator supplies `TrialChargeInput` only while the
+  status is `.trial(willRenew: true)`. Cancelling mid-trial re-lays with a nil
+  input, and the diff sweeps the pending notices (`trial-` is in `isOurs`):
+  no charge coming, no nag. If RevenueCat moves the end date, the charge
+  epoch in the id changes and the diff swaps the notices cleanly.
+- Deliberately exempt from EVERYTHING that shapes the mood system: no pref
+  gate, no bedtime silence, no shh, no vacation, no horizon cap (a 14-day
+  trial's notices are laid from day one, past the 7-day horizon), and
+  reserved off the top of the slot budget beside the backstop. Dressed
+  time-sensitive so Focus cannot swallow the last chance to cancel.
+- Copy is fixed and plain (`NotificationCopy.trialEnding`): no pools, no
+  rotation, no pet name - a notice about money reads the same for every user
+  every time and states both outcomes (stay: do nothing; stop: cancel in App
+  Store subscription settings).
+- The audit trail: every freshly scheduled notice writes a create-only
+  document to `users/{uid}/billingNotices/{noticeId}`
+  (FirestoreBillingNoticeRecorder) carrying the stage, fire time, trial end,
+  server-stamped `scheduledAt`, the notification permission status at
+  scheduling time, and the time zone. `deliveryConfirmedAt` is the one
+  mutable field, written best-effort when iOS shows the notice fired: the
+  delivered-notifications sweep on each relay, foreground presentation, or a
+  tap. The record says "scheduled" and "delivery confirmed", never "user was
+  notified" - iOS has no delivery receipts for local notifications, and the
+  trail must not claim more than the platform can prove. Rules mirror the
+  letters/readAt pattern; erased with the account by AccountEraser.
+
 ## Suppression and budget composition
 
 Order of operations inside one plan (NotificationPlanner.swift:71-92):
@@ -242,9 +281,10 @@ Order of operations inside one plan (NotificationPlanner.swift:71-92):
 4. Bedtime silence drops mood-ping candidates inside the window (pref
    `bedtimeSilence`, on by default); promises and the letter ignore it and
    the rundown fires at the window's end by construction.
-5. Budget over iOS's 64-slot ceiling: promises by nearest due, one reserved
-   backstop slot, mood pings, rundowns, then the letter. A reminder is never
-   the thing dropped.
+5. Budget over iOS's 64-slot ceiling: promises by nearest due, reserved
+   slots for the backstop and any trial-ending notices, mood pings,
+   rundowns, then the letter. A reminder is never the thing dropped, and a
+   billing notice can never be squeezed out by a task flood.
 6. Horizon: 7 days, hard-capped at a known entitlement cliff (a real
    cancellation, `willRenew == false`) so nothing but promises is ever laid
    into a lapsed state; an auto-renewing boundary never caps
@@ -361,3 +401,288 @@ replace in place, the differ only removes ids the app owns
 (NotificationPlanDiff.swift:25-31), re-lay idempotence is pinned by test
 (NotificationDeliveryTests.swift:681-690), and the debounce coalesces storms
 (test at line 745-758).
+
+## Copy inventory: every string a notification can show
+
+Every user-visible string that can render on the lock screen, verbatim from
+source. `{name}` is the pet name, inserted verbatim at dress time via
+`PetCopyTemplate` (NotificationCopy.swift:26-32); other `{slot}` values are
+listed with their pools. Every pool rotates round-robin through a persisted
+`CopyDeck` and never repeats a line until the pool cycles. Excluded here:
+in-app UI text (primer, prefs, banners, celebrations on screen) and DEBUG
+inspector strings, since neither ever renders inside a notification. The one
+in-app pool kept for contrast is flagged.
+
+### Mood pings (NotificationCopy.swift:66-105)
+
+Title is always the bare pet name. Body comes from the band's pool. The
+2026-08-02 string review revised uneasy line 2 and added two cute-energy
+lines to the uneasy and anxious pools (the blanket-corner register); the
+floor pools were deliberately left alone, since comedy at the floor risks
+the "would this make a fragile person feel worse" ship test.
+
+Uneasy pool (1/day cadence):
+
+1. "{name} is getting a little fidgety. One small win would settle them right down."
+2. "{name} keeps glancing at the list… nudge nudge."
+3. "One tiny task and {name} will glow all afternoon."
+4. "{name} is doing little pacing circles. They believe in you."
+5. "One check-off and {name} curls right back up."
+6. "{name} noticed something slipping. No rush, whenever you're ready."
+7. "{name} flopped dramatically across the list. They'll recover the second you check something off."
+8. "{name} is giving you the big eyes. The really big ones."
+
+Anxious pool (3/day cadence):
+
+1. "{name} is having a wobbly moment. They'd love some company."
+2. "{name} is a little tangled up right now. A small step would help you both."
+3. "Things feel heavy to {name} today. Start tiny, they'll follow."
+4. "{name} is chewing on a blanket corner again. Come sit with the list together."
+5. "{name} is worried, but they know you always come through."
+6. "Deep breaths, says {name}. One thing at a time."
+7. "{name} has burrowed into the blanket pile. Only the ears are poking out."
+8. "{name} is sitting in worried loaf position. One small step would un-loaf them."
+
+Floor acute pool (verySad, taper days 1-2):
+
+1. "{name} is having a hard day too. Anything at all lifts you both."
+2. "It's been a lot lately. {name} just wants to see you."
+3. "{name} is sitting with it. One little thing, together?"
+4. "Even a tiny check-in makes the day softer for {name}."
+5. "Rough patch. {name} is not going anywhere."
+6. "{name} saved you a spot. Whenever you're ready."
+
+Floor chronic pool (verySad, taper day 3 and beyond; ALSO the backstop's
+body, NotificationScheduling.swift:163-174):
+
+1. "No pressure. {name} is just here."
+2. "{name} is keeping your spot warm."
+3. "Nothing needed today. {name} says hi."
+4. "{name} is right where you left them."
+5. "Quiet day. {name} is thinking of you."
+
+### Promise reminders (NotificationCopy.swift:150-159)
+
+Never the pet name (locked rename rule). Revised in the 2026-08-02 string
+review: the title is now a generic knock and the task title moved into the
+body:
+
+- Named: title = "You have something due!", body = the task title.
+- `hideTaskNames` on (or no title): title = "You have something due!",
+  body = "One new task is due. Check the app to view!"
+
+### Morning rundown (NotificationCopy.swift:166-218)
+
+Revised in the 2026-08-02 string review: the summary never names a task
+(title lists read confusing on the lock screen), it speaks in counts.
+
+Title pool:
+
+1. "Good morning"
+2. "Good morning from {name}"
+
+Crushed-yesterday title override: "Good morning. You crushed yesterday"
+
+Body is two lines: a lead plus a summary. The lead is the Personal-Layer
+opener when one is assigned (pools below), otherwise the cheer pool:
+
+1. "{name} is up early and rooting for you."
+2. "One thing at a time. {name} will be right here."
+3. "{name} stretched, yawned, and believes in today."
+4. "Slow start is fine. {name} says so."
+
+Summary line variants ({N} = RundownRanker's totalDue at the briefing's own
+fire time):
+
+- Nothing due: "Nothing due today. {name} is taking it easy with you."
+  (replaces the whole body line, still preceded by an opener if assigned)
+- One: "One task is due today."
+- Several: "{N} tasks are due today."
+
+### Rundown Personal-Layer openers
+
+One of these leads the rundown body when MemoriesService assigns a line
+(crushed-yesterday is a title override, not an opener). Counts are spelled
+words (LetterCopy.numberWord), never digits.
+
+Anniversary (MemoriesCopy.swift:26-31; {span} = "One week" / "One month" /
+"One year" / "Two years"...):
+
+1. "{span} with {name} today."
+2. "Today makes {span} of you and {name}."
+3. "{span} together as of today. {name} kept count."
+4. "{span} since you and {name} met."
+
+Deferred anniversary, mark passed on vacation (MemoriesCopy.swift:36-41;
+{mark} = "one-week" / "one-month" / "one-year" / "two-year"...):
+
+1. "While you were away, you and {name} passed the {mark} mark."
+2. "Somewhere out there, you and {name} crossed the {mark} mark."
+3. "The {mark} mark slipped by during your time away. {name} counted it anyway."
+4. "You and {name} passed the {mark} mark while you were off resting."
+
+Best-day callback (MemoriesCopy.swift:56-61; {when} = coarse relative time,
+{count} spelled, {scale} = "your biggest day" or "one of your biggest days"
+on a tie):
+
+1. "{when} you cleared {count} things in one day. {name} still talks about it."
+2. "{name} remembers {scale}: {count} things, one day, {when}."
+3. "Remember {when}, when {count} things got done in a single day? {name} does."
+4. "{count} in one day, {when}. {name} filed it under favorite memories."
+
+Recovery callback (MemoriesCopy.swift:68-74; structurally restricted: {name}
+is the only slot, no counts, no "back to" / "used to", no reference to the
+present pile):
+
+1. "You've found your way through a pile before. {name} remembers."
+2. "You've dug out before. {name} never doubted it."
+3. "There was a stretch that looked heavy, and you cleared it. {name} keeps that story."
+4. "You've done this before. {name} was there for it."
+5. "{name} has watched you climb out before. That memory stays."
+
+Streak era, count-only (MemoriesCopy.swift:77-82):
+
+1. "Your longest run with {name} is {count} days."
+2. "{count} days in a row, once. {name} still brags about it."
+3. "The record stands at {count} days together. {name} keeps it polished."
+4. "{count} straight days, your best yet. {name} remembers every one."
+
+Streak era, dated (MemoriesCopy.swift:86-91):
+
+1. "Your longest run together, {count} days, wrapped up {when}. {name} was there for all of it."
+2. "{when} you set the record: {count} days straight. {name} still talks about that stretch."
+3. "The {count}-day record you set {when} still stands. {name} guards it proudly."
+4. "{count} days in a row, {when}. {name} calls it the golden stretch."
+
+Date echo (MemoriesCopy.swift:96-101; {monthsago} = "A month" / "Two
+months"...):
+
+1. "{monthsago} ago today you finished {count} things. {name} remembers the date."
+2. "{monthsago} ago today, {count} things done. {name} circled it on the calendar."
+3. "{monthsago} ago today you had one of those days: {count} finished."
+4. "{name} keeps an eye on dates. {monthsago} ago today: {count} things, done and dusted."
+
+Coarse relative time slot values (MemoriesCopy.swift:135-143): "about a week
+ago", "a couple of weeks ago", "about a month ago", "a couple of months
+ago", "a while back".
+
+Observation openers (ObservationCopy.swift; qualitative by locked rule, no
+counts or numbers ever). Weekday pool ({weekday} = "Sundays"..."Saturdays"):
+
+1. "You get the most done on {weekday}. {name} noticed."
+2. "{weekday} are your days. {name} keeps notes on these things."
+3. "Something about {weekday} suits you. {name} has been paying attention."
+4. "{name} thinks of {weekday} as your day now."
+
+Morning band:
+
+1. "Mornings are when things happen around here. {name} noticed."
+2. "You and mornings get along. {name} keeps notes."
+3. "The early hours are yours. {name} has seen it enough to be sure."
+4. "{name} noticed the day's wins tend to come early."
+
+Afternoon band:
+
+1. "Afternoons are when things happen around here. {name} noticed."
+2. "You hit your stride after lunch. {name} keeps notes."
+3. "The middle of the day is yours. {name} has seen it enough to be sure."
+4. "{name} noticed the afternoon is where your day comes together."
+
+Evening band:
+
+1. "Evenings are when things happen around here. {name} noticed."
+2. "You wind the day down by getting things done. {name} keeps notes."
+3. "The evening is yours. {name} has seen it enough to be sure."
+4. "{name} noticed your day comes together in the evening."
+
+Night band (affirms, never corrects):
+
+1. "Things get done after 9pm around here, and that counts just the same. {name} noticed."
+2. "The late hours are yours. {name} thinks that's a fine time for them."
+3. "{name} noticed the quiet hours are when you get things done. No notes, just admiration."
+4. "Night is when your list gets shorter. {name} keeps you company either way."
+
+Momentum rising:
+
+1. "More check-offs lately. {name} can feel it."
+2. "Things are moving around here. {name} noticed."
+3. "{name} can tell something's picked up lately."
+4. "The list has been shrinking faster. {name} is quietly delighted."
+
+List return ({list} = the list's name; celebrates the return, never the
+absence):
+
+1. "You found your way back to {list} this week. {name} noticed."
+2. "{list} got some attention this week. {name} was glad to see it."
+3. "Back to {list} this week. {name} likes seeing that one move."
+4. "{name} noticed {list} moving again this week."
+
+Comeback:
+
+1. "When something slips, you catch it fast. {name} loves that about you."
+2. "{name} noticed you always circle back. It never takes you long."
+3. "Slipped things don't stay slipped around you. {name} keeps notes."
+4. "You have a way of catching things quickly. {name} admires it."
+
+### Weekly letter invitation (NotificationCopy.swift:107-112, 220-227)
+
+Title: "A letter from {name}". Body pool:
+
+1. "{name} wrote you a letter about the week. It's waiting whenever you are."
+2. "There's a letter from {name} on the mat. No rush at all."
+3. "{name} put the week into words. Come read when it suits you."
+4. "A little envelope from {name} is waiting inside."
+
+### Backstop
+
+No copy of its own: title = pet name, body drawn from the floor chronic pool
+above (pure presence, no ask, safe at any staleness).
+
+### Trial-ending notices (NotificationCopy.trialEnding)
+
+Fixed, unpooled, unrotated - transactional copy about money:
+
+- dayBefore: "Your free trial ends tomorrow" / "Your yearly membership starts
+  tomorrow when the trial ends. To keep Mochi, do nothing. If you'd rather
+  not continue, cancel anytime in your App Store subscription settings."
+- dayOf: "Your free trial ends today" / "Your yearly membership starts later
+  today when the trial ends. If you'd rather not continue, there is still
+  time to cancel in your App Store subscription settings."
+
+### Action button labels
+
+Reminder category (UNNotificationScheduler.swift:118-127,
+SnoozeOption.swift:22-28):
+
+- "Complete"
+- "Snooze · In 1 hour"
+- "Snooze · Tonight" (19:00, or an hour out if already evening)
+- "Snooze · Tomorrow" (09:00)
+
+Mood-ping category (UNNotificationScheduler.swift:129-145,
+NotificationActionTitles.swift:21-30). The pet name is included only while
+it fits a ~12 character render-width budget (CJK and emoji weighted double);
+{h} is the remote-tunable shh duration, default 24:
+
+- "Pet {name}", falling back to "Pet"
+- "{name}, shh · {h}h", falling back to "Shh · {h}h"
+
+### Dormant and adjacent pools (not notifications today)
+
+`celebrationPool` (NotificationCopy.swift:115-121) has no consumer anywhere;
+celebrations are in-app only. Kept in the file, listed here since it would
+become lock-screen copy if ever wired:
+
+1. "{name} is doing a happy dance! 🎉"
+2. "Look at you go. {name} is beaming."
+3. "{name} squeaked with joy!"
+4. "That streak though. {name} is so proud. ✨"
+5. "Confetti everywhere. {name} insisted."
+
+`anniversaryBannerPool` (MemoriesCopy.swift:43-48) is the in-app banner
+sibling of the anniversary rundown pool, listed for voice comparison only:
+
+1. "{span} with {name} today."
+2. "{span} of you and {name}. Happy day."
+3. "Today marks {span} together. {name} is glowing."
+4. "{span}, as of today. {name} remembered the date."

@@ -603,9 +603,11 @@ glanceable nudge to take care of your tasks (and, by proxy, yourself).
   comfort for Mochi* — not to be a paid currency.
 - **Delight-forward, guilt-light.** Mochi is a companion you help, not a warden
   who punishes you. The upside carries as much weight as the downside.
-- **7-day free trial, then subscription. No freemium tier.** The emotional hook
-  needs a few days to land (you have to fall behind once and feel Mochi react), so
-  the trial gives the full experience before the ask.
+- **14-day free trial (yearly plan only), then subscription. No freemium tier.**
+  The emotional hook needs a few days to land (you have to fall behind once and
+  feel Mochi react), so the trial gives the full experience before the ask.
+  (Extended from 7 to 14 days, Aug 2 2026; the monthly plan carries no intro
+  offer.)
 
 ## The feel
 
@@ -1353,7 +1355,7 @@ subscription access returns.
   Apple Account, so a new subscription would be associated with the original (deleted)
   App User ID and the customer would never gain access.
 - **Warn users:** Apple tracks **trial eligibility per Apple ID**. Deleting and
-  re-signing-up does **not** grant a fresh 7-day trial.
+  re-signing-up does **not** grant a fresh 14-day trial.
 
 ## Entitlement & subscription states
 
@@ -1366,7 +1368,7 @@ log back in for free. **RevenueCat is the single source of truth**; the Firestor
 
 | State | Source | Access |
 |---|---|---|
-| `trialing` | RC | Everything. 7 days. |
+| `trialing` | RC | Everything. 14 days (yearly plan only). |
 | `active` | RC | Everything. |
 | `billing_grace` | RC | **Everything** — see the trap below. |
 | `lapsed` | ours | "Finish what you started." Indefinite. Mochi asleep. |
@@ -3128,6 +3130,73 @@ changes touch the version gate — see ledger hygiene.)*
   copy. Any successor must fire on action, as list return does.
 - Any negative-pattern surfacing. Deliberately never, absent a philosophy change.
 
+#### Extension — list time-of-day observation (specced Aug 2 2026, unbuilt)
+
+> 🆕 **Added Aug 2 2026** from dogfooding: the Feature 5 `.list`-tier chip already
+> tells the user "{list} things usually get done in the evening" at the moment of
+> scheduling. The same trait deserves an ambient home in the Journal. Decisions
+> locked in review: **noticed card only · divergence-gated · Journal-only first.**
+
+**What it is.** A sixth observation type, `listTimeOfDay` — a trait (deterministic
+14-day replay hysteresis like weekday / time-of-day / comeback) concluding one
+**(list, band)** pair: "this list's things tend to happen in this band."
+
+**Why it is not a moment or a letter beat (v1).** The conclusion is derived and can
+strengthen, shift bands, or evaporate — freezing it into the timeline would violate
+record-vs-derive. It renders on the live "{name} has noticed" card, which already
+retires stale lines by construction. Letters and rundowns are explicitly out of
+scope for v1; widen only after the card reads well in practice. It also never
+becomes an editor chip — Feature 5 already owns that surface.
+
+**Evidence & gates** (new `obs_list_tod_*` Remote Config keys; shared gates reuse
+the existing keys):
+
+| Gate | Value |
+|---|---|
+| Evidence floor | ≥ `obs_list_tod_min` (15) day-capped completions in the list within the 42-day window |
+| Spread | ≥ `obs_list_tod_dates` (5) distinct dates across ≥ `obs_list_tod_weeks` (3) distinct weeks; per-(list, day) cap of `obs_day_cap` (3) |
+| Concentration guard | ≥ 3 distinct task/series identities and no identity > 0.40 of the capped count — one daily habit can't speak for a whole list (mirrors Feature 5's list scope; pinned in code v1, promotable to RC later) |
+| Margin | top band share ≥ `obs_list_tod_share` (0.40) **and** ≥ `obs_margin_ratio` (1.5×) runner-up |
+| **Divergence** | qualifies **only when the list's band differs from the currently qualified global time-of-day band, or no global band is qualified**. A list matching the global rhythm is silence — the global line already says it. Replayed like every other gate, so a global-band switch or retirement re-decides the list line deterministically |
+
+**One incumbent overall.** At most one (list, band) incumbent at a time; when
+several lists qualify, the strongest wins (highest band share, ties by evidence
+count, then stable list id). Switch and retire under the standard 14-day rule.
+Mochi lists only — Apple Reminders rows are structurally excluded, as in Feature 5.
+A deleted list disqualifies immediately (a noticed line naming nothing is
+pointless); a renamed list renders live, since nothing is frozen.
+
+**Card behavior.** Lowest trait priority in the qualified order — it fills the last
+of the card's 3 slots, never displaces a global trait. Copy rotation, per-day
+phrasing stability, and lapse peek behavior all inherit from the card.
+
+**Copy** (two new pools; qualitative, no counts, third person, night affirming —
+first-person "Hey! Mochi here!" register deliberately rejected in review):
+
+`obs-list-tod` — {band} ∈ "in the morning" / "in the afternoon" / "in the evening":
+- `{list} things usually happen {band}. {name} noticed.`
+- `{list} has its own hour. {name} keeps notes on these things.`
+- `{list} tends to move {band}. {name} has seen it enough to be sure.`
+- `{name} noticed {list} gets its turn {band}.`
+
+`obs-list-night` — its own pool so the affirming stance is structural:
+- `{list} gets its attention after dark, and that counts just the same. {name} noticed.`
+- `The late hours are when {list} moves. {name} thinks that's a fine time for it.`
+- `{name} noticed the quiet hours are when {list} gets shorter. No notes, just admiration.`
+- `Night is when {list} moves. {name} keeps you company either way.`
+
+**Bookkeeping.** RC pin moves 84 → 88 (4 new keys; console publish user-owned, per
+the standing follow-up). Telemetry reuses `observation_evaluated` /
+`observation_shown type=listTimeOfDay surface=journal` — never the list name.
+`Mochi-journal.md` §5 gains the type only once it ships (that doc records shipped
+code).
+
+**Test coverage (required).** Divergence gate flips with the global incumbent under
+replay; concentration guard (one daily habit fails, three identities pass);
+burst resistance; strongest-list tie-breaking is deterministic; deleted list
+retires immediately; rename renders live; determinism and
+current-zone-independence like every other type.
+
 ### Feature 5 — Suggested times
 
 > 🆕 **v0.7 — RESOLVED** *(revised after review: **runner-up margin + peak-date
@@ -3445,7 +3514,7 @@ non-measurement.
 
 - **Named "Journal," statically.** "Diary" reads childhood-secret and localizes
   worse. The **tab label is the static word "Journal"** with an SF Symbol book
-  glyph (`PlaceholderArtIcon` convention until commissioned art lands, roadmap #6)
+  glyph (SF Symbol stand-in until commissioned art lands, roadmap #6)
   — tab bars never carry user content (a 16-grapheme pet name in a tab label is
   the exact compact-surface failure Feature 1 cataloged). The *screen* header is
   possessive and alive — "Nori's Journal" — as a **full localized format string**
@@ -4082,6 +4151,7 @@ privacy disclosure.
 | 10 | The Personal Layer | ✅ **Resolved and shipped (v0.8)** | All six features specced in v0.7 and built in the pinned order 1 → 4 → 3 → 2 → 5 → 6, ending with the Journal tab. See *The Personal Layer* and, for the Journal, `Mochi-journal.md`. |
 | 11 | The discovery batch | 🟡 **3 of 4 built** | Best Hours & Day by day, Suggestion reach, and Effort size shipped July 27 2026. Editor layout (the ghost pill) is design-locked and unbuilt with no comp. Calendar access was tabled with a full record. See *The discovery batch.* |
 | 12 | Waking-Mochi onboarding | ⬜ **Exploring** | Replace the passive Meet Mochi carousel with a tap-to-wake adoption sequence (asleep → groggy → awake → adopted → name). Needs a design pass, a comp, and two new poses. See *Onboarding → Exploring: the waking-Mochi adoption beat.* |
+| 13 | List time-of-day observation | ⬜ **Specced, unbuilt** *(Aug 2 2026)* | A sixth observation type surfacing the Feature 5 list-tier insight ("{list} things usually get done in the evening") on the Journal's noticed card. Divergence-gated against the global band, one incumbent, Journal-only v1, 4 new `obs_list_tod_*` RC keys. See *The Personal Layer → Feature 4 → Extension.* |
 
 ## Still to flesh out
 

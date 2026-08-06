@@ -98,6 +98,8 @@ enum DevSchedulerBehavior {
         var suggestionTaskId: String? = nil
         /// Feature 3 force-compose result line, DEBUG pipeline check.
         var letterComposeText = ""
+        /// Fixture seeder result line (release-checklist QA pass).
+        var fixtureText = ""
 
         /// Right edge of the visible chart window.
         var displayEnd: Date {
@@ -115,9 +117,13 @@ enum DevSchedulerBehavior {
         case suggestionTaskPicked(String)
         case composeLetterNow
         case scrubbed(Date?)
-        /// Local dev store only: restart the 7-day trial so the horizon
+        /// Local dev store only: restart the 14-day trial so the horizon
         /// uncaps without re-onboarding.
         case restartTrial
+        case seedNewTimeFixture
+        case seedReTimeFixture
+        case seedDoneHistoryFixture
+        case deleteFixtures
     }
 }
 
@@ -135,6 +141,7 @@ final class DevSchedulerViewModel: StateViewModel<
     private let letterService: LetterCompositionService?
     private let memoriesService: MemoriesService?
     private let suggestionLedger: SuggestionLedger?
+    private let fixtureSeeder: DevFixtureSeeder?
 
     private var context: NotificationOrchestrator.RelayContext?
     /// Cached once per rebuild; the engine is pure, so time travel just
@@ -151,7 +158,8 @@ final class DevSchedulerViewModel: StateViewModel<
         observationLedger: ObservationLedger? = nil,
         letterService: LetterCompositionService? = nil,
         memoriesService: MemoriesService? = nil,
-        suggestionLedger: SuggestionLedger? = nil
+        suggestionLedger: SuggestionLedger? = nil,
+        fixtureSeeder: DevFixtureSeeder? = nil
     ) {
         self.orchestrator = orchestrator
         self.scheduler = scheduler
@@ -162,6 +170,7 @@ final class DevSchedulerViewModel: StateViewModel<
         self.letterService = letterService
         self.memoriesService = memoriesService
         self.suggestionLedger = suggestionLedger
+        self.fixtureSeeder = fixtureSeeder
         super.init(initialState: DevSchedulerBehavior.UIState())
     }
 
@@ -210,6 +219,30 @@ final class DevSchedulerViewModel: StateViewModel<
             try? await membershipStore.startTrial(plan: .yearly)
             membershipSession.status = await membershipStore.currentStatus()
             await orchestrator.relayNow(.entitlementChange)
+            await rebuild()
+
+        case .seedNewTimeFixture:
+            guard let fixtureSeeder else { return }
+            state.fixtureText = "seeding..."
+            state.fixtureText = await fixtureSeeder.seedNewTime()
+            await rebuild()
+
+        case .seedReTimeFixture:
+            guard let fixtureSeeder else { return }
+            state.fixtureText = "seeding..."
+            state.fixtureText = await fixtureSeeder.seedReTime()
+            await rebuild()
+
+        case .seedDoneHistoryFixture:
+            guard let fixtureSeeder else { return }
+            state.fixtureText = "seeding..."
+            state.fixtureText = await fixtureSeeder.seedDoneHistory()
+            await rebuild()
+
+        case .deleteFixtures:
+            guard let fixtureSeeder else { return }
+            state.fixtureText = "deleting..."
+            state.fixtureText = await fixtureSeeder.deleteFixtures()
             await rebuild()
         }
     }
@@ -325,7 +358,7 @@ final class DevSchedulerViewModel: StateViewModel<
         }
         next.pending = rows
         next.slotText = "\(pending.count) / \(NotificationPlanner.Constants.slotCap) · "
-            + ["promise", "mood", "rundown", "backstop"]
+            + ["promise", "mood", "rundown", "backstop", "trial"]
                 .compactMap { key in counts[key].map { "\($0) \(key)" } }
                 .joined(separator: " · ")
         next.invariantOK = violations == 0
@@ -490,6 +523,7 @@ final class DevSchedulerViewModel: StateViewModel<
         if id.hasPrefix(NotificationID.moodPrefix) { return "mood" }
         if id.hasPrefix(NotificationID.rundownPrefix) { return "rundown" }
         if id.hasPrefix(NotificationID.letterPrefix) { return "letter" }
+        if id.hasPrefix(NotificationID.trialPrefix) { return "trial" }
         if id == NotificationID.backstop { return "backstop" }
         return "other"
     }
@@ -501,6 +535,7 @@ final class DevSchedulerViewModel: StateViewModel<
         case "rundown": "morning briefing at wake time"
         case "backstop": "repeating weekly safety net for dormant users"
         case "letter": "Sunday letter invitation, laid only for a non-dormant period"
+        case "trial": "trial-ending billing notice, anchored to the charge instant"
         default: "unrecognized id"
         }
     }
@@ -643,6 +678,13 @@ struct DevSchedulerView: View {
                         model: viewModel.suggestions,
                         onPickTask: { viewModel.trigger(.suggestionTaskPicked($0)) }
                     )
+                    DevFixturesSection(
+                        statusText: viewModel.fixtureText,
+                        onSeedNewTime: { viewModel.trigger(.seedNewTimeFixture) },
+                        onSeedReTime: { viewModel.trigger(.seedReTimeFixture) },
+                        onSeedDoneHistory: { viewModel.trigger(.seedDoneHistoryFixture) },
+                        onDelete: { viewModel.trigger(.deleteFixtures) }
+                    )
                     pendingList
                 }
             }
@@ -674,7 +716,7 @@ struct DevSchedulerView: View {
                     .font(MochiFont.body(9.5, weight: .bold))
                     .foregroundStyle(theme.muted)
                 if viewModel.horizonCapped {
-                    Button("Restart local 7-day trial to uncap the horizon") {
+                    Button("Restart local 14-day trial to uncap the horizon") {
                         viewModel.trigger(.restartTrial)
                     }
                     .font(MochiFont.body(11, weight: .heavy))

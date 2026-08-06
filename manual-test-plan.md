@@ -15,6 +15,12 @@ Those are marked **[needs history]** with what to expect in the meantime.
 launch screen is plain, Privacy Policy and Help links point at a site that
 is not live yet. Do not file these.
 
+**When something is wrong,** write it in `bugs.md` rather than in the
+margins of this plan. The bug log page, `tools/bug-log.html`, is the
+comfortable way to do that: it takes the area, severity, steps, expected,
+and actual, then saves the whole log back to `bugs.md`. A one-line note on
+the item here is still fine for small observations.
+
 ---
 
 ## 1. Onboarding and sign-in
@@ -32,6 +38,10 @@ is not live yet. Do not file these.
 - [ ] Name field: try a 30-character name - it caps at 16 visible
   characters. Try emoji-only and spaces-only - it never saves an empty or
   whitespace name.
+  - **An emoji-only name is allowed and is by design** ("it's their pet").
+    The sanitizer strips control and bidi characters, caps at 16
+    graphemes, and falls back to "Mochi" only when nothing printable is
+    left. Do not file emoji names.
 - [ ] Paywall shows real localized prices for monthly and annual.
   **But:** on a bad network it shows fallback prices ($3.99 / $29.99) -
   acceptable, retry on good network.
@@ -48,8 +58,28 @@ is not live yet. Do not file these.
   (not left behind).
 - [ ] Delete the app, reinstall, sign in: everything returns from the
   server (tasks, name, streak, letters).
+- [ ] **Nameless Apple account gets asked, once.** Apple hands over a
+  display name on the first-ever authorization only, so an account whose
+  profile has none must be asked rather than left as "Mochi friend".
+  - Setup: delete the account from inside the app (You → Delete account),
+    then sign in again with the same Apple ID. Apple will not resend the
+    name.
+  - On reaching Home, a sheet asks "What should {PetName} call you?" with a
+    one-line explanation, a name field, Save, and "Not now".
+  - Save: the name appears immediately in the You identity row and the Home
+    greeting, and the sheet never returns.
+  - "Not now": the sheet closes, "Mochi friend" remains, and it does **not**
+    come back on the next launch or the next foreground. The You tab pencil
+    still works as the way in later.
+  - It must never appear for an account that already has a name (including
+    Google sign-in, which does send one).
 
 ## 1b. Done tab pagination
+
+Seed data (DEBUG builds): You → Scheduler inspector → Test fixtures →
+"Seed done-history fixture" writes 36 completions across 4 recent days,
+enough to force page two and an uncapped week count. Its "How to use"
+sheet has the full walkthrough (Pass 3). Delete fixtures when done.
 
 - [ ] Tasks → Done: the timeline loads and scrolling near the bottom
   quietly loads older history (shimmer rows, then more days). The "Load
@@ -114,6 +144,21 @@ is not live yet. Do not file these.
   you habitually finish hours away from its due time shows a small clock
   glyph with a circling arrow on its row, in the accent color. Tapping the
   row opens the editor with the re-time suggestion visible.
+  - Seed data (DEBUG builds): You → Scheduler inspector → Test fixtures →
+    **"Seed re-time fixture (9:00 series done at 19:00)"** builds a daily
+    "[Seed] Daily review" whose eight past occurrences (due 9:00 AM) were
+    finished around 7:00 PM, plus one live occurrence due tomorrow.
+  - The rule it is exercising: recurring **and** timed, 8+ timed
+    completions across 5+ distinct dates, habitual finish 3+ hours from
+    the due time.
+  - In the editor expect the chip "This usually gets done around 7:00 PM."
+    with "Tap to change its due time from here on." Tapping it fills 7:00
+    PM and the chip goes quiet ("7:00 PM set"). Save, and the badge
+    clears; the NEXT occurrence carries 7:00 PM too.
+  - Dismissing the chip (small x) keeps it gone unless a later proposal
+    differs by an hour or more.
+  - Delete fixtures when done - they write real completions that Stats,
+    Best hours, Done, and Journal will all see.
   - It appears on the Tasks tab and inside a list, and **never on Home's
     today list** and never on a Reminders row. That is deliberate.
   - A row that is both due soon and badged shows the warning clock AND the
@@ -135,10 +180,39 @@ is not live yet. Do not file these.
 - [ ] Repeating task: complete it (anywhere - Home, Tasks, notification,
   widget). Exactly one next occurrence appears at the next due date. Never
   two.
-- [ ] Delete task works and is confirmed.
+- [ ] **Delete always asks first.** Deleting is the only irreversible thing
+  the editor does, and there is no undo behind it.
+  - A one-off task: "Delete this task?" with a destructive Delete and a
+    Cancel. Cancel leaves the task untouched; Delete removes it and closes
+    the editor.
+  - A repeating task **with** a due date: the older skip-vs-series dialog
+    instead ("Skip this occurrence" / "Delete the series").
+  - A repeating task with **no** due date: there is no occurrence to skip,
+    so it gets the plain confirm, whose message says the series stops.
+    (This case used to delete on the first tap.)
+- [ ] **Dated but untimed task names its reminder time.** Set a date, leave
+  the time unset: a line under the time pill reads "Reminds at 9:00 AM",
+  or whatever You → Notifications → default reminder time is actually set
+  to. Change that default and reopen the editor: the line follows it. Set
+  a time on the task and the line disappears.
 - [ ] **Suggested time chip [needs history]:** with 3+ weeks of completions
   that cluster at a consistent time, opening a new task's time picker area
   shows a one-line suggestion chip with a reason.
+  - Seed data (DEBUG builds): You → Scheduler inspector → Test fixtures →
+    **"Seed new-time fixture (18 evening completions)"** writes 18
+    completions around 7:00 PM across six past days into a "Seeded
+    fixtures" list. Then make a new task on that list due **TOMORROW**
+    with no time set. (Tomorrow, not today: a task due within 30 minutes
+    of the proposal is silenced by the lead-time guardrail, and 7:00 PM
+    may already be past.)
+  - The rule it is exercising: roughly 15 completions across 5+ distinct
+    dates inside 42 days, clustering in a ±90-minute window.
+  - **If** your bedtime window covers 7:00 PM the chip stays silent by
+    design. Move bedtime before deciding it is broken.
+  - The Suggestions inspector on the dev screen shows each gate passing or
+    failing for that scope (evidence, dates, peak share, runner-up) if you
+    want to see why a chip did or did not appear.
+  - Delete fixtures when done.
   - **If** your history is spread out or split between two times of day:
     NO chip. Absence is correct behavior, not a bug.
   - **If** you dismiss the chip: it stays gone for that task, and a new
@@ -176,6 +250,19 @@ is not live yet. Do not file these.
   from the editor. Moving it earlier, or changing only the time, must not
   count as a push. (There is no user-visible surface for this yet; it is
   feeding a future feature, so this only matters if you are checking data.)
+  - What it feeds: a "push" increments `rescheduleCount` on the task, the
+    procrastination signal specced for v2 and landed early so it can
+    accumulate real evidence before the feature ships. Its one live
+    consumer today is the suggested-time engine, which weights a
+    completion up to 3x when the task was repeatedly pushed - a task you
+    kept moving says more about when work actually happens.
+  - Snooze counts as a push too. Skipping a recurring occurrence and
+    vacation triage deliberately do not - different intents.
+  - Nothing renders it, so this is a data check, not a UI check. The
+    negative cases (moving earlier, re-timing within the same day, adding
+    or clearing a date, a completed task) are pinned by
+    `TaskEditorViewModelTests`; treat those as covered by test rather than
+    re-deriving them by hand.
 
 ## 5. Journal tab
 
@@ -205,7 +292,10 @@ is not live yet. Do not file these.
   self-correct by next launch at the latest.
 - [ ] Bedtime: change the window; Home's sleeping pose and notification
   quiet hours follow it.
-- [ ] Morning rundown and Sound toggles persist across restarts.
+- [ ] The care card holds Bedtime and nothing else. There is no Sound
+  toggle (removed for v1: nothing in the app plays audio) and no Morning
+  rundown toggle (it now lives only in Notification settings; the
+  Notifications row's subtitle names it when it is on).
 - [ ] Your Mochi card: shows name and "Met on <date>". Rename: the new
   name propagates immediately to Home greeting, mood lines, You header,
   notification action labels, the widget, and future notification copy.
@@ -248,7 +338,10 @@ is not live yet. Do not file these.
 - [ ] **Day by day** card (seven weekday rows):
   - Hidden entirely on the Week range, even when Month shows it.
   - Its 12p / 6p / 11p gridlines line up with the histogram above it. The
-    two cards should read as a matched pair.
+    two cards should read as a matched pair. **Every axis label gets a
+    hairline** - three labels, three lines. (Before the gridline fix the
+    card drew only 12p and 6p; if you still see two lines, the fix has
+    not landed in your build.)
   - A weekday with little data shows only a small dot, no capsule. Once a
     day has real history it gains the middle-half capsule and the range
     line.
@@ -282,7 +375,11 @@ is not live yet. Do not file these.
   not delete its completion history (see "Former list" above).
 - [ ] Manage subscription opens Apple's subscription page. Restore
   purchases spins, then reports found or not found honestly.
-- [ ] Version string at the bottom matches the build you are testing.
+- [ ] Footer reads "Mochi {version} · Made with care" and the version
+  matches the build you are testing. The version comes from
+  CFBundleShortVersionString, so it needs no per-release edit. There is no
+  age rating in the footer: it was a hardcoded "Rated 4+" that could not
+  track App Store Connect.
 
 ## 7. Notifications
 
@@ -294,6 +391,17 @@ and the Notifications settings screen should reflect the denied state.
   task (coins land, next occurrence spawns if repeating) without opening
   the app. Snooze options reschedule it.
 - [ ] Morning rundown arrives in the morning with a ranked summary.
+  - Setup: You → Notifications → Morning rundown ON, at least two open
+    tasks due today or overdue, then background the app.
+  - Same evening, check the dev Scheduler inspector (You → Scheduler
+    inspector, DEBUG builds): the forecast / pending queue should already
+    hold a rundown entry for tomorrow morning. If it is missing there it
+    will not arrive - note what the inspector shows instead of waiting.
+  - Next morning expect exactly one rundown, count-style ("3 due today"),
+    with no task titles if the hide-task-names privacy toggle is on.
+    Tapping it opens the app.
+  - It must never land inside your bedtime window, and toggling the
+    setting OFF must remove the queued entry from the inspector.
   - **If** you finished 5+ tasks yesterday: the title celebrates it.
   - At most ONE personal line ever rides a rundown (a streak note, an
     anniversary, a memory callback, or an observation) - never two.
@@ -329,6 +437,12 @@ and the Notifications settings screen should reflect the denied state.
 
 - [ ] The first letter can only cover your first FULL Monday-to-Sunday week
   after adoption. Before that, no letter and no envelope - correct.
+  - **The rule in one sentence:** your first letter arrives at 7 PM on the
+    Sunday of the week AFTER your adoption week. So a Sunday adopter waits
+    7 days, a Monday adopter 13, a Wednesday adopter 11.
+  - Deliberate wrinkle: if you adopt on a Sunday, anything you complete
+    after 7 PM that same evening falls inside the following week and so
+    lands in that first letter.
 - [ ] Sunday (from the send hour onward), open the app: a letter composes.
   Envelope on Home, hero in Journal, invitation notification (if that
   toggle is on).
@@ -352,14 +466,45 @@ and the Notifications settings screen should reflect the denied state.
   mood UI is hidden, no mood pings or rundowns arrive (task reminders you
   explicitly set still do).
 - [ ] End now (or the end date passing), then open the app:
+  - **Three ways out:** the Home banner's "End now", the day-14 card's
+    "Welcome me back", or You → Vacation mode → "Turn off & catch up".
+    No seed data needed; the whole pass takes about ten minutes.
+  - **Path A (end from Home).** Note your streak in You. Make a one-off
+    task due today, 2 to 3 minutes out, and do not complete it. Turn
+    vacation on (default end date is fine). Wait for the due time to
+    pass, then tap **End now** on the Home banner. Expect, in this order:
+    the banner disappears, then the triage sheet - Mochi at content,
+    "Welcome back!", "Here's what came due while you were away", your
+    task with Complete / Reschedule / Dismiss, plus "Reschedule all to
+    this week". After you pick, the mood meter is back, Mochi is awake at
+    roughly content (a 24h grace, not instantly ecstatic), the streak
+    matches what you noted, and the Journal has a new moment "You and
+    Mochi picked back up." dated today.
+  - **Path B (end from You).** Same setup, but end via You → Vacation
+    mode. Nothing dramatic happens on the You screen - the triage sheet
+    appears on your NEXT visit to Home. That deferral is by design.
+  - **Path C (nothing came due).** Start and immediately end a vacation
+    with nothing falling due in between: no sheet at all. That silence is
+    correct.
   - **If** one-off tasks went overdue during the vacation: a triage sheet
     lists them with complete / reschedule / dismiss, per-row and bulk.
     Later defers the sheet.
   - **If** nothing went overdue (only recurring items): NO sheet.
+  - Each per-row action confirms itself with a snackbar naming the task
+    ("Completed X", "Rescheduled X to Thu", "Dismissed X" with Undo).
+    Reschedule spreads the pile across the next few days rather than
+    stacking it all on tomorrow, so the snackbar must name the day it
+    actually picked. A row that just vanishes with no confirmation is a
+    bug (BUG-014).
   - Your streak survived the vacation, and the pet's mood does not
     punish you - the comfort buffer eases you back over the first day.
 - [ ] Open-ended vacation: around day 14 a gentle check-in asks if you are
   still away. At 30 days it ends itself.
+  - **Pass by unit test, not by hand.** `VacationReentryTests` and
+    `MoodForecastTests` cover the 30-day cap ending an open-ended trip,
+    the check-in coming due at 15 days and not at 10, never firing for a
+    fixed end date, the snooze path, and the Home surface integration.
+    There is no way to reach either one manually; do not sit on it.
 
 ## 11. Membership states
 

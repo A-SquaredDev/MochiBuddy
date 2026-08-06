@@ -4,8 +4,8 @@ Every place in MochiBuddy that still needs a real icon, graphic, or animation. C
 
 How the code marks these slots:
 
-- `PlaceholderArtIcon` (dashed frame with a photo glyph) and `PlaceholderArt.symbol` live in `MochiBuddy/CommonUI/DesignSystem/PlaceholderArt.swift`. Every render site must be replaced before release.
-- `// DESIGN NOTE:` comments tag each slot in code. Grep for `DESIGN NOTE` to re-find them all.
+- `PlaceholderArtIcon` / `PlaceholderArt.swift` was the stand-in convention; every render site got real art, and the now-dead file was deleted 2026-08-02 (release-checklist section 2). Remaining pending slots below use plain SF Symbols.
+- `// DESIGN NOTE:` comments tagged each slot in code; the last one left with the placeholder file, so a `DESIGN NOTE` grep coming back empty is expected.
 - The Mochi mascot itself (`MochiShared/MochiPetView.swift`) is not a placeholder. It is final code-drawn art, but the commissioned pose set and animation rig below would supersede parts of it.
 
 Legend: [ ] waiting, [~] acceptable for TestFlight but not for App Store release.
@@ -22,7 +22,7 @@ The flat brand mark ships as `mochi-mark.imageset` (template, tinted at runtime)
 - [x] Delete-account warning, "your companion" row icon → `mochi-mark` via MochiListRow `iconImage` (also dropped the hero heart-slash badge, refreshed copy). `DeleteWarnViewModel.swift`
 - [x] Notification primer → mini `MochiPetView` app-icon mock (faithful to the shipped MochiPetView-based app icon). `NotificationPrimerView.swift`
 
-`PlaceholderArt.swift` is now unused by any render site (kept as a reusable stand-in primitive).
+`PlaceholderArt.swift` went unused by any render site once these landed, and was deleted 2026-08-02 in the release-checklist section 2 pass.
 
 ## 2. Treat shop art (Home tab) — DONE (2026-07-28, Claude Design)
 

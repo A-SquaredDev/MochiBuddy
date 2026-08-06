@@ -23,6 +23,33 @@ enum NotificationClass: String, Equatable {
     /// The weekly-letter invitation (Feature 3) - never the delivery; the
     /// letter itself arrives in-app on the next eligible foreground.
     case letter
+    /// Trial-ending billing notice - transactional, anchored to the exact
+    /// charge instant, exempt from every mood suppression (quiet hours,
+    /// shh, vacation, taper) and never dropped by the slot budget. Planned
+    /// only while auto-renew is on: a cancelled trial charges nothing and
+    /// must not nag.
+    case trialEnding
+}
+
+/// The two reminders before a trial converts to a paid charge.
+enum TrialEndingStage: String, CaseIterable {
+    case dayBefore
+    case dayOf
+
+    /// How long before the charge instant this stage fires.
+    var leadTime: TimeInterval {
+        switch self {
+        case .dayBefore: 24 * 3600
+        case .dayOf: 3 * 3600
+        }
+    }
+}
+
+/// The upcoming trial-to-paid conversion, handed to the planner only when
+/// the membership is `.trial(willRenew: true)` - the invariant that a
+/// cancelled trial plans no notices lives at the input boundary.
+struct TrialChargeInput: Equatable {
+    let endsAt: Date
 }
 
 /// Weekly letter (Feature 3): the current period's identity + cutoff,
@@ -56,6 +83,10 @@ enum NotificationID {
     /// Letter ids equal the letter DOCUMENT id ("letter-2026-07-20") so a
     /// tap resolves straight to its archive entry.
     static let letterPrefix = "letter-"
+    /// Trial ids bake in the stage and the charge epoch, and double as the
+    /// billing-notice DOCUMENT id in Firestore - if RevenueCat moves the
+    /// end date, the id changes and the diff swaps the notice cleanly.
+    static let trialPrefix = "trial-"
 
     static func due(taskId: String) -> String {
         "\(duePrefix)\(taskId)"
@@ -63,6 +94,17 @@ enum NotificationID {
 
     static func letter(periodStartDate: String) -> String {
         "\(letterPrefix)\(periodStartDate)"
+    }
+
+    static func trialEnding(stage: TrialEndingStage, endsAt: Date) -> String {
+        "\(trialPrefix)\(stage.rawValue)-\(Int(endsAt.timeIntervalSince1970))"
+    }
+
+    /// The stage baked into a trial-notice id, nil for every other id.
+    static func parseTrialStage(_ id: String) -> TrialEndingStage? {
+        guard id.hasPrefix(trialPrefix) else { return nil }
+        let rest = id.dropFirst(trialPrefix.count)
+        return TrialEndingStage.allCases.first { rest.hasPrefix("\($0.rawValue)-") }
     }
 
     /// The letter document id a tapped letter notification names, nil for

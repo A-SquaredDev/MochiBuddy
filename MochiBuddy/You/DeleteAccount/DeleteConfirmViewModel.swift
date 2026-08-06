@@ -21,6 +21,7 @@ final class DeleteConfirmViewModel: ObservableStateViewModel<
     private let callbackLedger: CallbackLedger?
     private let suggestionLedger: SuggestionLedger?
     private let nudgeLedger: NudgeLedger?
+    private let displayNamePromptGate: DisplayNamePromptGate?
     private let relay: NotificationRelaying?
     private let membershipStore: MembershipStore?
 
@@ -33,6 +34,7 @@ final class DeleteConfirmViewModel: ObservableStateViewModel<
         callbackLedger: CallbackLedger? = nil,
         suggestionLedger: SuggestionLedger? = nil,
         nudgeLedger: NudgeLedger? = nil,
+        displayNamePromptGate: DisplayNamePromptGate? = nil,
         relay: NotificationRelaying? = nil,
         membershipStore: MembershipStore? = nil
     ) {
@@ -42,6 +44,7 @@ final class DeleteConfirmViewModel: ObservableStateViewModel<
         self.callbackLedger = callbackLedger
         self.suggestionLedger = suggestionLedger
         self.nudgeLedger = nudgeLedger
+        self.displayNamePromptGate = displayNamePromptGate
         self.relay = relay
         self.membershipStore = membershipStore
         super.init(initialState: DeleteConfirmBehavior.UIState())
@@ -113,6 +116,7 @@ final class DeleteConfirmViewModel: ObservableStateViewModel<
                 callbackLedger?.clear(userId: userId)
                 suggestionLedger?.clear(userId: userId)
                 nudgeLedger?.clear(userId: userId)
+                displayNamePromptGate?.clear(userId: userId)
                 // Before the auth delete: the erase above already removed
                 // the tasks these pending promises reference, so the queue
                 // clears even if the auth delete below fails and retries.

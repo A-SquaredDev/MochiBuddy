@@ -739,6 +739,7 @@ final class StubComfortBufferStore: ComfortBufferStore {
 
 final class StubNotificationScheduler: NotificationScheduling {
     var pending: [String] = []
+    var delivered: [String] = []
     private(set) var removedIds: [String] = []
     private(set) var scheduled: [ScheduledNotificationRequest] = []
 
@@ -746,8 +747,19 @@ final class StubNotificationScheduler: NotificationScheduling {
     func pendingRequests() async -> [PendingNotificationSummary] {
         pending.map { PendingNotificationSummary(id: $0, nextFireDate: nil) }
     }
+    func deliveredIds() async -> [String] { delivered }
     func removePending(ids: [String]) { removedIds += ids }
     func schedule(_ request: ScheduledNotificationRequest) async { scheduled.append(request) }
+}
+
+final class StubBillingNoticeRecorder: BillingNoticeRecording {
+    private(set) var recorded: [(id: String, trialEndsAt: Date)] = []
+    private(set) var confirmedIds: [String] = []
+
+    func recordScheduled(_ planned: PlannedNotification, trialEndsAt: Date) async {
+        recorded.append((planned.id, trialEndsAt))
+    }
+    func confirmDelivered(ids: [String]) { confirmedIds += ids }
 }
 
 final class RecordingTelemetry: NotificationTelemetry {

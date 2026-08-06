@@ -21,6 +21,9 @@ protocol UserProfileRepository: AnyObject {
     func saveBedtime(_ bedtime: BedtimeWindow, userId: String) async throws
     func saveNotificationChoice(_ enabled: Bool, userId: String) async throws
     func saveNotificationPrefs(_ prefs: NotificationPrefs, userId: String) async throws
+    /// Uncalled in v1: the You-tab Sound toggle was removed because nothing
+    /// in the app plays audio. The field and this setter stay so a future
+    /// audio pass can re-add the row without a schema migration.
     func saveSoundEnabled(_ enabled: Bool, userId: String) async throws
     func saveVacation(mode: Bool, resumeAt: Date?, startedAt: Date?, userId: String) async throws
     func saveImportedReminderLists(_ ids: [String], userId: String) async throws

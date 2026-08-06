@@ -7,8 +7,7 @@
 //  strictly beats the free pet (~15 min). Buy = give: no inventory.
 //
 //  Treat art (berry, latte, dango, cupcake) and the pet-action art ship in
-//  Assets.xcassets, keyed by `id` (see TreatArtIcon). The shop renders those
-//  via TreatArtIcon; PlaceholderArtIcon is no longer used here.
+//  Assets.xcassets, keyed by `id`. The shop renders those via TreatArtIcon.
 //
 
 import Foundation

@@ -30,6 +30,7 @@ private func makeInput(
     lapsed: Bool = false,
     shhUntil: Date? = nil,
     consecutiveFloorDays: Int = 0,
+    trialEndsAt: Date? = nil,
     horizon: Date = Dates.days(7)
 ) -> NotificationPlanInput {
     var prefs = NotificationPrefs.standard
@@ -50,6 +51,7 @@ private func makeInput(
         lapsed: lapsed,
         shhUntil: shhUntil,
         consecutiveFloorDays: consecutiveFloorDays,
+        trialCharge: trialEndsAt.map { TrialChargeInput(endsAt: $0) },
         horizon: horizon
     )
 }
@@ -465,7 +467,7 @@ struct PlannerBudgetTests {
             switch item.kind {
             case .moodPing, .backstop:
                 #expect(NotificationID.isMoodManaged(item.id), "\(item.id) must be wipeable")
-            case .promise, .rundown, .letter:
+            case .promise, .rundown, .letter, .trialEnding:
                 #expect(!NotificationID.isMoodManaged(item.id), "\(item.id) must never be wiped by a re-lay")
             }
         }
@@ -489,5 +491,76 @@ struct PlannerBudgetTests {
             #expect(ping.band == recomputed,
                     "ping at \(ping.fireAt) baked \(String(describing: ping.band)) but mood(t) says \(recomputed)")
         }
+    }
+}
+
+@Suite("NotificationPlanner · trial-ending notices")
+struct PlannerTrialEndingTests {
+
+    @Test("an auto-renewing trial plans both stages, 24h and 3h before the charge")
+    func bothStagesPlanned() {
+        // Ten days out - past the 7-day horizon on purpose: notices are
+        // anchored to the charge instant, never horizon-capped, so a
+        // 14-day trial's notices exist from the very first lay.
+        let endsAt = Dates.days(10)
+        let plan = NotificationPlanner.plan(makeInput(trialEndsAt: endsAt))
+        let notices = plan.filter { $0.kind == .trialEnding }
+        #expect(notices.count == 2)
+        #expect(notices.contains {
+            $0.id == NotificationID.trialEnding(stage: .dayBefore, endsAt: endsAt)
+                && $0.fireAt == endsAt.addingTimeInterval(-24 * 3600)
+        })
+        #expect(notices.contains {
+            $0.id == NotificationID.trialEnding(stage: .dayOf, endsAt: endsAt)
+                && $0.fireAt == endsAt.addingTimeInterval(-3 * 3600)
+        })
+    }
+
+    @Test("no trial input plans no notices")
+    func noInputNoNotices() {
+        let plan = NotificationPlanner.plan(makeInput())
+        #expect(!plan.contains { $0.kind == .trialEnding })
+    }
+
+    @Test("a stage whose fire time already passed is dropped, not shifted")
+    func pastStageDropped() {
+        // Charge 12h out: the 24h stage is already behind us, the 3h
+        // stage still ahead.
+        let endsAt = Dates.hours(12)
+        let notices = NotificationPlanner.plan(makeInput(trialEndsAt: endsAt))
+            .filter { $0.kind == .trialEnding }
+        #expect(notices.count == 1)
+        #expect(notices.first?.id == NotificationID.trialEnding(stage: .dayOf, endsAt: endsAt))
+    }
+
+    @Test("notices ignore bedtime, shh, and vacation - a billing notice is transactional")
+    func exemptFromMoodSuppressions() {
+        // Charge tomorrow 02:00: the 3h stage fires 23:00 tonight, inside
+        // standard bedtime. Vacation active, shh active for a month.
+        let endsAt = Dates.calendar.date(
+            bySettingHour: 2, minute: 0, second: 0,
+            of: Dates.calendar.startOfDay(for: Dates.days(1))
+        )!
+        let plan = NotificationPlanner.plan(makeInput(
+            vacationMode: true,
+            vacationStartedAt: Dates.hours(-1),
+            moodDips: true,
+            shhUntil: Dates.days(30),
+            trialEndsAt: endsAt
+        ))
+        let notices = plan.filter { $0.kind == .trialEnding }
+        #expect(notices.count == 1, "the 24h stage is in the past; the 3h stage survives everything")
+        #expect(notices.first?.fireAt == endsAt.addingTimeInterval(-3 * 3600))
+    }
+
+    @Test("a promise flood never squeezes a notice out of the slot budget")
+    func reservedUnderSlotPressure() {
+        let endsAt = Dates.days(5)
+        let flood = (0..<100).map { i in
+            makeTask(id: "flood\(i)", dueAt: Dates.hours(1, from: Dates.hours(Double(i))), hasTime: true)
+        }
+        let plan = NotificationPlanner.plan(makeInput(tasks: flood, trialEndsAt: endsAt))
+        #expect(plan.count <= NotificationPlanner.Constants.slotCap)
+        #expect(plan.filter { $0.kind == .trialEnding }.count == 2)
     }
 }

@@ -75,6 +75,9 @@ final class AppContainer {
     let suggestionService: SuggestionService
     let nudgeLedger = NudgeLedger()
     let nudgeCenter: NudgeCenter
+    /// Gates the one-time "What should Mochi call you?" sheet for accounts
+    /// Apple never gave us a name for.
+    let displayNamePromptGate = DisplayNamePromptGate()
     /// Tab selection + the letter handoff into the Journal (Feature 6).
     let tabCoordinator = TabCoordinator(telemetry: OSLogJournalTelemetry())
     let letterRepository: LetterRepository
@@ -110,10 +113,16 @@ final class AppContainer {
             wrapping: FirestoreListRepository(firestore: firestore)
         )
         // -mochiLocalMembership keeps membership device-local for UI work
-        // without touching StoreKit/sandbox.
+        // without touching StoreKit/sandbox. DEBUG only: LocalMembershipStore
+        // grants membership from UserDefaults, so Release must never
+        // compile the branch that could select it.
+        #if DEBUG
         membershipStore = ProcessInfo.processInfo.arguments.contains("-mochiLocalMembership")
             ? LocalMembershipStore()
             : RevenueCatMembershipStore()
+        #else
+        membershipStore = RevenueCatMembershipStore()
+        #endif
         notificationPermissionService = UNNotificationPermissionService()
         remindersGateway = EventKitRemindersGateway()
         // The buffer lives in the App Group so the widget reads (and pets)
@@ -273,6 +282,18 @@ final class AppContainer {
             telemetry: telemetry
         )
         notificationDelegate.actionHandler = notificationActionHandler
+        // The trial-ending audit trail: scheduling facts and delivery
+        // confirmations land in users/{uid}/billingNotices, permission
+        // state included, so a billing dispute can be answered honestly.
+        let billingNoticeRecorder = FirestoreBillingNoticeRecorder(
+            authRepository: authRepository,
+            permissionService: notificationPermissionService,
+            firestore: firestore
+        )
+        notificationOrchestrator.billingNoticeRecorder = billingNoticeRecorder
+        notificationDelegate.onBillingNoticeSeen = { noticeId in
+            billingNoticeRecorder.confirmDelivered(ids: [noticeId])
+        }
         UNUserNotificationCenter.current().delegate = notificationDelegate
         NotificationCategories.register()
 
@@ -350,6 +371,7 @@ final class AppContainer {
             }
         }
 
+        #if DEBUG
         // -mochiStartAtHome skips the flow for UI work on the tab surfaces
         // (pair with "-mochiStartTab you|tasks" to land on a specific tab).
         if ProcessInfo.processInfo.arguments.contains("-mochiStartAtHome") {
@@ -359,5 +381,6 @@ final class AppContainer {
         if ProcessInfo.processInfo.arguments.contains("-mochiStartLapsed") {
             membershipSession.status = .lapsed
         }
+        #endif
     }
 }

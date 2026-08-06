@@ -28,15 +28,21 @@ final class TabCoordinator {
 
     // "-mochiStartTab journal" (dev launch arg, argument-domain parsing)
     // picks the initial tab, same as the old MainTabView-local state.
-    var selected: MainTab =
-        MainTab(rawValue: UserDefaults.standard.string(forKey: "mochiStartTab") ?? "") ?? .home
-    {
+    var selected: MainTab = TabCoordinator.initialTab {
         didSet {
             guard selected == .journal, oldValue != .journal,
                   pendingLetterRoute == nil
             else { return }
             telemetry?.log(.opened(source: .tab))
         }
+    }
+
+    private static var initialTab: MainTab {
+        #if DEBUG
+        MainTab(rawValue: UserDefaults.standard.string(forKey: "mochiStartTab") ?? "") ?? .home
+        #else
+        .home
+        #endif
     }
 
     /// Waiting for the Journal to consume - set before the tab switch so

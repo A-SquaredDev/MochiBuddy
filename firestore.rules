@@ -87,6 +87,18 @@ service cloud.firestore {
                  && momentId.matches('list-return-.*')));
       }
 
+      // Billing notices: the audit trail behind trial-ending
+      // notifications - one create-only fact per scheduled notice, so
+      // the record of "we scheduled this reminder, with notifications in
+      // this permission state" can never be edited after a dispute.
+      // deliveryConfirmedAt is the ONE mutable field (the letters/readAt
+      // pattern). Delete stays open for account erasure.
+      match /billingNotices/{noticeId} {
+        allow read, create, delete: if isOwner(uid);
+        allow update: if isOwner(uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deliveryConfirmedAt']);
+      }
+
       // Future subcollections stay closed until explicitly opened:
       // no match, no access.
     }

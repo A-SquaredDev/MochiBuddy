@@ -62,6 +62,7 @@ final class HomeRouter {
             authRepository: container.authRepository,
             taskRepository: container.taskRepository,
             listRepository: container.listRepository,
+            profileRepository: container.profileRepository,
             suggestionService: container.suggestionService
         )
         return AnyView(TaskEditorView(viewModel: viewModel))

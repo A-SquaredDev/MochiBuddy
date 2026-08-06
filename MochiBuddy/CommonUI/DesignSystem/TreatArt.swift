@@ -4,7 +4,7 @@
 //
 //  Final treat-shop illustrations (content-team art, shipped as vector-clean
 //  exports in Assets.xcassets). Keyed by TreatCatalog id so a treat's card
-//  finds its art by name. Replaces PlaceholderArtIcon at the shop's slots.
+//  finds its art by name.
 //
 
 import SwiftUI
