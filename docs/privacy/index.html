@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy · Mochi</title>
+<style>
+  :root {
+    --bg: #FAF5F1; --ink: #4A3A40; --muted: #8A6C75; --line: #EADDD6;
+    --accent: #7B4BC4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #211E2A; --ink: #F3EEF7; --muted: #A79FB5; --line: #413A50;
+      --accent: #C9A6FF;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 17px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 680px; margin: 0 auto; padding: 48px 24px 96px; }
+  h1 { font-size: 34px; line-height: 1.2; margin: 0 0 4px; }
+  .updated { color: var(--muted); font-size: 15px; margin-bottom: 36px; }
+  h2 { font-size: 22px; margin: 40px 0 8px; }
+  p, li { margin: 0 0 12px; }
+  ul { padding-left: 22px; }
+  a { color: var(--accent); }
+  hr { border: none; border-top: 1px solid var(--line); margin: 40px 0; }
+  .footer { color: var(--muted); font-size: 15px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Privacy Policy</h1>
+  <p class="updated">Mochi (MochiBuddy) · Last updated August 12, 2026</p>
+
+  <p>Mochi is a companion-pet to-do app. This policy describes what
+  information the app handles, why, and the choices you have. The short
+  version: your data exists to make the app work for you. We do not run
+  ads, we do not sell your data, and the anonymous usage statistics we
+  collect never include the content you create. You can turn them off in
+  the app.</p>
+
+  <h2>Information we collect</h2>
+  <p><strong>Account information.</strong> When you sign in with Apple or
+  Google, we receive an account identifier and, if you choose to share
+  them, your name and email address. Authentication is handled by Firebase
+  Authentication (a Google service). You can also use Mochi as a guest,
+  which creates an anonymous account with no name or email attached.</p>
+
+  <p><strong>Your content.</strong> The things you create in the app are
+  stored in Google Cloud Firestore so they sync and survive reinstalls:
+  your tasks and lists, your pet's name and adoption date, letters and
+  journal moments the app writes for you, your completion history
+  (including the local time of day tasks were completed, which powers
+  features like Best Hours and suggested times), and your settings such as
+  bedtime, vacation mode, and notification preferences.</p>
+
+  <p><strong>Purchase information.</strong> Subscriptions are billed
+  entirely by Apple; we never see your payment details. We use RevenueCat
+  to validate App Store receipts and keep track of your subscription
+  status. RevenueCat receives your app account identifier and purchase
+  history for this purpose.</p>
+
+  <p><strong>Usage analytics.</strong> We use PostHog to understand which
+  features are used and how often, so we can improve the app. This
+  includes events like the app being opened, a task being completed, or
+  an onboarding step being finished, described with coarse labels only.
+  Analytics events never include the content you create: no task titles,
+  list names, letter or journal text, pet names, or completion times.
+  Events are linked to a pseudonymous account identifier (a random ID, not
+  your name or email) so we can understand usage across sessions. Data is
+  processed on PostHog's United States cloud. You can turn analytics off
+  at any time in the app (You tab, "Share usage analytics"), which stops
+  both analytics and crash reporting.</p>
+
+  <p><strong>Crash and error reports.</strong> If the app crashes or hits
+  an internal error, a report is sent through PostHog so we can find and
+  fix the problem. Reports contain technical details (the type of error,
+  a code-level stack trace, and a trail of the same coarse analytics
+  events leading up to the failure) and are linked to the same
+  pseudonymous identifier. They never contain your tasks, letters, or
+  other content. The analytics toggle in the app turns these off too.</p>
+
+  <p><strong>What we do not collect.</strong> Mochi contains no
+  advertising, no data brokers, and no cross-app tracking. Analytics do
+  not record your screen or the content you type. We do not collect your
+  location, contacts, or browsing activity.</p>
+
+  <h2>Information that stays on your device</h2>
+  <ul>
+    <li><strong>Apple Reminders.</strong> If you grant access, Mochi shows
+    reminders from the lists you choose and can mark them completed. Your
+    Reminders data is read on your device and is never uploaded to our
+    servers.</li>
+    <li><strong>Photos.</strong> If you save a letter card, Mochi adds the
+    image to your photo library. It cannot read, browse, or modify your
+    existing photos.</li>
+    <li><strong>Notifications.</strong> Reminders and check-ins are
+    scheduled locally on your device.</li>
+  </ul>
+
+  <h2>How we use information</h2>
+  <ul>
+    <li>To provide the app: syncing your tasks, powering your pet's mood,
+    writing letters and journal entries, and scheduling reminders.</li>
+    <li>To manage your subscription and restore purchases.</li>
+    <li>To understand which features people use and to find and fix
+    crashes and bugs, using the anonymous analytics described above.</li>
+    <li>To respond when you contact us for support.</li>
+  </ul>
+  <p>That is the whole list. We do not use your data for advertising or
+  sell it to anyone.</p>
+
+  <h2>Who we share information with</h2>
+  <p>We share data only with the service providers that run the app's
+  infrastructure, and only what each needs to do its job:</p>
+  <ul>
+    <li><strong>Google Firebase</strong> (authentication, database,
+    configuration). See the <a
+    href="https://firebase.google.com/support/privacy">Firebase privacy
+    documentation</a>.</li>
+    <li><strong>RevenueCat</strong> (subscription management). See the <a
+    href="https://www.revenuecat.com/privacy/">RevenueCat privacy
+    policy</a>.</li>
+    <li><strong>PostHog</strong> (usage analytics and crash reports,
+    hosted in the United States). See the <a
+    href="https://posthog.com/privacy">PostHog privacy policy</a>.</li>
+    <li><strong>Apple</strong> (payments, sign-in if you use Apple ID).</li>
+  </ul>
+  <p>We may also disclose information if required by law.</p>
+
+  <h2>Data retention and deletion</h2>
+  <p>Your data is kept as long as your account exists. You can delete your
+  account at any time in the app (You tab, Delete account). Deletion
+  erases your content from our database, removes your authentication
+  record, and deletes your customer record from RevenueCat. It also
+  resets the analytics identifier on your device. Analytics events
+  collected before deletion contain no content you created; if you would
+  like them erased as well, email us and we will delete them.</p>
+  <p>Deleting your account does not cancel an active subscription, because
+  subscriptions are managed by Apple. To stop billing, cancel in Settings
+  on your device (Settings, your name, Subscriptions) before or after
+  deleting your account. If you return later, Restore Purchases will
+  reconnect an active subscription to your new account.</p>
+
+  <h2>Security</h2>
+  <p>Data is encrypted in transit using HTTPS/TLS and stored on Google,
+  RevenueCat, and PostHog infrastructure. Access to your content is
+  restricted to your own account by server-side security rules.</p>
+
+  <h2>Children</h2>
+  <p>Mochi is not directed at children under 13, and we do not knowingly
+  collect personal information from children under 13. If you believe a
+  child has provided us personal information, contact us and we will
+  delete it.</p>
+
+  <h2>Your rights</h2>
+  <p>Depending on where you live, you may have rights to access, correct,
+  export, or delete your personal information. Most of these you can
+  exercise directly in the app; for anything else, email us and we will
+  help.</p>
+
+  <h2>Changes to this policy</h2>
+  <p>If we change this policy, we will update the date at the top of this
+  page. Meaningful changes will be called out in the app.</p>
+
+  <h2>Contact</h2>
+  <p>Questions about privacy or your data:
+  <a href="mailto:asquared.dev@gmail.com">asquared.dev@gmail.com</a></p>
+
+  <hr>
+  <p class="footer">Mochi · A companion for your to-dos</p>
+</main>
+</body>
+</html>
