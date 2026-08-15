@@ -34,12 +34,12 @@
 <body>
 <main>
   <h1>Privacy Policy</h1>
-  <p class="updated">Mochi (MochiBuddy) · Last updated August 12, 2026</p>
+  <p class="updated">Mochi (MochiBuddy) · Last updated August 14, 2026</p>
 
   <p>Mochi is a companion-pet to-do app. This policy describes what
-  information the app handles, why, and the choices you have. The short
-  version: your data exists to make the app work for you. We do not run
-  ads, we do not sell your data, and the anonymous usage statistics we
+  information the app and this website handle, why, and the choices you
+  have. The short version: your data exists to make the app work for you.
+  We do not run ads, we do not sell your data, and the usage statistics we
   collect never include the content you create. You can turn them off in
   the app.</p>
 
@@ -70,11 +70,17 @@
   an onboarding step being finished, described with coarse labels only.
   Analytics events never include the content you create: no task titles,
   list names, letter or journal text, pet names, or completion times.
-  Events are linked to a pseudonymous account identifier (a random ID, not
-  your name or email) so we can understand usage across sessions. Data is
-  processed on PostHog's United States cloud. You can turn analytics off
-  at any time in the app (You tab, "Share usage analytics"), which stops
-  both analytics and crash reporting.</p>
+  Events are linked to a pseudonymous account identifier, not your name
+  or email. It is the same internal identifier your account has in our
+  database and subscription systems, so analytics are pseudonymous rather
+  than anonymous: they do not name you, but they describe your account's
+  usage. Like most analytics tools, PostHog also receives technical
+  details with each event (device model, OS and app version, language,
+  timezone) and your IP address, from which it derives an approximate,
+  city-level location for the event. Data is processed on PostHog's
+  United States cloud. You can turn analytics off at any time in the app
+  (You tab, "Share usage analytics"), which stops both analytics and
+  crash reporting.</p>
 
   <p><strong>Crash and error reports.</strong> If the app crashes or hits
   an internal error, a report is sent through PostHog so we can find and
@@ -87,7 +93,7 @@
   <p><strong>What we do not collect.</strong> Mochi contains no
   advertising, no data brokers, and no cross-app tracking. Analytics do
   not record your screen or the content you type. We do not collect your
-  location, contacts, or browsing activity.</p>
+  precise location, contacts, or browsing activity.</p>
 
   <h2>Information that stays on your device</h2>
   <ul>
@@ -108,7 +114,8 @@
     writing letters and journal entries, and scheduling reminders.</li>
     <li>To manage your subscription and restore purchases.</li>
     <li>To understand which features people use and to find and fix
-    crashes and bugs, using the anonymous analytics described above.</li>
+    crashes and bugs, using the pseudonymous analytics described
+    above.</li>
     <li>To respond when you contact us for support.</li>
   </ul>
   <p>That is the whole list. We do not use your data for advertising or
@@ -128,9 +135,32 @@
     <li><strong>PostHog</strong> (usage analytics and crash reports,
     hosted in the United States). See the <a
     href="https://posthog.com/privacy">PostHog privacy policy</a>.</li>
-    <li><strong>Apple</strong> (payments, sign-in if you use Apple ID).</li>
+    <li><strong>Apple</strong> (payments, sign-in if you use Apple ID,
+    and TestFlight invites if you ask for one).</li>
+    <li><strong>Formspree</strong> (the contact forms on this website).
+    See the <a href="https://formspree.io/legal/privacy-policy/">Formspree
+    privacy policy</a>.</li>
   </ul>
   <p>We may also disclose information if required by law.</p>
+
+  <h2>This website</h2>
+  <p>The site you are reading is a static page hosted on GitHub Pages;
+  it sets no cookies and runs no analytics or trackers. Three things on
+  it do talk to other services:</p>
+  <ul>
+    <li><strong>Hosting and fonts.</strong> GitHub (the host) and Google
+    Fonts (the typefaces) receive the standard technical data any web
+    request carries, such as your IP address and browser type. The
+    roadmap board on the home page also fetches its list from the GitHub
+    API when the page loads.</li>
+    <li><strong>The feedback and tester forms</strong> are processed by
+    Formspree and delivered to our inbox. The feedback form sends the
+    message you write plus an email address only if you choose to give
+    one. The tester form sends your name and email address; if we invite
+    you, that email is shared with Apple's TestFlight to deliver the
+    invite. We use form submissions only to reply and to manage the
+    beta, and you can ask us to delete a submission at any time.</li>
+  </ul>
 
   <h2>Data retention and deletion</h2>
   <p>Your data is kept as long as your account exists. You can delete your
@@ -140,6 +170,10 @@
   resets the analytics identifier on your device. Analytics events
   collected before deletion contain no content you created; if you would
   like them erased as well, email us and we will delete them.</p>
+  <p>Analytics and crash events are otherwise retained in PostHog until
+  we delete them; email us if you want yours erased sooner. Support
+  emails and form submissions are kept as long as needed to resolve the
+  conversation or run the beta.</p>
   <p>Deleting your account does not cancel an active subscription, because
   subscriptions are managed by Apple. To stop billing, cancel in Settings
   on your device (Settings, your name, Subscriptions) before or after
