@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mochi - A companion for your to-dos</title>
-<meta name="description" content="Mochi is a cozy companion-pet to-do app. Care for a little friend by getting your tasks done. Coming soon to the App Store.">
+<meta name="description" content="Mochi is a cozy companion-pet to-do app. Care for a little friend by getting your tasks done. Free on the App Store.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -215,7 +215,7 @@
       <a class="hide-sm" href="#features">Features</a>
       <a class="hide-sm" href="#roadmap">Roadmap</a>
       <a class="hide-sm" href="#feedback">Report a bug</a>
-      <a class="cta" href="#join">Get Mochi</a>
+      <a class="cta" href="https://apps.apple.com/us/app/mochibuddy/id6788608795">Get Mochi</a>
     </nav>
   </div>
 </header>
@@ -235,8 +235,8 @@
     <h1>Get things done.<br>Keep Mochi happy.</h1>
     <p class="lede">Mochi is a cozy little companion who thrives when you do. Check off your to-dos, watch your friend light up, and build a rhythm that actually sticks.</p>
     <div class="hero-cta">
-      <a class="btn" href="#join">Coming soon to the App Store</a>
-      <a class="btn ghost" href="#tester">Become a tester</a>
+      <a class="btn" href="https://apps.apple.com/us/app/mochibuddy/id6788608795">Download on the App Store</a>
+      <a class="btn ghost" href="#join">Get updates</a>
     </div>
   </div>
 </section>
@@ -356,32 +356,25 @@
 <section id="join">
   <div class="wrap">
     <div class="section-head">
-      <p class="eyebrow">Almost here</p>
-      <h2>Mochi is coming to the App Store</h2>
-      <p>Launch is around the corner. Mochi will be free to download, with everything unlocked by one membership: $3.99 a month or $29.99 a year, and the yearly plan starts with a 14-day free trial. Want in before everyone else? Ask for a TestFlight invite and help shape Mochi.</p>
+      <p class="eyebrow">Out now</p>
+      <h2>Mochi is on the App Store</h2>
+      <p>Mochi is free to download, with everything unlocked by one membership: $3.99 a month or $29.99 a year, and the yearly plan starts with a 14-day free trial.</p>
+      <p style="margin-top:16px"><a class="btn" href="https://apps.apple.com/us/app/mochibuddy/id6788608795">Download on the App Store</a></p>
     </div>
     <div class="duo" style="grid-template-columns:1fr; max-width:560px; margin-left:auto; margin-right:auto">
-      <div class="form-card" id="tester">
-        <h3>Become a tester</h3>
-        <p>Tell us a little about you. If you're a fit, we'll send a TestFlight invite.</p>
+      <div class="form-card" id="updates">
+        <h3>Get updates</h3>
+        <p>New features, new poses, the occasional letter from the workshop. No spam, ever.</p>
         <form class="mochi-form" action="https://formspree.io/f/mvzeldwa" method="POST">
-          <input type="hidden" name="signup_type" value="beta_tester">
-          <input type="hidden" name="_subject" value="MochiBuddy tester request">
+          <input type="hidden" name="signup_type" value="updates">
+          <input type="hidden" name="_subject" value="MochiBuddy updates signup">
           <input type="text" name="_gotcha" style="display:none" tabindex="-1" autocomplete="off" aria-hidden="true">
           <div class="field">
-            <label for="t-name">Name</label>
-            <input id="t-name" type="text" name="name" required placeholder="Your name">
+            <label for="u-email">Email</label>
+            <input id="u-email" type="email" name="email" required placeholder="you@example.com">
           </div>
-          <div class="field">
-            <label for="t-email">Email (your Apple Account)</label>
-            <input id="t-email" type="email" name="email" required placeholder="you@example.com">
-          </div>
-          <div class="field">
-            <label for="t-why">Why do you want in? (optional)</label>
-            <textarea id="t-why" name="reason" placeholder="What draws you to Mochi?"></textarea>
-          </div>
-          <button class="btn" type="submit">Request an invite</button>
-          <p style="color:var(--muted);font-size:12.5px;margin:10px 0 0">Used only to send your invite: delivered by Formspree, and the invite itself goes through Apple's TestFlight. See the <a href="privacy/">privacy policy</a>.</p>
+          <button class="btn" type="submit">Keep me posted</button>
+          <p style="color:var(--muted);font-size:12.5px;margin:10px 0 0">Used only to send occasional Mochi news, delivered by Formspree. Reply to any email to be removed. See the <a href="privacy/">privacy policy</a>.</p>
           <div class="form-msg" role="status"></div>
         </form>
       </div>
@@ -397,7 +390,7 @@
       <a href="terms/">Terms</a>
       <a href="support/">Support</a>
       <a href="https://github.com/A-SquaredDev/MochiBuddy" target="_blank" rel="noopener">GitHub</a>
-      <a href="#tester">Beta</a>
+      <a href="#join">Updates</a>
     </nav>
     <div>A companion for your to-dos. Made by A-Squared Dev.</div>
   </div>
@@ -519,7 +512,7 @@
           form.reset();
           var kind = form.querySelector('[name=signup_type]').value;
           msg.textContent = kind === 'feedback' ? "Thank you. Mochi hears you."
-            : "Got it. We'll be in touch about a TestFlight invite.";
+            : "You're on the list. We'll write when there's news.";
           msg.className = 'form-msg ok';
         } else {
           msg.textContent = 'Something went wrong. Please try again.';
