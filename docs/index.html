@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mochi - A companion for your to-dos</title>
 <meta name="description" content="Mochi is a cozy companion-pet to-do app. Care for a little friend by getting your tasks done. Free on the App Store.">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src https://api.github.com https://formspree.io; form-action https://formspree.io; base-uri 'self'">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -553,7 +554,11 @@
       const res = await fetch('https://api.github.com/repos/A-SquaredDev/MochiBuddy/issues?state=all&per_page=100',
         { headers: { Accept: 'application/vnd.github+json' } });
       if (!res.ok) throw new Error('status ' + res.status);
-      const all = (await res.json()).filter(i => !i.pull_request);
+      // Only issues filed by the repo's own team reach the board: the
+      // titles render on the homepage, so drive-by issues must not.
+      const trusted = ['OWNER', 'MEMBER', 'COLLABORATOR'];
+      const all = (await res.json())
+        .filter(i => !i.pull_request && trusted.includes(i.author_association));
       const has = (i, n) => (i.labels || []).some(l => (l.name || '').toLowerCase() === n);
       const firstLabel = i => (i.labels || []).map(l => l.name).find(n => n.toLowerCase() !== 'in progress');
       const open = all.filter(i => i.state === 'open');
